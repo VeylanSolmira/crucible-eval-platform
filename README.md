@@ -1,90 +1,139 @@
-# METR Model Evaluation Platform
+# METR Evaluation Platform
 
-A robust, scalable platform for evaluating AI models for safety-critical capabilities, designed to demonstrate platform engineering competencies for METR.
+> ⚠️ **PRIVATE REPOSITORY** - Contains sensitive interview preparation materials. See [SECURITY.md](SECURITY.md) before making any visibility changes.
 
-## Architecture Overview
+A demonstration platform showcasing secure AI model evaluation infrastructure, designed with safety and scalability in mind.
 
-This platform demonstrates:
-- **Containerized evaluation environments** for secure model testing
-- **Kubernetes-native orchestration** for scalable evaluation runs
-- **Safety-first evaluation framework** with monitoring and containment
-- **Real-time monitoring dashboard** for evaluation progress
-- **CI/CD pipeline** for automated testing and deployment
+## Overview
 
-## Key Features
+This project demonstrates platform engineering skills relevant to AI safety evaluation infrastructure, including:
 
-### 1. Evaluation Framework
-- Sandboxed execution environments using Docker containers
-- Resource limits and network isolation for safety
-- Structured evaluation protocol with checkpoints
-- Automatic result collection and analysis
+- **Secure containerized evaluation environments** using Kubernetes and gVisor
+- **Real-time monitoring dashboard** with React/TypeScript frontend
+- **High-performance async API** with FastAPI backend
+- **Comprehensive security architecture** with defense-in-depth approach
+- **Scalable orchestration system** for managing evaluation workloads
 
-### 2. Platform Infrastructure
-- Kubernetes-based orchestration for parallel evaluations
-- AWS-compatible deployment configuration
-- Prometheus metrics and logging integration
-- Automated scaling based on evaluation queue
+## Architecture
 
-### 3. Safety Mechanisms
-- Capability monitoring and alerts
-- Automatic shutdown on anomalous behavior
-- Audit logging for all model interactions
-- Network isolation and egress filtering
-
-### 4. Developer Experience
-- REST API for evaluation submission
-- TypeScript/React dashboard for monitoring
-- Python SDK for custom evaluations
-- Comprehensive documentation
-
-## Technical Stack
-
-- **Backend**: Python 3.11+ with FastAPI
-- **Frontend**: TypeScript, React, Material-UI
-- **Infrastructure**: Kubernetes, Docker, Terraform
-- **Monitoring**: Prometheus, Grafana, ELK stack
-- **CI/CD**: GitHub Actions, ArgoCD
-- **Testing**: pytest, Jest, k6 for load testing
-
-## Quick Start
-
-```bash
-# Run locally with Docker Compose
-docker-compose up -d
-
-# Deploy to Kubernetes
-kubectl apply -k k8s/
-
-# Run evaluation
-python -m metr_eval.cli evaluate --model gpt-4 --suite autonomous-replication
-```
+See [architecture.md](architecture.md) for detailed system design, including:
+- Component interaction diagrams
+- Security boundaries and isolation
+- Scaling strategies
+- Technology choices and trade-offs
 
 ## Project Structure
 
 ```
 metr-eval-platform/
-├── src/                    # Python evaluation framework
-├── frontend/              # TypeScript monitoring dashboard
-├── k8s/                   # Kubernetes manifests
-├── docker/                # Dockerfile configurations
-├── tests/                 # Test suites
-├── scripts/               # Deployment and utility scripts
-└── docs/                  # Documentation
+├── frontend/          # React TypeScript dashboard
+├── src/              # Python backend services
+│   ├── api/          # FastAPI gateway
+│   ├── evaluator/    # Evaluation orchestration
+│   └── monitor/      # Safety monitoring
+├── k8s/              # Kubernetes manifests
+├── scripts/          # Deployment and utility scripts
+├── tests/            # Comprehensive test suite
+└── docs/             # Additional documentation
 ```
+
+## Key Features
+
+### Security & Isolation
+- Container runtime security with gVisor
+- Network policies for complete isolation
+- Resource limits and quotas
+- Comprehensive audit logging
+
+### Monitoring & Observability
+- Real-time evaluation progress tracking
+- Resource utilization dashboards
+- Safety alert system
+- Distributed tracing with OpenTelemetry
+
+### Scalability
+- Horizontal pod autoscaling
+- Queue-based job distribution
+- Multi-region deployment ready
+- Efficient caching strategies
+
+## Development
+
+### Prerequisites
+
+- Docker Desktop or Docker Engine
+- Kubernetes (minikube/kind for local development)
+- Python 3.11+
+- Node.js 18+
+- kubectl CLI
+
+### Quick Start
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd metr-eval-platform
+   ```
+
+2. Set up the development environment:
+   ```bash
+   # Backend
+   cd src
+   python -m venv venv
+   source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+   pip install -r requirements.txt
+
+   # Frontend
+   cd ../frontend
+   npm install
+   ```
+
+3. Run locally:
+   ```bash
+   # Start backend
+   cd src
+   uvicorn api.main:app --reload
+
+   # Start frontend (new terminal)
+   cd frontend
+   npm start
+   ```
+
+See [DEVELOPMENT_ENVIRONMENT_CHECKLIST.md](DEVELOPMENT_ENVIRONMENT_CHECKLIST.md) for detailed setup instructions.
+
+## Testing
+
+```bash
+# Backend tests
+pytest tests/ -v
+
+# Frontend tests
+cd frontend && npm test
+
+# Integration tests
+pytest tests/integration/ -v
+```
+
+## Documentation
+
+- [Architecture Overview](architecture.md) - System design and component details
+- [Development Environment](DEVELOPMENT_ENVIRONMENT_CHECKLIST.md) - Setup guide
+- [Docker Configuration](docker/README.md) - Container details
+- [API Documentation](http://localhost:8000/docs) - Auto-generated OpenAPI docs (when running)
 
 ## Security Considerations
 
-This platform implements defense-in-depth security:
-- Container isolation with gVisor/Firecracker
-- Network policies for zero-trust architecture
-- Encrypted communication between components
-- Role-based access control (RBAC)
-- Comprehensive audit logging
+This platform is designed with security as a primary concern:
 
-## Contributing
-
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines.
+- All evaluation workloads run in isolated containers
+- Network egress is strictly controlled
+- Comprehensive monitoring for anomalous behavior
+- Emergency stop procedures for all evaluations
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+Copyright (c) 2024. All rights reserved.
+
+---
+
+**Note**: This is a demonstration project for showcasing platform engineering skills. For production use, additional security hardening and compliance measures would be required.

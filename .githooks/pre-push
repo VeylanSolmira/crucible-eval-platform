@@ -1,0 +1,19 @@
+#!/bin/bash
+# Local git hook to remind about repository privacy
+# Install with: git config core.hooksPath .githooks
+
+echo "🔒 REMINDER: This repository contains sensitive interview materials and must remain PRIVATE"
+echo "🔒 Current files that should NEVER be in a public repo:"
+echo "   - interview-prep.md"
+echo "   - metr-questions.md"
+echo "   - questions.md"
+echo "   - CLAUDE.md"
+echo ""
+read -p "Have you verified the repository is still PRIVATE on GitHub? (yes/no): " confirm
+
+if [ "$confirm" != "yes" ]; then
+    echo "❌ Push cancelled. Please verify repository visibility settings."
+    exit 1
+fi
+
+echo "✅ Proceeding with push..."
