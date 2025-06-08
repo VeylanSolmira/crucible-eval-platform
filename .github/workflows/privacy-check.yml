@@ -1,0 +1,42 @@
+name: Privacy Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-sensitive-files:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check for sensitive files
+      run: |
+        echo "🔍 Checking for sensitive files that should not be public..."
+        
+        SENSITIVE_FILES=(
+          "interview-prep.md"
+          "metr-questions.md"
+          "questions.md"
+          "CLAUDE.md"
+          "personal/"
+        )
+        
+        FOUND_FILES=()
+        for file in "${SENSITIVE_FILES[@]}"; do
+          if [ -e "$file" ]; then
+            FOUND_FILES+=("$file")
+          fi
+        done
+        
+        if [ ${#FOUND_FILES[@]} -gt 0 ]; then
+          echo "⚠️  WARNING: Repository contains sensitive files:"
+          printf '%s\n' "${FOUND_FILES[@]}"
+          echo ""
+          echo "🔒 This repository MUST remain PRIVATE!"
+          echo "📝 See SECURITY.md for instructions if you need to make it public."
+        else
+          echo "✅ No sensitive files found in expected locations."
+        fi
