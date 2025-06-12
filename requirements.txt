@@ -1,0 +1,39 @@
+# Core dependencies (currently all we need is Python stdlib!)
+# Our current implementation uses only Python standard library
+
+# Testing (when we add proper test suite)
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+# pytest-cov==4.1.0
+
+# Development tools (when we add linting/formatting)
+# mypy==1.7.1
+# ruff==0.1.7
+# black==23.11.0
+
+# Future: Web framework dependencies (when frontends evolve)
+# flask==3.0.0          # For FlaskFrontend
+# werkzeug              # 
+# fastapi==0.104.1      # For FastAPIFrontend
+# uvicorn==0.24.0       # ASGI server for FastAPI
+# pydantic==2.5.0       # FastAPI data validation
+
+# Future: Storage backends (when we need persistence)
+# redis==5.0.1          # For Redis storage backend
+# boto3==1.29.7         # For S3 storage backend
+# psycopg2-binary==2.9.9  # For PostgreSQL storage
+# aiofiles==23.2.1      # For async file operations
+
+# Future: Advanced features
+# websockets==12.0      # For WebSocket support
+# docker==6.1.3         # Docker SDK (currently we use subprocess)
+# prometheus-client==0.19.0  # For Prometheus metrics export
+
+# OpenAPI-first development (optional but recommended)
+openapi-core>=0.18.0  # Request/response validation
+# pyyaml>=6.0           # YAML parsing for OpenAPI specs
+# jsonschema>=4.0.0     # JSON schema validation
+
+# Optional: For generating documentation
+# apispec>=6.0.0        # API specification helpers
+# apispec-webframeworks>=0.5.0 # For generating documentation

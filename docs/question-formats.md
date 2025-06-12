@@ -64,7 +64,7 @@ async for update in subscription:
 Test understanding of trade-offs.
 
 ```markdown
-**❓ Design Challenge**: We chose React over Vue.js. In what scenario would Vue.js have been the better choice? Consider:
+**❓ Design Challenge**: We chose React over server-side rendering frameworks. In what scenario would SSR have been the better choice? Consider:
 - Team size and experience
 - Project timeline
 - Performance requirements

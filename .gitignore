@@ -149,3 +149,6 @@ Temporary Items
 
 # Personal notes (from project structure)
 personal/
+
+# Storage directory (created by FileStorage component)
+storage/

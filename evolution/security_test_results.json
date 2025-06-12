@@ -1,0 +1,178 @@
+{
+  "timestamp": "2025-06-11T23:04:10.797907",
+  "engines": [
+    "subprocess",
+    "docker"
+  ],
+  "scenarios": 7,
+  "results": [
+    {
+      "scenario_id": "container_escape_basic",
+      "scenario_name": "Basic Container Escape Attempts",
+      "engine": "subprocess",
+      "status": "secure",
+      "blocked_count": 3,
+      "failed_count": 0,
+      "duration": 0.029716968536376953,
+      "output": "=== Basic Container Escape Attempts ===\n\u2705 PASS: Docker socket not accessible: FileNotFoundError\n\u2705 PASS: Cannot read /proc/1/cgroup: FileNotFoundError\n\u2705 PASS: modprobe not available: FileNotFoundError\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "container_escape_basic",
+      "scenario_name": "Basic Container Escape Attempts",
+      "engine": "docker",
+      "status": "vulnerable",
+      "blocked_count": 2,
+      "failed_count": 1,
+      "duration": 0.3436591625213623,
+      "output": "=== Basic Container Escape Attempts ===\n\u2705 PASS: Docker socket not accessible: FileNotFoundError\n\u274c CRITICAL: Might be accessing host /proc!\n\u2705 PASS: modprobe not available: FileNotFoundError\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "privileged_operations",
+      "scenario_name": "Privileged Operations Test",
+      "engine": "subprocess",
+      "status": "secure",
+      "blocked_count": 4,
+      "failed_count": 0,
+      "duration": 0.04841804504394531,
+      "output": "=== Privileged Operations Test ===\n\u2705 PASS: Cannot chroot: PermissionError\n\u2705 PASS: Cannot mount: mount: /mnt: invalid file system.\n\u2705 PASS: Cannot create raw sockets: AttributeError\n\u2705 PASS: Cannot read capabilities: FileNotFoundError\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "privileged_operations",
+      "scenario_name": "Privileged Operations Test",
+      "engine": "docker",
+      "status": "vulnerable",
+      "blocked_count": 3,
+      "failed_count": 1,
+      "duration": 0.26373887062072754,
+      "output": "=== Privileged Operations Test ===\n\u274c CRITICAL: chroot succeeded!\n\u2705 PASS: mount not available: FileNotFoundError\n\u2705 PASS: Cannot create raw sockets: ModuleNotFoundError\n\u2705 PASS: Cannot read capabilities: FileNotFoundError\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "network_breakout",
+      "scenario_name": "Network Isolation Bypass",
+      "engine": "subprocess",
+      "status": "vulnerable",
+      "blocked_count": 1,
+      "failed_count": 3,
+      "duration": 2.134459972381592,
+      "output": "=== Network Isolation Bypass Attempts ===\n\u2705 PASS: Cannot reach metadata endpoint: URLError\n\u274c WARNING: DNS resolution works: 142.250.68.46\n\u274c WARNING: Can create listening sockets!\n\u274c WARNING: ICMP (ping) works!\n",
+      "threat_level": "high"
+    },
+    {
+      "scenario_id": "network_breakout",
+      "scenario_name": "Network Isolation Bypass",
+      "engine": "docker",
+      "status": "vulnerable",
+      "blocked_count": 3,
+      "failed_count": 1,
+      "duration": 0.47972989082336426,
+      "output": "=== Network Isolation Bypass Attempts ===\n\u2705 PASS: Cannot reach metadata endpoint: URLError\n\u2705 PASS: DNS blocked: gaierror\n\u274c WARNING: Can create listening sockets!\n\u2705 PASS: Cannot ping: FileNotFoundError\n",
+      "threat_level": "high"
+    },
+    {
+      "scenario_id": "filesystem_escape",
+      "scenario_name": "Filesystem Boundary Escape",
+      "engine": "subprocess",
+      "status": "secure",
+      "blocked_count": 4,
+      "failed_count": 0,
+      "duration": 0.09760522842407227,
+      "output": "=== Filesystem Boundary Escape ===\n\u2705 PASS: /proc access restricted: FileNotFoundError\n\u2705 PASS: Symlink attack failed: FileExistsError\n\u2705 PASS: Cannot create device files: PermissionError\n\u2705 PASS: Cannot write to sensitive paths\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "filesystem_escape",
+      "scenario_name": "Filesystem Boundary Escape",
+      "engine": "docker",
+      "status": "secure",
+      "blocked_count": 4,
+      "failed_count": 0,
+      "duration": 0.22692394256591797,
+      "output": "=== Filesystem Boundary Escape ===\n\u2705 PASS: Cannot access other process roots\n\u2705 PASS: Symlink attack failed: OSError\n\u2705 PASS: Cannot create device files: OSError\n\u2705 PASS: Cannot write to sensitive paths\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "resource_dos",
+      "scenario_name": "Resource Exhaustion / DoS",
+      "engine": "subprocess",
+      "status": "unknown",
+      "blocked_count": 0,
+      "failed_count": 0,
+      "duration": 5.010906934738159,
+      "output": "",
+      "threat_level": "medium"
+    },
+    {
+      "scenario_id": "resource_dos",
+      "scenario_name": "Resource Exhaustion / DoS",
+      "engine": "docker",
+      "status": "unknown",
+      "blocked_count": 0,
+      "failed_count": 0,
+      "duration": 2.4292049407958984,
+      "output": "",
+      "threat_level": "medium"
+    },
+    {
+      "scenario_id": "kernel_exploit_vectors",
+      "scenario_name": "Kernel Exploit Vectors",
+      "engine": "subprocess",
+      "status": "secure",
+      "blocked_count": 5,
+      "failed_count": 0,
+      "duration": 0.047183990478515625,
+      "output": "=== Kernel Exploit Vector Tests ===\n\u2705 PASS: setuid(0) failed\n\u2705 PASS: /dev/mem not accessible: FileNotFoundError\n\u2705 PASS: /sys/module not writable: FileNotFoundError\n\u2705 PASS: perf_event_open blocked\n\u2705 PASS: BPF tools not available: FileNotFoundError\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "kernel_exploit_vectors",
+      "scenario_name": "Kernel Exploit Vectors",
+      "engine": "docker",
+      "status": "secure",
+      "blocked_count": 5,
+      "failed_count": 0,
+      "duration": 0.2427067756652832,
+      "output": "=== Kernel Exploit Vector Tests ===\n\u2705 PASS: setuid(0) failed\n\u2705 PASS: /dev/mem not accessible: FileNotFoundError\n\u2705 PASS: /sys/module not writable: FileNotFoundError\n\u2705 PASS: perf_event_open blocked\n\u2705 PASS: BPF tools not available: FileNotFoundError\n",
+      "threat_level": "critical"
+    },
+    {
+      "scenario_id": "timing_side_channels",
+      "scenario_name": "Timing and Side Channel Attacks",
+      "engine": "subprocess",
+      "status": "secure",
+      "blocked_count": 1,
+      "failed_count": 0,
+      "duration": 0.02366328239440918,
+      "output": "=== Timing and Side Channel Tests ===\n\u26a0\ufe0f  WARNING: Nanosecond timing available (side-channel risk)\n\u26a0\ufe0f  WARNING: Can measure cache timing differences\n\u2705 PASS: Cannot read cpuinfo: FileNotFoundError\n",
+      "threat_level": "medium"
+    },
+    {
+      "scenario_id": "timing_side_channels",
+      "scenario_name": "Timing and Side Channel Attacks",
+      "engine": "docker",
+      "status": "secure",
+      "blocked_count": 1,
+      "failed_count": 0,
+      "duration": 0.14873909950256348,
+      "output": "=== Timing and Side Channel Tests ===\n\u26a0\ufe0f  WARNING: Nanosecond timing available (side-channel risk)\n\u26a0\ufe0f  WARNING: Can measure cache timing differences\n\u2705 PASS: CPU info hidden\n",
+      "threat_level": "medium"
+    }
+  ],
+  "statistics": {
+    "subprocess": {
+      "total": 7,
+      "secure": 5,
+      "vulnerable": 1,
+      "security_score": 71.42857142857143
+    },
+    "docker": {
+      "total": 7,
+      "secure": 3,
+      "vulnerable": 3,
+      "security_score": 42.857142857142854
+    }
+  }
+}

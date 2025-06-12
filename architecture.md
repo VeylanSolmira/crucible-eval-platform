@@ -27,7 +27,7 @@ Defense in Depth would be most critical. A model attempting network access could
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────┐    ┌──────────────-┐    ┌───────────────┐  │
-│  │   Frontend  │────│   API Gateway │────│  Auth Service │  │
+│  │   Frontend  │────│   API Service │────│  Auth Service │  │
 │  │  TypeScript │    │    (FastAPI)  │    │    (OAuth2)   │  │
 │  └─────────────┘    └───────┬───────┘    └───────────────┘  │
 │                             │                               │
@@ -111,10 +111,10 @@ A real-time monitoring dashboard that provides visibility into ongoing AI model 
 
 #### Alternatives Considered
 
-1. **Vue.js + Vuetify**
-   - Pros: Simpler learning curve, excellent documentation
-   - Cons: Smaller ecosystem, less TypeScript maturity
-   - Decision: React's larger community better for long-term maintenance
+1. **Next.js**
+   - Pros: Built on React, server-side rendering, great developer experience
+   - Cons: More opinionated, potentially overkill for monitoring dashboard
+   - Decision: Pure React gives more flexibility for our specific needs
 
 2. **Next.js (Full-Stack)**
    - Pros: SSR/SSG capabilities, API routes included
@@ -245,10 +245,10 @@ const useEvaluationUpdates = (evaluationId: string) => {
 - ["Scaling WebSockets"](https://blog.actioncable.io/scaling-websockets) - Architecture patterns
 - ["Real-time Dashboard Best Practices"](https://www.datadoghq.com/blog/real-time-dashboard-best-practices/)
 
-### 2. API Gateway
+### 2. API Service
 
 #### What We're Building
-A high-performance, async API gateway that serves as the single entry point for all platform interactions. It handles authentication, request routing, rate limiting, and provides both REST and WebSocket endpoints.
+A high-performance, async API service that serves as the backend for the platform. Users interact with the system through the Frontend dashboard, which communicates with this API service to handle authentication, request routing, rate limiting, and provides both REST and WebSocket endpoints. Users do not directly call the API - all interactions are mediated through the user-friendly dashboard interface.
 
 **Technology Stack**:
 - **FastAPI**: Modern Python web framework with automatic OpenAPI docs
@@ -452,7 +452,7 @@ async def evaluation_updates(
 - OpenAPI schema generation and client SDK generation
 - GraphQL vs REST trade-offs
 - gRPC for internal services
-- API Gateway patterns (Kong, Envoy)
+- API Gateway patterns (Kong, Envoy) - Note: Different from our API Service
 
 #### Learning Resources
 
@@ -519,7 +519,8 @@ spec:
 ## Data Flow
 
 1. **Evaluation Submission**
-   - User submits via Frontend/API
+   - User submits via Frontend dashboard interface
+   - Frontend sends request to API Service
    - Request validated and queued
    - Kubernetes pod scheduled
 
@@ -555,14 +556,14 @@ spec:
 sequenceDiagram
     participant U as User
     participant F as Frontend
-    participant API as API Gateway
+    participant API as API Service
     participant Auth as Auth Service
     participant DB as Database
     participant Q as Task Queue
     participant O as Orchestrator
     participant K8s as Kubernetes
 
-    U->>F: Submit evaluation request
+    U->>F: Submit evaluation request (via UI)
     F->>API: POST /api/v1/evaluations
     API->>Auth: Validate JWT token
     Auth-->>API: Token valid
@@ -618,7 +619,7 @@ sequenceDiagram
 sequenceDiagram
     participant U as User
     participant F as Frontend
-    participant API as API Gateway
+    participant API as API Service
     participant O as Orchestrator
     participant K8s as Kubernetes
     participant P as Evaluation Pod
@@ -653,7 +654,7 @@ sequenceDiagram
 sequenceDiagram
     participant U as User
     participant F as Frontend
-    participant API as API Gateway
+    participant API as API Service
     participant S3 as Object Storage
     participant DB as Database
     participant C as Cache (Redis)
@@ -752,10 +753,10 @@ sequenceDiagram
 
 | From Component | To Component | Protocol | Auth Method | Purpose |
 |----------------|--------------|----------|-------------|---------|
-| Frontend | API Gateway | HTTPS/REST | JWT Bearer | CRUD operations |
+| Frontend | API Service | HTTPS/REST | JWT Bearer | CRUD operations |
 | Frontend | WebSocket Server | WSS | JWT Query Param | Real-time updates |
-| API Gateway | Database | TCP/5432 | mTLS | Data persistence |
-| API Gateway | Task Queue | TCP/6379 | Redis AUTH | Job scheduling |
+| API Service | Database | TCP/5432 | mTLS | Data persistence |
+| API Service | Task Queue | TCP/6379 | Redis AUTH | Job scheduling |
 | Orchestrator | Kubernetes API | HTTPS | Service Account | Pod management |
 | Eval Pods | Storage | HTTPS | IAM Role | Artifact upload |
 | Monitor | Prometheus | HTTP/9090 | None (internal) | Metrics scraping |
@@ -770,7 +771,7 @@ graph TB
     end
     
     subgraph "Trust Zone 2: API Layer"
-        API[API Gateway]
+        API[API Service]
         WS[WebSocket Server]
     end
     

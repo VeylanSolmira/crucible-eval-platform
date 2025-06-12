@@ -19,18 +19,18 @@
   ```
 
 ### Container & Orchestration Tools
-- [ ] **Docker Desktop** installed and running
-  - [ ] Allocated at least 4GB RAM in Docker settings
+- [x] **Docker Desktop** installed and running
+  - [x] Allocated at least 4GB RAM in Docker settings
   - [x] Verify with: `docker run hello-world`
-- [ ] **kubectl** installed
+- [x] **kubectl** installed
   ```bash
   kubectl version --client
   ```
-- [ ] **Local Kubernetes** (choose one):
-  - [ ] minikube: `minikube start`
+- [x] **Local Kubernetes** (choose one):
+  - [x] minikube: `minikube start`
   - [ ] kind: `kind create cluster`
   - [ ] Docker Desktop Kubernetes enabled
-- [ ] **Helm** (for K8s package management)
+- [x] **Helm** (for K8s package management)
   ```bash
   helm version
   ```
@@ -54,7 +54,7 @@
   ```
 
 ### Frontend (TypeScript/React)
-- [ ] Install frontend dependencies
+- [x] Install frontend dependencies
   ```bash
   cd frontend
   npm install  # or yarn install
