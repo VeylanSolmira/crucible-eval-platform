@@ -1,0 +1,109 @@
+# evaluator-pod.yaml
+# This is a template for evaluation pods that run isolated model evaluations
+# In production, this would be generated dynamically by the Worker/Orchestrator
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: eval-123  # Would be dynamically generated
+  labels:
+    app: evaluator
+    evaluation-id: "123"
+    safety-level: "high"  # Used for network policies
+spec:
+  # Security constraints at pod level
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  containers:
+  - name: evaluator
+    image: metr/evaluator:latest
+    
+    # Resource limits (can't exceed these)
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+        ephemeral-storage: "10Gi"  # Prevent filling disk
+      requests:
+        memory: "2Gi"
+        cpu: "1"
+    
+    # Environment variables
+    env:
+    - name: EVALUATION_ID
+      value: "123"
+    - name: MODEL_ID
+      value: "gpt-4"
+    - name: EVALUATION_SCRIPT
+      value: "/workspace/eval_script.py"
+    - name: SAFETY_TIMEOUT
+      value: "3600"  # 1 hour max
+    
+    # Container-level security
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL  # Drop all Linux capabilities
+    
+    # Mount points for temporary work
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: workspace
+      mountPath: /workspace
+    - name: scripts
+      mountPath: /scripts
+      readOnly: true
+  
+  # Sidecar container for monitoring
+  - name: safety-monitor
+    image: metr/safety-monitor:latest
+    resources:
+      limits:
+        memory: "512Mi"
+        cpu: "0.5"
+    env:
+    - name: EVALUATION_ID
+      value: "123"
+    - name: MONITORING_ENDPOINT
+      value: "http://monitoring-service:8080/events"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+  
+  # Volumes for temporary storage
+  volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: workspace
+    emptyDir: {}
+  - name: scripts
+    configMap:
+      name: eval-scripts-123  # Contains the actual evaluation code
+  
+  # Network isolation - no DNS means no internet access
+  dnsPolicy: "None"
+  dnsConfig:
+    nameservers: []
+  
+  # Don't restart - one shot evaluation
+  restartPolicy: Never
+  
+  # Terminate after timeout
+  activeDeadlineSeconds: 7200  # 2 hours max
+  
+  # Node selection - only on nodes labeled for evaluation
+  nodeSelector:
+    workload-type: evaluation
+  
+  # Tolerations for evaluation nodes
+  tolerations:
+  - key: "evaluation"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

@@ -1,0 +1,38 @@
+[Unit]
+Description=Crucible Evaluation Platform
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/evolution
+Environment="PATH=/usr/bin:/usr/local/bin"
+
+# Pre-start checks
+ExecStartPre=/usr/bin/docker --version
+ExecStartPre=/usr/bin/python3 --version
+
+# Start the evaluation platform
+ExecStart=/usr/bin/python3 /home/ubuntu/evolution/extreme_mvp_frontier_events.py --port 8000
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Resource limits (adjust based on instance type)
+MemoryLimit=2G
+CPUQuota=80%
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=evaluation-platform
+
+[Install]
+WantedBy=multi-user.target

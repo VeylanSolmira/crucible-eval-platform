@@ -1,8 +1,18 @@
-# METR Evaluation Platform
+# Crucible Evaluation Platform (CEP)
 
 > ⚠️ **PRIVATE REPOSITORY** - Contains sensitive interview preparation materials. See [SECURITY.md](SECURITY.md) before making any visibility changes.
 
-A demonstration platform showcasing secure AI model evaluation infrastructure, designed with safety and scalability in mind.
+A demonstration platform showcasing secure AI model evaluation infrastructure, designed with safety and scalability in mind. This project demonstrates how METR's evaluation capabilities could be decentralized through an open platform that any organization can deploy and customize.
+
+## Project Vision
+
+The Crucible Evaluation Platform (CEP) is designed to:
+- **Democratize AI safety evaluation** by providing a deployable platform
+- **Enable distributed safety research** across multiple organizations
+- **Maintain security standards** while being open and extensible
+- **Lower barriers to entry** for AI safety evaluation work
+
+This serves as both a demonstration of platform engineering capabilities and a vision for how critical AI safety infrastructure could be decentralized rather than centralized in a single organization.
 
 ## Overview
 
@@ -57,15 +67,100 @@ metr-eval-platform/
 - Multi-region deployment ready
 - Efficient caching strategies
 
+## Development Approach: Iterative Buildup
+
+This project uses a unique "iterative buildup" approach that mirrors real architectural thinking, guided by the TRACE-AI decision framework.
+
+### TRACE-AI Framework
+
+We evaluate each technical decision using TRACE-AI:
+
+- **T**ime to feedback - How quickly do we need user validation?
+- **R**eversibility cost - How expensive is it to change later?
+- **A**bstraction possibility - Can we hide this decision behind an interface?
+- **C**ore vs peripheral - Is this central to our value proposition?
+- **E**xpertise required - Do we have the skills to maintain it?
+- **AI** **F**ungibility - How easily can AI tools help us migrate?
+
+This framework helps us make pragmatic MVP decisions while avoiding architectural dead ends. See [mvp-technical-debt-framework.md](docs/mvp-technical-debt-framework.md) for detailed methodology.
+
+### Extreme MVP Philosophy
+
+We embrace "extreme MVP" - shipping the simplest possible implementation to learn quickly:
+
+```bash
+# Start with the extreme MVP (single file, zero dependencies!)
+python evolution/extreme_mvp.py
+# Then evolve based on real learnings - see evolution/ directory
+```
+
+### Level-Based Development
+
+We develop the system in progressive levels, tagging each stage:
+
+```bash
+# View all levels
+git tag -l "level*"
+
+# Checkout a specific level
+git checkout level3-workflow
+
+# Return to latest
+git checkout main
+```
+
+### Levels:
+1. **level1-understanding**: Problem statement and core requirements
+2. **level2-vocabulary**: Domain terminology and definitions  
+3. **level3-workflow**: Basic system workflow (async, monitoring)
+4. **level4-tools**: Technology selection using TRACE-AI framework
+5. **level5-mvp**: Minimal working implementation
+6. **level6-engine**: Core evaluation engine
+7. **level7-integrations**: External integrations (Slack, Airtable)
+8. **level8-monitoring**: Observability dashboard
+9. **level9-security**: Production hardening
+10. **level10-enterprise**: Multi-tenancy and scale
+
+Each level applies TRACE-AI to make decisions appropriate to that stage of maturity.
+
+### Working with Levels
+
+During development:
+```bash
+# Complete work on a level
+git add .
+git commit -m "Level 3: Establish async workflow with monitoring"
+git tag level3-workflow
+```
+
+For demos/presentation:
+```bash
+# Export a specific level for side-by-side comparison
+git archive level3-workflow --prefix=demo/level3/ | tar -x
+
+# Or simply checkout different levels during presentation
+git checkout level2-vocabulary
+```
+
+### Handling Updates to Earlier Levels
+
+If you discover issues in earlier levels:
+1. **Document it**: Note in the current level that this issue exists
+2. **Fix forward**: Fix in current code and note when it was discovered
+3. **Optional**: Create versioned tags (`level3-v2`) if significant changes
+
+This approach shows realistic architectural evolution!
+
 ## Development
 
 ### Prerequisites
 
 - Docker Desktop or Docker Engine
-- Kubernetes (minikube/kind for local development)
 - Python 3.11+
 - Node.js 18+
 - kubectl CLI
+- Kubernetes (minikube/kind for local development)
+- gVisor (optional but recommended) - See [gVisor Setup Guide](docs/gvisor-setup-guide.md)
 
 ### Quick Start
 
@@ -114,21 +209,48 @@ cd frontend && npm test
 pytest tests/integration/ -v
 ```
 
+## Infrastructure Deployment
+
+The platform uses OpenTofu (open-source Terraform alternative) for infrastructure deployment, chosen for its state encryption capabilities - particularly important for adversarial AI testing environments.
+
+```bash
+# Install OpenTofu
+brew install opentofu
+
+# Deploy infrastructure
+cd infrastructure/terraform
+tofu init
+tofu plan
+tofu apply
+```
+
+See:
+- [EC2 Deployment Guide](docs/ec2-deployment-guide.md) for detailed instructions
+- [OpenTofu vs Terraform](docs/opentofu-vs-terraform.md) for why we chose OpenTofu
+
 ## Documentation
 
 - [Architecture Overview](architecture.md) - System design and component details
 - [Development Environment](DEVELOPMENT_ENVIRONMENT_CHECKLIST.md) - Setup guide
 - [Docker Configuration](docker/README.md) - Container details
 - [API Documentation](http://localhost:8000/docs) - Auto-generated OpenAPI docs (when running)
+- [gVisor Setup Guide](docs/gvisor-setup-guide.md) - Production runtime configuration
+- [Adversarial Testing Requirements](docs/adversarial-testing-requirements.md) - Security requirements for AI testing
 
 ## Security Considerations
 
 This platform is designed with security as a primary concern:
 
 - All evaluation workloads run in isolated containers
-- Network egress is strictly controlled
+- **gVisor runtime** provides additional kernel-level isolation (see [gVisor Setup Guide](docs/gvisor-setup-guide.md))
+- Network egress is completely disabled for evaluation containers
+- Non-root user execution (nobody:nogroup)
+- Read-only filesystems with minimal writable /tmp
+- Resource limits enforced (CPU/memory)
 - Comprehensive monitoring for anomalous behavior
 - Emergency stop procedures for all evaluations
+
+For production deployments evaluating untrusted AI models, gVisor is strongly recommended to provide defense-in-depth against container escape attempts.
 
 ## License
 
