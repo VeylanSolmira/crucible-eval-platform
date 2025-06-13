@@ -15,7 +15,7 @@ ExecStartPre=/usr/bin/docker --version
 ExecStartPre=/usr/bin/python3 --version
 
 # Start the evaluation platform
-ExecStart=/usr/bin/python3 /home/ubuntu/evolution/extreme_mvp_frontier_events.py --port 8000
+ExecStart=/usr/bin/python3 /home/ubuntu/src/platform/extreme_mvp_frontier_events.py --port 8000
 
 # Restart policy
 Restart=always

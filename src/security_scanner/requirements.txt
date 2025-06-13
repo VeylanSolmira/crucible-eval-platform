@@ -1,0 +1,6 @@
+# Security scanner - runs security tests
+# Needs access to execution engines
+# No additional requirements if importing from platform
+# Add these only if running as standalone service:
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0

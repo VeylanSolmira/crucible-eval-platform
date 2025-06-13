@@ -1,0 +1,103 @@
+# EXAMPLE: Docker Compose configuration for full microservices deployment
+#
+# This file demonstrates how the Crucible platform could be deployed
+# as separate microservices using Docker Compose.
+#
+# CURRENT STATE: The platform runs as a monolith from src/platform/
+# FUTURE STATE: Each service runs in its own container as shown below
+#
+# To use this example in the future:
+# 1. Complete the Dockerfiles in each service directory
+# 2. Implement the main.py files for each service
+# 3. Update port numbers and environment variables as needed
+# 4. Run: docker-compose up
+#
+# Note: The monolithic core is in src/core/ for future microservices architecture.
+# See docs/architecture/microservice-scaffolding.md for migration plan.
+
+version: '3.8'
+
+services:
+  execution-engine:
+    build: ./execution_engine
+    ports:
+      - "8001:8001"
+    environment:
+      - ENGINE_TYPE=docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - crucible-net
+
+  api-gateway:
+    build: ./future_services/api_gateway  # Note: Currently in future-services
+    ports:
+      - "8000:8000"
+    depends_on:
+      - execution-engine
+      - storage
+      - queue
+    networks:
+      - crucible-net
+
+  monitoring:
+    build: ./monitoring
+    ports:
+      - "8002:8002"
+    networks:
+      - crucible-net
+
+  storage:
+    build: ./storage
+    ports:
+      - "8003:8003"
+    volumes:
+      - evaluation-data:/data
+    networks:
+      - crucible-net
+
+  queue:
+    build: ./queue
+    ports:
+      - "8004:8004"
+    networks:
+      - crucible-net
+
+  web-frontend:
+    build: ./web_frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - FRONTEND_TYPE=advanced
+    networks:
+      - crucible-net
+
+  event-bus:
+    build: ./event_bus
+    ports:
+      - "8005:8005"
+    networks:
+      - crucible-net
+
+  security-scanner:
+    build: ./security_scanner
+    ports:
+      - "8006:8006"
+    depends_on:
+      - execution-engine
+    networks:
+      - crucible-net
+
+  # Future services could include:
+  # - prometheus (monitoring metrics)
+  # - grafana (visualization)
+  # - redis (caching/pub-sub)
+  # - postgres (persistent storage)
+  # - nginx (reverse proxy)
+
+networks:
+  crucible-net:
+    driver: bridge
+
+volumes:
+  evaluation-data:

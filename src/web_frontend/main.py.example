@@ -1,0 +1,38 @@
+"""
+EXAMPLE: How web-frontend could work as a standalone microservice
+
+This file shows how to wrap the web-frontend in a REST API for
+microservice deployment. Currently, this component is used directly 
+by the monolithic platform.
+
+To use this example:
+1. Install dependencies: pip install fastapi uvicorn
+2. Rename to main.py
+3. Run: uvicorn main:app --reload
+4. Access API at: http://localhost:8000/docs
+
+Note: The monolithic platform (src/platform/) doesn't use this file.
+"""
+
+"""Web Frontend Service - Serves the web UI"""
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from base import SimpleHTTPFrontend, AdvancedHTMLFrontend, ReactFrontend
+import os
+
+app = FastAPI(title="Web Frontend Service")
+
+# Select frontend based on environment
+FRONTEND_TYPE = os.environ.get('FRONTEND_TYPE', 'advanced')
+
+if FRONTEND_TYPE == 'simple':
+    frontend = SimpleHTTPFrontend()
+elif FRONTEND_TYPE == 'react':
+    frontend = ReactFrontend()
+else:
+    frontend = AdvancedHTMLFrontend()
+
+@app.get("/")
+async def serve_frontend():
+    """Serve the main frontend page"""
+    return frontend.get_index_html()

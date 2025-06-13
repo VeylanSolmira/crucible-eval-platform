@@ -1,0 +1,8 @@
+# Queue - manages task queue
+# Basic in-memory implementation uses only Python stdlib
+# For production, consider:
+# celery==5.3.4
+# redis==5.0.1
+# Add these only if running as standalone service:
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0

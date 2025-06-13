@@ -1,0 +1,5 @@
+# Monitoring - collects and exports metrics
+# prometheus-client==0.19.0
+# Add these only if running as standalone service:
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0

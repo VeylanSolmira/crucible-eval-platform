@@ -1,0 +1,7 @@
+# Web frontend - serves UI
+# For Flask support:
+# flask==3.0.0
+# For FastAPI support:
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0
+# For basic HTTP server, no deps needed (uses Python stdlib)

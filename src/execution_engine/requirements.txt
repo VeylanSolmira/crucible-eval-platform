@@ -1,0 +1,5 @@
+# Execution engine - runs code in isolated environments
+# No web framework needed if used as a library
+# Add these only if running as standalone service:
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0
