@@ -1,0 +1,6 @@
+# Event bus - coordinates events between components
+# Basic implementation uses only Python stdlib
+# Add these for WebSocket support:
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0
+# websockets==12.0

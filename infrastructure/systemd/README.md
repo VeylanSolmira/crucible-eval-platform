@@ -82,7 +82,7 @@ sudo systemctl status evaluation-platform
 1. Check logs: `sudo journalctl -u evaluation-platform -n 50`
 2. Verify Python path: `which python3`
 3. Check file permissions: `ls -la /home/ubuntu/evolution/`
-4. Test manually: `python3 /home/ubuntu/evolution/extreme_mvp_frontier_events.py`
+4. Test manually: `python3 /home/ubuntu/evolution/app.py`
 
 ### Port already in use
 ```bash

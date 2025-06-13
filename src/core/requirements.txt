@@ -1,0 +1,21 @@
+# Platform - monolithic version with all components
+
+# Core web framework (choose one)
+# For basic operation:
+# (no requirements - uses Python stdlib HTTP server)
+
+# For Flask support:
+# flask==3.0.0
+
+# For FastAPI support:
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0
+
+# Optional features:
+# prometheus-client==0.19.0  # For monitoring
+# openapi-core==0.18.2  # For OpenAPI validation
+# pydantic==2.5.0  # For data validation (required by FastAPI)
+
+# For production deployments:
+# gunicorn==21.2.0
+# python-multipart==0.0.6  # For file uploads
