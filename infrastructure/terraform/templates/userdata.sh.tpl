@@ -50,9 +50,9 @@ mkdir -p /var/log/crucible
 chown -R ubuntu:ubuntu /home/ubuntu/crucible /var/log/crucible
 
 # Register this instance as ready for deployment
-INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 aws ssm put-parameter \
-    --name "/crucible/instances/${INSTANCE_ID}/status" \
+    --name "/crucible/instances/$INSTANCE_ID/status" \
     --value "ready" \
     --type "String" \
     --overwrite 2>/dev/null || true
@@ -60,7 +60,7 @@ aws ssm put-parameter \
 # Store deployment bucket name if provided
 if [ -n "${deployment_bucket}" ]; then
     aws ssm put-parameter \
-        --name "/crucible/instances/${INSTANCE_ID}/deployment-bucket" \
+        --name "/crucible/instances/$INSTANCE_ID/deployment-bucket" \
         --value "${deployment_bucket}" \
         --type "String" \
         --overwrite 2>/dev/null || true
@@ -86,14 +86,14 @@ To deploy the application:
 
 3. From AWS CLI (after first deployment):
    aws ssm send-command \\
-     --instance-ids $(ec2-metadata --instance-id | cut -d " " -f 2) \\
+     --instance-ids $(curl -s http://169.254.169.254/latest/meta-data/instance-id) \\
      --document-name "AWS-RunShellScript" \\
      --parameters 'commands=["/home/ubuntu/update-platform.sh"]'
 
 Instance Status:
 - Infrastructure: ✅ Ready
 - Application: ⏳ Awaiting deployment
-- Instance ID: $(ec2-metadata --instance-id | cut -d " " -f 2)
+- Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
 Once deployed, access via SSH tunnel:
 ssh -L 8080:localhost:8080 ubuntu@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
