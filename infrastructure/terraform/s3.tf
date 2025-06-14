@@ -147,9 +147,10 @@ resource "aws_ssm_parameter" "deployment_bucket" {
 }
 
 resource "aws_ssm_parameter" "deployment_version" {
-  name  = "/crucible/current-version"
-  type  = "String"
-  value = "initial"
+  name      = "/crucible/current-version"
+  type      = "String"
+  value     = "initial"
+  overwrite = true
   
   lifecycle {
     ignore_changes = [value]
