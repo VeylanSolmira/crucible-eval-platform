@@ -24,17 +24,15 @@ jobs:
         aws-region: us-west-2
     
     - name: Deploy to S3
-      env:
-        DEPLOYMENT_BUCKET: ${{ secrets.DEPLOYMENT_BUCKET }}
       run: |
-        chmod +x scripts/deploy-to-s3.sh
-        ./scripts/deploy-to-s3.sh
+        chmod +x scripts/deployment/deploy-to-s3.sh
+        ./scripts/deployment/deploy-to-s3.sh
     
     - name: Trigger EC2 update
       run: |
         # Send command to EC2 instances to pull latest code
         INSTANCE_IDS=$(aws ec2 describe-instances \
-          --filters "Name=tag:Environment,Values=production" "Name=tag:Project,Values=crucible" \
+          --filters "Name=tag:Project,Values=crucible" "Name=instance-state-name,Values=running" \
           --query "Reservations[*].Instances[*].InstanceId" \
           --output text)
         
