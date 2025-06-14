@@ -2,11 +2,7 @@
 # These are scaffolded but not created by default
 # To enable: set gpu_instances_enabled = true in terraform.tfvars
 
-variable "gpu_instances_enabled" {
-  description = "Enable GPU instances for model testing"
-  type        = bool
-  default     = false
-}
+# Variable moved to variables.tf to avoid duplication
 
 # Different GPU instance configurations for various model sizes
 locals {
@@ -55,7 +51,7 @@ resource "aws_security_group" "gpu_instance" {
   
   name_prefix = "gpu-model-testing-"
   description = "Security group for GPU model testing instances"
-  vpc_id      = aws_vpc.main.id
+  # vpc_id = aws_vpc.main.id  # Uncomment when VPC is created
 
   # SSH access (restrict to your IP)
   ingress {
@@ -80,7 +76,7 @@ resource "aws_security_group" "gpu_instance" {
     from_port   = 8000
     to_port     = 8000
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
+    cidr_blocks = ["10.0.0.0/16"]  # Update when VPC is created
     description = "Model API (VPC only)"
   }
 
@@ -144,8 +140,8 @@ resource "aws_iam_role_policy" "gpu_s3_access" {
           "s3:ListBucket"
         ]
         Resource = [
-          "${aws_s3_bucket.main.arn}",
-          "${aws_s3_bucket.main.arn}/*"
+          "${aws_s3_bucket.results.arn}",
+          "${aws_s3_bucket.results.arn}/*"
         ]
       }
     ]
@@ -228,7 +224,7 @@ resource "aws_instance" "gpu_instance" {
     version = "$Latest"
   }
   
-  subnet_id = aws_subnet.private[0].id
+  # subnet_id = aws_subnet.private[0].id  # Uncomment when VPC is created
   
   tags = {
     Name = "gpu-ondemand-${each.key}"

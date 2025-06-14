@@ -43,8 +43,8 @@ services:
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-      - MODEL_NAME=${MODEL_NAME:-meta-llama/Llama-3.2-1B}
-      - MAX_MEMORY=${MAX_MEMORY:-15GB}
+      - MODEL_NAME=$${MODEL_NAME:-meta-llama/Llama-3.2-1B}
+      - MAX_MEMORY=$${MAX_MEMORY:-15GB}
     volumes:
       - /opt/models:/models
       - ./serve.py:/app/serve.py

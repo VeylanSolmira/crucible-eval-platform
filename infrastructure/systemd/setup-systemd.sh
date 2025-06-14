@@ -13,10 +13,10 @@ fi
 
 # Copy service file
 echo "📋 Installing service file..."
-cp evaluation-platform.service /etc/systemd/system/
+cp crucible-platform.service /etc/systemd/system/
 
 # Set proper permissions
-chmod 644 /etc/systemd/system/evaluation-platform.service
+chmod 644 /etc/systemd/system/crucible-platform.service
 
 # Reload systemd
 echo "🔄 Reloading systemd..."
@@ -24,23 +24,23 @@ systemctl daemon-reload
 
 # Enable service to start on boot
 echo "✅ Enabling service..."
-systemctl enable evaluation-platform.service
+systemctl enable crucible-platform.service
 
 # Start the service
 echo "🚀 Starting service..."
-systemctl start evaluation-platform.service
+systemctl start crucible-platform.service
 
 # Check status
 echo "📊 Checking service status..."
-systemctl status evaluation-platform.service --no-pager
+systemctl status crucible-platform.service --no-pager
 
 echo ""
 echo "✅ Setup complete!"
 echo ""
 echo "Useful commands:"
-echo "  - Check status:  sudo systemctl status evaluation-platform"
-echo "  - View logs:     sudo journalctl -u evaluation-platform -f"
-echo "  - Stop service:  sudo systemctl stop evaluation-platform"
-echo "  - Start service: sudo systemctl start evaluation-platform"
-echo "  - Restart:       sudo systemctl restart evaluation-platform"
-echo "  - Disable:       sudo systemctl disable evaluation-platform"
+echo "  - Check status:  sudo systemctl status crucible-platform"
+echo "  - View logs:     sudo journalctl -u crucible-platform -f"
+echo "  - Stop service:  sudo systemctl stop crucible-platform"
+echo "  - Start service: sudo systemctl start crucible-platform"
+echo "  - Restart:       sudo systemctl restart crucible-platform"
+echo "  - Disable:       sudo systemctl disable crucible-platform"

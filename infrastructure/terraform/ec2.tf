@@ -29,12 +29,20 @@ resource "aws_security_group" "eval_server" {
     cidr_blocks = [var.allowed_ssh_ip]
   }
 
-  # Platform web interface
+  # Platform web interface (restricted for SSH tunneling)
   ingress {
-    from_port   = 8000
-    to_port     = 8000
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.allowed_ssh_ip]  # Changed from 0.0.0.0/0 for security
+  }
+
+  # Additional port for monitoring tools (Prometheus, etc.)
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_ip]
   }
 
   # Allow all outbound
@@ -50,16 +58,64 @@ resource "aws_security_group" "eval_server" {
   }
 }
 
+# IAM role for EC2 instance (for S3 access)
+resource "aws_iam_role" "eval_server" {
+  name = "crucible-eval-server-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM instance profile
+resource "aws_iam_instance_profile" "eval_server" {
+  name = "crucible-eval-server-profile"
+  role = aws_iam_role.eval_server.name
+}
+
+# Policy for accessing S3 bucket (always needed for S3 deployment)
+resource "aws_iam_role_policy" "eval_server_s3" {
+  name = "crucible-eval-server-s3-policy"
+  role = aws_iam_role.eval_server.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.deployment.arn,
+          "${aws_s3_bucket.deployment.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 # Key pair for SSH access
 resource "aws_key_pair" "eval_server_key" {
   key_name   = "crucible-eval-key"
-  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPhoQtkUCQ78PROjyf0tcZQjEZ/fBX1PkNCZoxWjJhRU metr-eval-platform"
+  public_key = var.ssh_public_key
 }
 
 # EC2 instance
 resource "aws_instance" "eval_server" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro" # Free tier eligible
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type
+  iam_instance_profile   = aws_iam_instance_profile.eval_server.name
   
   key_name               = aws_key_pair.eval_server_key.key_name
   vpc_security_group_ids = [aws_security_group.eval_server.id]
@@ -68,60 +124,16 @@ resource "aws_instance" "eval_server" {
   root_block_device {
     volume_size = 30 # GB, free tier includes 30GB
     volume_type = "gp3"
+    encrypted   = true
   }
 
-  # User data script to install Docker and gVisor
-  user_data = <<-EOF
-    #!/bin/bash
-    set -e
-    
-    # Update system
-    apt-get update
-    apt-get upgrade -y
-    
-    # Install Docker
-    apt-get install -y \
-      ca-certificates \
-      curl \
-      gnupg \
-      lsb-release
-    
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    
-    echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-      $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    
-    apt-get update
-    apt-get install -y docker-ce docker-ce-cli containerd.io
-    
-    # Install gVisor
-    curl -fsSL https://gvisor.dev/archive.key | apt-key add -
-    add-apt-repository "deb https://storage.googleapis.com/gvisor/releases release main"
-    apt-get update
-    apt-get install -y runsc
-    
-    # Configure Docker to use runsc
-    runsc install
-    systemctl restart docker
-    
-    # Add ubuntu user to docker group
-    usermod -aG docker ubuntu
-    
-    # Install Python 3.11
-    apt-get install -y python3.11 python3.11-venv python3-pip
-    
-    # Create directory for the platform
-    mkdir -p /home/ubuntu/crucible
-    chown ubuntu:ubuntu /home/ubuntu/crucible
-    
-    # Install git
-    apt-get install -y git
-    
-    # Create a marker file to indicate setup is complete
-    touch /home/ubuntu/setup-complete
-    chown ubuntu:ubuntu /home/ubuntu/setup-complete
-  EOF
+  # User data script to install dependencies and setup systemd service
+  user_data = templatefile("${path.module}/templates/userdata.sh.tpl", {
+    github_repo       = var.github_repo
+    github_branch     = var.github_branch
+    deployment_bucket = aws_s3_bucket.deployment.id
+    deployment_key    = var.deployment_key
+  })
 
   tags = {
     Name = "crucible-eval-server"
@@ -145,7 +157,12 @@ output "ssh_command" {
   description = "SSH command to connect to the server"
 }
 
-output "platform_url" {
-  value = "http://${aws_instance.eval_server.public_ip}:8000"
-  description = "URL to access the evaluation platform"
+output "ssh_tunnel_command" {
+  value = "ssh -L 8080:localhost:8080 -L 9090:localhost:9090 ubuntu@${aws_instance.eval_server.public_ip}"
+  description = "SSH tunnel command for local access"
+}
+
+output "platform_url_local" {
+  value = "http://localhost:8080"
+  description = "URL to access the platform through SSH tunnel"
 }

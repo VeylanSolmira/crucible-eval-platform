@@ -133,6 +133,35 @@ resource "aws_s3_bucket_public_access_block" "results" {
 # Data source for current AWS account
 data "aws_caller_identity" "current" {}
 
+# SSM Parameters for deployment automation
+resource "aws_ssm_parameter" "deployment_bucket" {
+  name  = "/crucible/deployment-bucket"
+  type  = "String"
+  value = aws_s3_bucket.deployment.id
+  
+  tags = {
+    Name        = "Crucible Deployment Bucket Parameter"
+    Environment = var.environment
+    Purpose     = "Store deployment bucket name for automation"
+  }
+}
+
+resource "aws_ssm_parameter" "deployment_version" {
+  name  = "/crucible/current-version"
+  type  = "String"
+  value = "initial"
+  
+  lifecycle {
+    ignore_changes = [value]
+  }
+  
+  tags = {
+    Name        = "Crucible Current Version Parameter"
+    Environment = var.environment
+    Purpose     = "Track current deployed version"
+  }
+}
+
 # Outputs
 output "deployment_bucket_name" {
   value       = aws_s3_bucket.deployment.id
