@@ -1,13 +1,17 @@
 # EC2 Deployment Guide
 
-This guide walks through deploying the Crucible platform to AWS EC2 for testing with gVisor.
+This guide walks through deploying the Crucible platform to AWS EC2 with:
+- Automatic startup via systemd
+- Secure SSH tunneling for access
+- Multiple deployment methods (GitHub/S3)
+- gVisor container isolation
 
 ## Prerequisites
 
 1. **AWS Account** with free tier eligibility
 2. **AWS CLI** installed and configured
-3. **OpenTofu** installed (`brew install opentofu`)
-4. **SSH key pair** (`~/.ssh/id_rsa.pub` or adjust path in configuration)
+3. **OpenTofu/Terraform** installed (`brew install opentofu` or `brew install terraform`)
+4. **SSH key pair** for EC2 access
 
 ## Quick Start
 
@@ -21,30 +25,53 @@ aws configure
 # Default output format: json
 ```
 
-### 2. Deploy Infrastructure
+### 2. Configure Variables
 
 ```bash
 cd infrastructure/terraform
 
-# Initialize OpenTofu
-tofu init
+# Copy example variables
+cp terraform.tfvars.example terraform.tfvars
+
+# Edit with your values
+vim terraform.tfvars
+# Set:
+# - allowed_ssh_ip (your IP from: curl ifconfig.me)
+# - ssh_public_key (from: cat ~/.ssh/id_ed25519.pub)
+# - deployment method (github_repo or deployment_bucket)
+```
+
+### 3. Deploy Infrastructure
+
+```bash
+# Initialize
+tofu init  # or terraform init
 
 # Review the plan
 tofu plan
 
-# Deploy (will create EC2 instance)
+# Deploy
 tofu apply
 ```
 
-### 3. Wait for Setup
+### 4. Access the Platform
 
-The EC2 instance will automatically install:
-- Docker
-- gVisor (runsc)
-- Python 3.11
-- Git
+The platform runs automatically via systemd. Access it through SSH tunnel:
 
-This takes ~3-5 minutes. You can check progress:
+```bash
+# Get SSH tunnel command from output
+tofu output ssh_tunnel_command
+
+# Or manually:
+ssh -L 8080:localhost:8080 ubuntu@<instance-ip>
+
+# Then access:
+open http://localhost:8080
+```
+
+### 5. Monitor Setup Progress
+
+The instance automatically installs Docker, gVisor, Python, and starts the platform:
 
 ```bash
 # Get the IP from OpenTofu output

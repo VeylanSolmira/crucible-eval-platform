@@ -56,3 +56,45 @@ variable "gpu_instances_enabled" {
   # This will create launch templates but not instances by default.
   # Use the launch templates to create spot/on-demand instances as needed.
 }
+
+# EC2 Instance Configuration
+variable "instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t2.micro"  # Free tier eligible
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key for EC2 access"
+  type        = string
+  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPhoQtkUCQ78PROjyf0tcZQjEZ/fBX1PkNCZoxWjJhRU metr-eval-platform"
+}
+
+# Deployment Configuration
+variable "deployment_method" {
+  description = "Method for deploying code: 'github' or 's3'"
+  type        = string
+  default     = "github"
+}
+
+variable "github_repo" {
+  description = "GitHub repository URL for deployment (leave empty to skip)"
+  type        = string
+  default     = ""
+  # Example: "https://github.com/yourusername/crucible-platform.git"
+}
+
+variable "github_branch" {
+  description = "GitHub branch to deploy"
+  type        = string
+  default     = "main"
+}
+
+# Note: deployment_bucket is now created by Terraform in s3.tf
+# Only the deployment key/path is configurable
+
+variable "deployment_key" {
+  description = "S3 key (path) for deployment package"
+  type        = string
+  default     = "crucible-platform.tar.gz"
+}

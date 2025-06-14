@@ -36,31 +36,32 @@ fi
 # Create deployment package
 echo "📦 Creating deployment package..."
 PACKAGE_NAME="crucible-platform-${VERSION}.tar.gz"
+TEMP_DIR="/tmp/crucible-deploy-${VERSION}"
 
-# Files to include
-tar -czf "/tmp/${PACKAGE_NAME}" \
-    --exclude='.git' \
-    --exclude='__pycache__' \
-    --exclude='*.pyc' \
-    --exclude='.env' \
-    --exclude='venv' \
-    --exclude='env' \
-    --exclude='.pytest_cache' \
-    --exclude='logs' \
-    --exclude='*.log' \
-    --exclude='docs' \
-    --exclude='.docker' \
-    --exclude='**/.terraform' \
-    --exclude='*.tar' \
-    --exclude='*.tar.gz' \
-    --exclude='*.zip' \
-    --exclude='.DS_Store' \
-    --exclude='node_modules' \
-    --exclude='*.db' \
-    --exclude='*.sqlite' \
-    --exclude='tmp/*' \
-    --exclude='temp/*' \
-    .
+# Create clean copy using rsync with .deployignore
+echo "   Copying files..."
+mkdir -p "${TEMP_DIR}"
+
+# Use rsync to copy files, respecting .deployignore
+if [ -f .deployignore ]; then
+    rsync -av --exclude-from=.deployignore . "${TEMP_DIR}/"
+else
+    # Fallback to basic excludes if .deployignore missing
+    rsync -av \
+        --exclude='.git' \
+        --exclude='__pycache__' \
+        --exclude='venv' \
+        --exclude='.env' \
+        --exclude='*.log' \
+        . "${TEMP_DIR}/"
+fi
+
+# Create tarball from clean copy
+echo "   Creating archive..."
+tar -czf "/tmp/${PACKAGE_NAME}" -C "${TEMP_DIR}" .
+
+# Cleanup temp directory
+rm -rf "${TEMP_DIR}"
 
 # Upload to S3
 echo "⬆️  Uploading to S3..."

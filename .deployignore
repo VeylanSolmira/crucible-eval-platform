@@ -1,0 +1,64 @@
+# Version control
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+
+# Development
+.env
+.env.*
+*.log
+logs/
+tmp/
+temp/
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation (keep only essential)
+docs/
+
+# Infrastructure files not needed at runtime
+.github/
+k8s/
+infrastructure/terraform/
+infrastructure/docker/
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.tar
+*.tar.gz
+*.zip
+
+# Node (if any frontend added later)
+node_modules/
+
+# Test data
+test_data/
+tests/fixtures/large/

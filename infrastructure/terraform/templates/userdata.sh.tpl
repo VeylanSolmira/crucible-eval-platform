@@ -92,6 +92,13 @@ if [ -d /home/ubuntu/crucible ] && [ "$(ls -A /home/ubuntu/crucible)" ]; then
         exit 1
     fi
     
+    # Copy update script if present
+    if [ -f /home/ubuntu/crucible/scripts/update-platform.sh ]; then
+        cp /home/ubuntu/crucible/scripts/update-platform.sh /home/ubuntu/
+        chmod +x /home/ubuntu/update-platform.sh
+        chown ubuntu:ubuntu /home/ubuntu/update-platform.sh
+    fi
+    
     # Create log directory if it doesn't exist
     mkdir -p /var/log/crucible
     chown ubuntu:ubuntu /var/log/crucible
