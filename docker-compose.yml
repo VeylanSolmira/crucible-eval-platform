@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  crucible-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crucible-platform:latest
+    container_name: crucible-platform
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=info
+      - EVALUATION_TIMEOUT=300
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount storage directory for persistence
+      - ./storage:/app/storage
+      # Mount logs for debugging
+      - ./logs:/var/log/crucible
+    networks:
+      - crucible-network
+    restart: unless-stopped
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Future: Add Redis for job queue
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: crucible-redis
+  #   networks:
+  #     - crucible-network
+  #   volumes:
+  #     - redis-data:/data
+
+networks:
+  crucible-network:
+    driver: bridge
+
+volumes:
+  redis-data:
