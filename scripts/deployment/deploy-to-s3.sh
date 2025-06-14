@@ -4,14 +4,22 @@
 
 set -e
 
-# Configuration - get bucket name from Terraform output or environment
+# Configuration - get bucket name from environment, SSM, or Terraform
 if [ -z "$DEPLOYMENT_BUCKET" ]; then
-    # Try to get from Terraform output
-    BUCKET_NAME=$(cd infrastructure/terraform && tofu output -raw deployment_bucket_name 2>/dev/null || echo "")
+    # Try to get from SSM parameter (works in GitHub Actions)
+    BUCKET_NAME=$(aws ssm get-parameter --name "/crucible/deployment-bucket" --query 'Parameter.Value' --output text 2>/dev/null || echo "")
+    
     if [ -z "$BUCKET_NAME" ]; then
-        echo "❌ Error: DEPLOYMENT_BUCKET not set and could not get from Terraform"
-        echo "   Run: export DEPLOYMENT_BUCKET=<your-bucket-name>"
-        echo "   Or: cd infrastructure/terraform && tofu apply"
+        # Try to get from Terraform output (works locally)
+        BUCKET_NAME=$(cd infrastructure/terraform && tofu output -raw deployment_bucket_name 2>/dev/null || echo "")
+    fi
+    
+    if [ -z "$BUCKET_NAME" ]; then
+        echo "❌ Error: Could not determine deployment bucket"
+        echo "   Options:"
+        echo "   1. Set environment: export DEPLOYMENT_BUCKET=<bucket-name>"
+        echo "   2. Ensure SSM parameter exists: /crucible/deployment-bucket"
+        echo "   3. Run from terraform dir: cd infrastructure/terraform"
         exit 1
     fi
 else
