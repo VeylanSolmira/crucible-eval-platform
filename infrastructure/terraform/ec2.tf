@@ -105,6 +105,48 @@ resource "aws_iam_role_policy" "eval_server_s3" {
   })
 }
 
+# Policy for SSM access (needed for remote commands)
+resource "aws_iam_role_policy" "eval_server_ssm" {
+  name = "crucible-eval-server-ssm-policy"
+  role = aws_iam_role.eval_server.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:UpdateInstanceInformation",
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel",
+          "ec2messages:AcknowledgeMessage",
+          "ec2messages:DeleteMessage",
+          "ec2messages:FailMessage",
+          "ec2messages:GetEndpoint",
+          "ec2messages:GetMessages",
+          "ec2messages:SendReply"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter"
+        ]
+        Resource = "arn:aws:ssm:*:*:parameter/crucible/*"
+      }
+    ]
+  })
+}
+
+# Attach AWS managed policy for SSM
+resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
+  role       = aws_iam_role.eval_server.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 # Key pair for SSH access
 resource "aws_key_pair" "eval_server_key" {
   key_name   = "crucible-eval-key"
@@ -138,7 +180,11 @@ resource "aws_instance" "eval_server" {
   tags = {
     Name = "crucible-eval-server"
     Purpose = "AI evaluation with gVisor"
+    Project = "crucible"
   }
+
+  # Force recreation when user_data changes
+  user_data_replace_on_change = true
 }
 
 # Outputs
