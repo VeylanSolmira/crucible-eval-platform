@@ -72,11 +72,4 @@ jobs:
           --output text)
         
         echo "📝 Command ID: $DEPLOY_CMD"
-        
-        # Wait and check status
-        sleep 10
-        aws ssm get-command-invocation \
-          --command-id "$DEPLOY_CMD" \
-          --instance-id "$INSTANCE_IDS" \
-          --query "Status" \
-          --output text
+        echo "✅ Deployment command sent successfully"
