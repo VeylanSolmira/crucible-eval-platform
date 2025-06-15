@@ -60,7 +60,7 @@ jobs:
             \"mkdir -p /home/ubuntu/crucible\",
             \"tar -xzf /tmp/crucible-platform-${VERSION}.tar.gz -C /home/ubuntu/crucible\",
             \"cd /home/ubuntu/crucible\",
-            \"mkdir -p /home/ubuntu/crucible/frontier_storage\",
+            \"mkdir -p /home/ubuntu/crucible/storage\",
             \"chown -R ubuntu:ubuntu /home/ubuntu/crucible\",
             \"python3.11 -m venv venv || true\",
             \"./venv/bin/pip install -r requirements.txt\",

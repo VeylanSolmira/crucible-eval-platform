@@ -115,8 +115,9 @@ def main():
     if args.memory_storage:
         storage = InMemoryStorage()
     else:
-        storage_dir = Path("./frontier_storage")
-        storage_dir.mkdir(exist_ok=True)
+        storage_base = Path("./storage")
+        storage_dir = storage_base / "frontier"
+        storage_dir.mkdir(parents=True, exist_ok=True)
         storage = FileStorage(str(storage_dir))
     
     # Platform (skip tests by default for faster startup)
