@@ -151,4 +151,4 @@ Temporary Items
 personal/
 
 # Storage directory (created by FileStorage component)
-storage/
+/storage/

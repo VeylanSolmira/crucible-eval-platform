@@ -1,0 +1,37 @@
+"""
+EXAMPLE: How storage could work as a standalone microservice
+
+This file shows how to wrap the storage in a REST API for
+microservice deployment. Currently, this component is used directly 
+by the monolithic platform.
+
+To use this example:
+1. Install dependencies: pip install fastapi uvicorn
+2. Rename to main.py
+3. Run: uvicorn main:app --reload
+4. Access API at: http://localhost:8000/docs
+
+Note: The monolithic platform (src/platform/) doesn't use this file.
+"""
+
+"""Storage Service - Handles persistent storage for evaluations"""
+from fastapi import FastAPI, HTTPException
+from typing import Optional
+import os
+
+app = FastAPI(title="Storage Service")
+
+# Initialize storage backend based on environment
+STORAGE_TYPE = os.environ.get('STORAGE_TYPE', 'filesystem')
+
+@app.get("/evaluations/{eval_id}")
+async def get_evaluation(eval_id: str):
+    """Retrieve evaluation by ID"""
+    # Implementation here
+    return {"eval_id": eval_id, "status": "completed"}
+
+@app.post("/evaluations")
+async def store_evaluation(evaluation: dict):
+    """Store new evaluation"""
+    # Implementation here
+    return {"stored": True, "id": evaluation.get('eval_id')}
