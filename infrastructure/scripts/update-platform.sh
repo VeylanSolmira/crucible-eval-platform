@@ -27,6 +27,9 @@ tar -xzf /tmp/crucible-platform-${LATEST_VERSION}.tar.gz -C /home/ubuntu/crucibl
 
 # Update dependencies
 cd /home/ubuntu/crucible
+if [ ! -d "venv" ]; then
+    python3.11 -m venv venv
+fi
 ./venv/bin/pip install -r requirements.txt
 ./venv/bin/pip install -e .
 
