@@ -92,17 +92,17 @@ resource "aws_iam_role_policy" "github_actions" {
           "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
         ]
       },
-      {
-        # SSM permissions for command status
-        Effect = "Allow"
-        Action = [
-          "ssm:GetCommandInvocation",
-          "ssm:ListCommandInvocations"
-        ]
-        Resource = [
-          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:command/*"
-        ]
-      },
+      # {
+      #   # SSM permissions for command status - not needed after removing status check
+      #   Effect = "Allow"
+      #   Action = [
+      #     "ssm:GetCommandInvocation",
+      #     "ssm:ListCommandInvocations"
+      #   ]
+      #   Resource = [
+      #     "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:command/*"
+      #   ]
+      # },
       {
         # EC2 permissions to find instances
         Effect = "Allow"
