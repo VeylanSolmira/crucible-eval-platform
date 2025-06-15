@@ -71,19 +71,36 @@ resource "aws_iam_role_policy" "github_actions" {
         ]
       },
       {
-        # SSM permissions for parameters and commands
+        # SSM permissions for parameters
         Effect = "Allow"
         Action = [
           "ssm:PutParameter",
-          "ssm:GetParameter",
-          "ssm:SendCommand",
+          "ssm:GetParameter"
+        ]
+        Resource = [
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/crucible/*"
+        ]
+      },
+      {
+        # SSM permissions for commands
+        Effect = "Allow"
+        Action = [
+          "ssm:SendCommand"
+        ]
+        Resource = [
+          "arn:aws:ssm:${data.aws_region.current.name}::document/AWS-RunShellScript",
+          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
+        ]
+      },
+      {
+        # SSM permissions for command status
+        Effect = "Allow"
+        Action = [
           "ssm:GetCommandInvocation",
           "ssm:ListCommandInvocations"
         ]
         Resource = [
-          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/crucible/*",
-          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:document/AWS-RunShellScript",
-          "arn:aws:ssm:${data.aws_region.current.name}:*:command/*"
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:command/*"
         ]
       },
       {
@@ -95,21 +112,6 @@ resource "aws_iam_role_policy" "github_actions" {
         ]
         Resource = "*"
       },
-      {
-        # Allow sending commands to our EC2 instances
-        Effect = "Allow"
-        Action = [
-          "ssm:SendCommand"
-        ]
-        Resource = [
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
-        ]
-        Condition = {
-          StringEquals = {
-            "aws:ResourceTag/Project" = "crucible"
-          }
-        }
-      }
     ]
   })
 }
