@@ -43,52 +43,31 @@ jobs:
         
         echo "📡 Deploying to instances: $INSTANCE_IDS"
         
-        # For first deployment, we need to bootstrap
-        # Check if update script exists on instance
-        CHECK_CMD=$(aws ssm send-command \
-          --instance-ids $INSTANCE_IDS \
-          --document-name "AWS-RunShellScript" \
-          --parameters 'commands=["test -f /home/ubuntu/update-platform.sh && echo EXISTS || echo MISSING"]' \
-          --query "Command.CommandId" \
-          --output text)
+        # Get deployment info
+        BUCKET_NAME=$(aws ssm get-parameter --name "/crucible/deployment-bucket" --query 'Parameter.Value' --output text)
+        VERSION=$(aws ssm get-parameter --name "/crucible/current-version" --query 'Parameter.Value' --output text)
         
-        sleep 3
+        echo "📦 Deploying version $VERSION from bucket $BUCKET_NAME"
         
-        SCRIPT_STATUS=$(aws ssm get-command-invocation \
-          --command-id "$CHECK_CMD" \
-          --instance-id "$INSTANCE_IDS" \
-          --query "StandardOutputContent" \
-          --output text | tr -d '\n')
-        
-        if [ "$SCRIPT_STATUS" = "MISSING" ]; then
-          echo "📥 First deployment - bootstrapping..."
-          
-          # Get deployment info
-          BUCKET_NAME=$(aws ssm get-parameter --name "/crucible/deployment-bucket" --query 'Parameter.Value' --output text)
-          VERSION=$(aws ssm get-parameter --name "/crucible/current-version" --query 'Parameter.Value' --output text)
-          
-          # Bootstrap: download, extract, and copy update script
-          aws ssm send-command \
-            --instance-ids $INSTANCE_IDS \
-            --document-name "AWS-RunShellScript" \
-            --comment "Bootstrap deployment" \
-            --parameters 'commands=[
-              "aws s3 cp s3://'$BUCKET_NAME'/crucible-platform-'$VERSION'.tar.gz /tmp/",
-              "mkdir -p /home/ubuntu/crucible",
-              "tar -xzf /tmp/crucible-platform-'$VERSION'.tar.gz -C /home/ubuntu/crucible",
-              "cp /home/ubuntu/crucible/infrastructure/scripts/update-platform.sh /home/ubuntu/",
-              "chmod +x /home/ubuntu/update-platform.sh",
-              "rm -f /tmp/crucible-platform-'$VERSION'.tar.gz"
-            ]'
-        fi
-        
-        # Now run the update script (works for both bootstrap and regular deploys)
-        echo "🚀 Running deployment..."
+        # Run idempotent deployment commands
         DEPLOY_CMD=$(aws ssm send-command \
           --instance-ids $INSTANCE_IDS \
           --document-name "AWS-RunShellScript" \
-          --comment "Deploy from GitHub Actions" \
-          --parameters 'commands=["/home/ubuntu/update-platform.sh"]' \
+          --comment "Deploy Crucible Platform $VERSION" \
+          --parameters "commands=[
+            \"echo '🚀 Deploying version: $VERSION'\",
+            \"aws s3 cp s3://${BUCKET_NAME}/crucible-platform-${VERSION}.tar.gz /tmp/\",
+            \"mkdir -p /home/ubuntu/crucible\",
+            \"tar -xzf /tmp/crucible-platform-${VERSION}.tar.gz -C /home/ubuntu/crucible\",
+            \"cd /home/ubuntu/crucible\",
+            \"python3.11 -m venv venv || true\",
+            \"./venv/bin/pip install -r requirements.txt\",
+            \"./venv/bin/pip install -e .\",
+            \"if [ -f infrastructure/systemd/crucible-platform.service ]; then sudo cp infrastructure/systemd/crucible-platform.service /etc/systemd/system/ && sudo systemctl daemon-reload; fi\",
+            \"sudo systemctl restart crucible-platform || sudo systemctl start crucible-platform\",
+            \"rm -f /tmp/crucible-platform-${VERSION}.tar.gz\",
+            \"echo '✅ Deployment complete!'\"
+          ]" \
           --query "Command.CommandId" \
           --output text)
         
