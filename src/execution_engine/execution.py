@@ -158,7 +158,7 @@ class DockerEngine(ExecutionEngine):
     - Multi-container workflows
     """
     
-    def __init__(self, image: str = "python:3.11-slim"):
+    def __init__(self, image: str = "python:3.11-slim", temp_base_dir: str = None):
         # Verify Docker is available
         try:
             result = subprocess.run(['docker', 'version'], capture_output=True, text=True)
@@ -188,23 +188,34 @@ class DockerEngine(ExecutionEngine):
         self.memory_limit = "100m"
         self.cpu_limit = "0.5"
         self.timeout = 30
+        # Default to ~/crucible/storage if not specified
+        self.temp_base_dir = temp_base_dir or os.path.expanduser("~/crucible/storage")
+    
+    def _build_docker_command(self, temp_file: str) -> list:
+        """Build the docker command. Can be overridden by subclasses."""
+        return [
+            'docker', 'run',
+            '--rm', '--network', 'none',
+            '--memory', self.memory_limit, 
+            '--cpus', self.cpu_limit,
+            '--read-only',
+            '-v', f'{temp_file}:/code.py:ro',
+            self.image,
+            'python', '/code.py'
+        ]
     
     def execute(self, code: str, eval_id: str) -> Dict[str, Any]:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        # Create temp files in a directory accessible to both systemd service and Docker
+        # This works around PrivateTmp=true in systemd which isolates /tmp
+        temp_dir = os.path.join(self.temp_base_dir, "tmp")
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir=temp_dir) as f:
             f.write(code)
             temp_file = f.name
         
         try:
-            docker_cmd = [
-                'docker', 'run',
-                '--rm', '--network', 'none',
-                '--memory', self.memory_limit, 
-                '--cpus', self.cpu_limit,
-                '--read-only',
-                '-v', f'{temp_file}:/code.py:ro',
-                self.image,
-                'python', '/code.py'
-            ]
+            docker_cmd = self._build_docker_command(temp_file)
             
             result = subprocess.run(
                 docker_cmd,
@@ -225,9 +236,28 @@ class DockerEngine(ExecutionEngine):
         finally:
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
+            
+            # Clean up old temp files (older than 1 hour)
+            self._cleanup_old_temp_files(temp_dir)
     
     def get_description(self) -> str:
         return "Docker (Containerized - Network isolated)"
+    
+    def _cleanup_old_temp_files(self, temp_dir: str, max_age_seconds: int = 3600):
+        """Clean up temp files older than max_age_seconds"""
+        try:
+            import time
+            current_time = time.time()
+            for filename in os.listdir(temp_dir):
+                if filename.endswith('.py'):
+                    filepath = os.path.join(temp_dir, filename)
+                    if os.path.isfile(filepath):
+                        file_age = current_time - os.path.getmtime(filepath)
+                        if file_age > max_age_seconds:
+                            os.unlink(filepath)
+        except Exception:
+            # Don't fail execution if cleanup fails
+            pass
     
     def get_test_suite(self) -> unittest.TestSuite:
         """Docker-specific safety tests"""
@@ -263,7 +293,7 @@ class DockerEngine(ExecutionEngine):
         return unittest.TestLoader().loadTestsFromTestCase(DockerEngineTests)
 
 
-class GVisorEngine(ExecutionEngine):
+class GVisorEngine(DockerEngine):
     """
     Production-grade Docker execution with gVisor runtime.
     
@@ -284,7 +314,10 @@ class GVisorEngine(ExecutionEngine):
     - Resource exhaustion (limits enforced)
     """
     
-    def __init__(self, runtime: str = 'runsc'):
+    def __init__(self, runtime: str = 'runsc', temp_base_dir: str = None):
+        # Initialize parent DockerEngine
+        super().__init__(image="python:3.11-slim", temp_base_dir=temp_base_dir)
+        
         # Check if gVisor is actually available
         if runtime == 'runsc' and platform.system() != 'Linux':
             raise RuntimeError("gVisor (runsc) is only available on Linux")
@@ -301,71 +334,43 @@ class GVisorEngine(ExecutionEngine):
                 raise RuntimeError("gVisor runtime not available")
         
         self.runtime = runtime  # 'runsc' for gVisor, 'runc' for standard
-        self.memory_limit = "100m"
-        self.cpu_limit = "0.5"
-        self.timeout = 30
         
+    def _build_docker_command(self, temp_file: str) -> list:
+        """Override parent to add gVisor-specific security features"""
+        docker_cmd = [
+            'docker', 'run',
+            '--rm',                      # Remove container after exit
+        ]
+        
+        # Only add runtime flag if it's runsc (not default runc)
+        if self.runtime == 'runsc':
+            docker_cmd.extend(['--runtime', self.runtime])
+        
+        docker_cmd.extend([
+            '--user', '65534:65534',     # Non-root user (nobody:nogroup)
+            '--network', 'none',         # No network access
+            '--memory', self.memory_limit,          # Memory limit
+            '--cpus', self.cpu_limit,            # CPU limit
+            '--read-only',              # Read-only root filesystem
+            '--tmpfs', '/tmp:size=10M',  # Small writable /tmp
+            '--security-opt', 'no-new-privileges',  # Prevent privilege escalation
+            '-v', f'{temp_file}:/code.py:ro',  # Mount code read-only
+            self.image,
+            'python', '-u', '/code.py'
+        ])
+        
+        return docker_cmd
+    
     def execute(self, code: str, eval_id: str) -> Dict[str, Any]:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-            f.write(code)
-            temp_file = f.name
+        """Use parent's execute but override the result to add runtime info"""
+        result = super().execute(code, eval_id)
         
-        try:
-            # Build Docker command with production safety features
-            docker_cmd = [
-                'docker', 'run',
-                '--rm',                      # Remove container after exit
-            ]
-            
-            # Only add runtime flag if it's runsc (not default runc)
-            if self.runtime == 'runsc':
-                docker_cmd.extend(['--runtime', self.runtime])
-            
-            docker_cmd.extend([
-                '--user', '65534:65534',     # Non-root user (nobody:nogroup)
-                '--network', 'none',         # No network access
-                '--memory', self.memory_limit,          # Memory limit
-                '--cpus', self.cpu_limit,            # CPU limit
-                '--read-only',              # Read-only root filesystem
-                '--tmpfs', '/tmp:size=10M',  # Small writable /tmp
-                '--security-opt', 'no-new-privileges',  # Prevent privilege escalation
-                '-v', f'{temp_file}:/code.py:ro',  # Mount code read-only
-                'python:3.11-slim',
-                'python', '-u', '/code.py'
-            ])
-            
-            result = subprocess.run(
-                docker_cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout
-            )
-            
-            return {
-                'id': eval_id,
-                'status': 'completed' if result.returncode == 0 else 'failed',
-                'output': result.stdout or result.stderr,
-                'runtime': self.runtime,
-                'security': 'production-grade' if self.runtime == 'runsc' else 'standard'
-            }
-            
-        except subprocess.TimeoutExpired:
-            return {
-                'id': eval_id, 
-                'status': 'timeout', 
-                'error': f'Timeout after {self.timeout} seconds',
-                'runtime': self.runtime
-            }
-        except Exception as e:
-            return {
-                'id': eval_id,
-                'status': 'error',
-                'error': str(e),
-                'runtime': self.runtime
-            }
-        finally:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
+        # Add gVisor-specific metadata
+        result['runtime'] = self.runtime
+        if self.runtime == 'runsc':
+            result['security'] = 'production-grade'
+        
+        return result
     
     def get_description(self) -> str:
         if self.runtime == 'runsc':
