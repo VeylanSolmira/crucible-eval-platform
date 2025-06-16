@@ -114,6 +114,7 @@ def main():
     # Storage layer
     if args.memory_storage:
         storage = InMemoryStorage()
+        storage_base = None
     else:
         storage_base = Path("./storage")
         storage_dir = storage_base / "frontier"
