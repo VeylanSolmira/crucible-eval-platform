@@ -214,6 +214,10 @@ class DockerEngine(ExecutionEngine):
             f.write(code)
             temp_file = f.name
         
+        # Make file world-readable so Docker containers can access it
+        # (especially important for gVisor which runs as nobody:65534)
+        os.chmod(temp_file, 0o644)
+        
         try:
             docker_cmd = self._build_docker_command(temp_file)
             
