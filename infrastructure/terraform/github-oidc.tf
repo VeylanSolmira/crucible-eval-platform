@@ -82,27 +82,39 @@ resource "aws_iam_role_policy" "github_actions" {
         ]
       },
       {
-        # SSM permissions for commands
+        # ECR login permission (requires * resource)
+        Effect = "Allow"
+        Action = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        # ECR permissions for specific repository
         Effect = "Allow"
         Action = [
-          "ssm:SendCommand"
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload"
+        ]
+        Resource = aws_ecr_repository.crucible_platform.arn
+      },
+      {
+        # SSM permissions for Docker deployment commands
+        Effect = "Allow"
+        Action = [
+          "ssm:SendCommand",
+          "ssm:GetCommandInvocation",
+          "ssm:ListCommandInvocations"
         ]
         Resource = [
           "arn:aws:ssm:${data.aws_region.current.name}::document/AWS-RunShellScript",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
+          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*",
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:command/*"
         ]
       },
-      # {
-      #   # SSM permissions for command status - not needed after removing status check
-      #   Effect = "Allow"
-      #   Action = [
-      #     "ssm:GetCommandInvocation",
-      #     "ssm:ListCommandInvocations"
-      #   ]
-      #   Resource = [
-      #     "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:command/*"
-      #   ]
-      # },
       {
         # EC2 permissions to find instances
         Effect = "Allow"

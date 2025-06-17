@@ -22,3 +22,12 @@ provider "aws" {
 
 # Data source for current AWS account
 data "aws_caller_identity" "current" {}
+
+# Common tags to be applied to all resources
+locals {
+  common_tags = {
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
+  }
+}

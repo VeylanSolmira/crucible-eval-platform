@@ -6,7 +6,10 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-west-2
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'crucible-platform' }}
+  CONTAINER_NAME: ${{ vars.CONTAINER_NAME || 'crucible-platform' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'crucible-platform' }}
 
 jobs:
   build-and-push:
@@ -30,32 +33,32 @@ jobs:
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
+      with:
+        mask-password: 'true'
     
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: crucible-platform
         IMAGE_TAG: ${{ github.sha }}
       run: |
         # Build the Docker image
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
         
         # Push both tags
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
         
-        echo "✅ Pushed image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        echo "✅ Pushed image: $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
     
     - name: Update SSM parameter with new image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: crucible-platform
         IMAGE_TAG: ${{ github.sha }}
       run: |
         aws ssm put-parameter \
-          --name "/crucible/docker-image" \
-          --value "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+          --name "/${{ env.PROJECT_NAME }}/docker-image" \
+          --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" \
           --type String \
           --overwrite
         
@@ -80,19 +83,19 @@ jobs:
       run: |
         # Find EC2 instances
         INSTANCE_IDS=$(aws ec2 describe-instances \
-          --filters "Name=tag:Project,Values=crucible" "Name=instance-state-name,Values=running" \
+          --filters "Name=tag:Project,Values=${{ env.PROJECT_NAME }}" "Name=instance-state-name,Values=running" \
           --query "Reservations[*].Instances[*].InstanceId" \
           --output text)
         
         if [ -z "$INSTANCE_IDS" ]; then
-          echo "❌ No EC2 instances found with Project=crucible tag"
+          echo "❌ No EC2 instances found with Project=${{ env.PROJECT_NAME }} tag"
           exit 1
         fi
         
         echo "📡 Deploying to instances: $INSTANCE_IDS"
         
         # Get Docker image from SSM
-        DOCKER_IMAGE=$(aws ssm get-parameter --name "/crucible/docker-image" --query 'Parameter.Value' --output text)
+        DOCKER_IMAGE=$(aws ssm get-parameter --name "/${{ env.PROJECT_NAME }}/docker-image" --query 'Parameter.Value' --output text)
         echo "🐳 Deploying Docker image: $DOCKER_IMAGE"
         
         # Send command to update and restart container
@@ -111,12 +114,12 @@ jobs:
             "docker pull '$DOCKER_IMAGE'",
             "",
             "# Stop existing container",
-            "docker stop crucible-platform || true",
-            "docker rm crucible-platform || true",
+            "docker stop ${{ env.CONTAINER_NAME }} || true",
+            "docker rm ${{ env.CONTAINER_NAME }} || true",
             "",
             "# Run new container",
             "docker run -d \\",
-            "  --name crucible-platform \\",
+            "  --name ${{ env.CONTAINER_NAME }} \\",
             "  --restart unless-stopped \\",
             "  -p 8080:8080 \\",
             "  -v /var/run/docker.sock:/var/run/docker.sock \\",
@@ -129,12 +132,12 @@ jobs:
             "",
             "# Check status",
             "sleep 5",
-            "if docker ps | grep -q crucible-platform; then",
+            "if docker ps | grep -q ${{ env.CONTAINER_NAME }}; then",
             "  echo \"✅ Container started successfully\"",
-            "  docker logs crucible-platform --tail 20",
+            "  docker logs ${{ env.CONTAINER_NAME }} --tail 20",
             "else",
             "  echo \"❌ Container failed to start\"",
-            "  docker logs crucible-platform",
+            "  docker logs ${{ env.CONTAINER_NAME }}",
             "  exit 1",
             "fi"
           ]}' \
