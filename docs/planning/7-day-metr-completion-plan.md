@@ -382,3 +382,35 @@ Each day:
 - [ ] Next day preparation
 
 Remember: This is a portfolio piece that demonstrates platform engineering excellence for AI safety infrastructure. Quality > Quantity.
+
+## Future Possibilities & Nice-to-Haves
+
+Low-priority enhancements that could be tackled after core completion:
+
+### Code Quality & Maintainability
+- **Refactor nested replace() in Terraform**: The current nested `replace()` calls in `ec2.tf` for service file templating work but could be cleaner. Consider refactoring to use `templatefile()` directly on the service file for better readability and maintainability.
+
+### Additional Features
+- **Multi-region deployment**: Extend Terraform to support multiple AWS regions
+- **Blue-green deployments**: Implement zero-downtime updates
+- **Observability stack**: Add Prometheus, Grafana, and distributed tracing
+- **Cost optimization**: Spot instances, auto-scaling policies
+- **Enhanced security**: Implement OPA policies, admission webhooks
+- **Performance testing**: Load testing harness with Locust or K6
+- **GitOps with ArgoCD**: Full declarative deployment pipeline
+- **Service mesh**: Istio/Linkerd for advanced traffic management
+
+### Developer Experience
+- **Local development mode**: Simplified setup without cloud dependencies
+- **Integration test suite**: Comprehensive end-to-end tests
+- **API client libraries**: Python/TypeScript SDKs
+- **CLI tool**: Command-line interface for platform management
+- **Development containers**: Codespaces/DevContainer configuration
+
+### Documentation
+- **Video tutorials**: Recorded walkthroughs of key features
+- **Architecture decision records (ADRs)**: Formal documentation of key choices
+- **Runbooks**: Operational procedures for common tasks
+- **Performance benchmarks**: Document system limits and optimization opportunities
+
+These items are explicitly out of scope for the initial 7-day push but represent the natural evolution of the platform.

@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: crucible:local
-    container_name: crucible-platform
+    image: ${PROJECT_NAME:-crucible-platform}:local
+    container_name: ${CONTAINER_NAME:-crucible-platform}
     ports:
       - "8080:8080"
     volumes:

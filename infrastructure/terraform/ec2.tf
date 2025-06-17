@@ -53,9 +53,10 @@ resource "aws_security_group" "eval_server" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "crucible-eval-sg"
-  }
+  tags = merge(local.common_tags, {
+    Name    = "crucible-eval-sg"
+    Purpose = "Security group for evaluation server SSH and internal access"
+  })
 }
 
 # IAM role for EC2 instance (for S3 access)
@@ -74,12 +75,22 @@ resource "aws_iam_role" "eval_server" {
       }
     ]
   })
+
+  tags = merge(local.common_tags, {
+    Name    = "crucible-eval-server-role"
+    Purpose = "IAM role for EC2 instances running evaluation platform"
+  })
 }
 
 # IAM instance profile
 resource "aws_iam_instance_profile" "eval_server" {
   name = "crucible-eval-server-profile"
   role = aws_iam_role.eval_server.name
+
+  tags = merge(local.common_tags, {
+    Name    = "crucible-eval-server-profile"
+    Purpose = "Instance profile for EC2 instances to assume IAM role"
+  })
 }
 
 # Policy for accessing S3 bucket (always needed for S3 deployment)
@@ -173,6 +184,11 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
 resource "aws_key_pair" "eval_server_key" {
   key_name   = "crucible-eval-key"
   public_key = var.ssh_public_key
+
+  tags = merge(local.common_tags, {
+    Name    = "crucible-eval-key"
+    Purpose = "SSH key pair for accessing evaluation servers"
+  })
 }
 
 # EC2 instance
@@ -199,17 +215,20 @@ resource "aws_instance" "eval_server" {
     deployment_key    = var.deployment_key
     ecr_repository_url = aws_ecr_repository.crucible_platform.repository_url
     docker_service_content = replace(
-      file("${path.module}/templates/crucible-docker.service"),
-      "$${ECR_REPOSITORY_URL}",
-      aws_ecr_repository.crucible_platform.repository_url
+      replace(
+        file("${path.module}/templates/crucible-docker.service"),
+        "$${ECR_REPOSITORY_URL}",
+        aws_ecr_repository.crucible_platform.repository_url
+      ),
+      "$${CONTAINER_NAME}",
+      var.project_name
     )
   })
 
-  tags = {
-    Name = "crucible-eval-server"
-    Purpose = "AI evaluation with gVisor"
-    Project = "crucible"
-  }
+  tags = merge(local.common_tags, {
+    Name    = "crucible-eval-server"
+    Purpose = "AI evaluation with gVisor and Docker isolation"
+  })
 
   # Force recreation when user_data changes
   user_data_replace_on_change = true
