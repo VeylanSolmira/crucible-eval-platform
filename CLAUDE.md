@@ -172,6 +172,49 @@ Clear description of the component and its purpose
    - Artifact storage
    - Comprehensive logging
 
+## Git Hooks and GitHub Actions
+
+### Local Git Hooks (.githooks/)
+This repository uses custom Git hooks to prevent accidental exposure of sensitive files:
+
+**`.githooks/pre-push`** - Privacy reminder hook
+- Reminds about sensitive files before pushing
+- Lists files that should NEVER be public (interview-prep.md, CLAUDE.md, etc.)
+- Requires manual confirmation before push
+- Can bypass with `git push --no-verify` if needed
+
+To install the hooks:
+```bash
+git config core.hooksPath .githooks
+```
+
+### GitHub Actions Workflows (.github/workflows/)
+
+**`privacy-check.yml`** - Automated privacy check
+- Runs on every push and PR to main
+- Checks for presence of sensitive files
+- Warns if repository contains interview materials
+- Does NOT fail the build (just warns)
+
+**`deploy-docker.yml`** - Docker deployment pipeline
+- Builds and pushes Docker images to ECR
+- Deploys to EC2 instances via SSM
+- Uses repository variables for configuration
+- Triggers on push to main or manual dispatch
+
+**`deploy.yml`** - S3 deployment (DEPRECATED)
+- Previous deployment method using S3
+- Disabled automatic triggers
+- Kept for reference/emergency use
+
+### Repository Variables
+Set in GitHub Settings → Secrets and variables → Actions → Variables:
+- `AWS_ROLE_ARN` - IAM role for OIDC authentication
+- `AWS_REGION` - Target AWS region (default: us-west-2)
+- `PROJECT_NAME` - Project identifier (default: crucible-platform)
+- `CONTAINER_NAME` - Docker container name
+- `ECR_REPOSITORY` - ECR repository name
+
 ## Commands to Remember
 
 ```bash
@@ -191,6 +234,10 @@ skaffold dev
 kubectl describe pod <pod-name>
 kubectl logs -f deployment/evaluator
 kubectl exec -it <pod-name> -- /bin/bash
+
+# Git hooks
+git config core.hooksPath .githooks  # Install local hooks
+git push --no-verify                  # Bypass pre-push hook
 ```
 
 ## Next Learning Priorities

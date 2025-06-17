@@ -134,7 +134,7 @@ resource "aws_s3_bucket_public_access_block" "results" {
 
 # SSM Parameters for deployment automation
 resource "aws_ssm_parameter" "deployment_bucket" {
-  name  = "/crucible/deployment-bucket"
+  name  = "/${var.project_name}/deployment-bucket"
   type  = "String"
   value = aws_s3_bucket.deployment.id
   
@@ -146,7 +146,7 @@ resource "aws_ssm_parameter" "deployment_bucket" {
 }
 
 resource "aws_ssm_parameter" "deployment_version" {
-  name      = "/crucible/current-version"
+  name      = "/${var.project_name}/current-version"
   type      = "String"
   value     = "initial"
   overwrite = true

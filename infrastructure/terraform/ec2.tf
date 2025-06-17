@@ -146,7 +146,7 @@ resource "aws_iam_role_policy" "eval_server_ssm" {
         Action = [
           "ssm:GetParameter"
         ]
-        Resource = "arn:aws:ssm:*:*:parameter/crucible/*"
+        Resource = "arn:aws:ssm:*:*:parameter/${var.project_name}/*"
       }
     ]
   })
@@ -214,6 +214,7 @@ resource "aws_instance" "eval_server" {
     deployment_bucket = aws_s3_bucket.deployment.id
     deployment_key    = var.deployment_key
     ecr_repository_url = aws_ecr_repository.crucible_platform.repository_url
+    project_name      = var.project_name
     docker_service_content = replace(
       replace(
         file("${path.module}/templates/crucible-docker.service"),

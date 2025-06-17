@@ -28,6 +28,7 @@ ExecStart=/usr/bin/docker run \
     -e DOCKER_HOST=unix:///var/run/docker.sock \
     -e BIND_HOST=0.0.0.0 \
     -e HOST_PWD=/home/ubuntu \
+    -e STORAGE_BASE=/app/storage \
     ${ECR_REPOSITORY_URL}:latest
 
 # Cleanup on stop

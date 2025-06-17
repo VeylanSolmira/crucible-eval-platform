@@ -45,10 +45,10 @@ apt-get install -y python3.11 python3.11-venv python3-pip
 apt-get install -y git jq awscli
 
 # Create application directory structure
-mkdir -p /home/ubuntu/crucible
+mkdir -p /home/ubuntu/${project_name}
 mkdir -p /home/ubuntu/storage
-mkdir -p /var/log/crucible
-chown -R ubuntu:ubuntu /home/ubuntu/crucible /home/ubuntu/storage /var/log/crucible
+mkdir -p /var/log/${project_name}
+chown -R ubuntu:ubuntu /home/ubuntu/${project_name} /home/ubuntu/storage /var/log/${project_name}
 
 # Configure AWS CLI for ECR
 aws configure set default.region $(ec2-metadata --availability-zone | sed 's/placement: //' | sed 's/.$//')
@@ -57,14 +57,14 @@ aws configure set default.region $(ec2-metadata --availability-zone | sed 's/pla
 cat > /usr/local/bin/docker-ecr-login << 'EOFSCRIPT'
 #!/bin/bash
 REGION=$(ec2-metadata --availability-zone | sed 's/placement: //' | sed 's/.$//')
-aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $(aws ecr describe-repositories --repository-names crucible-platform --query 'repositories[0].repositoryUri' --output text | cut -d/ -f1)
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $(aws ecr describe-repositories --repository-names ${project_name} --query 'repositories[0].repositoryUri' --output text | cut -d/ -f1)
 EOFSCRIPT
 chmod +x /usr/local/bin/docker-ecr-login
 
 # Register this instance as ready for deployment
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 aws ssm put-parameter \
-    --name "/crucible/instances/$INSTANCE_ID/status" \
+    --name "/${project_name}/instances/$INSTANCE_ID/status" \
     --value "ready" \
     --type "String" \
     --overwrite 2>/dev/null || true
@@ -72,7 +72,7 @@ aws ssm put-parameter \
 # Store deployment bucket name if provided
 if [ -n "${deployment_bucket}" ]; then
     aws ssm put-parameter \
-        --name "/crucible/instances/$INSTANCE_ID/deployment-bucket" \
+        --name "/${project_name}/instances/$INSTANCE_ID/deployment-bucket" \
         --value "${deployment_bucket}" \
         --type "String" \
         --overwrite 2>/dev/null || true
@@ -110,8 +110,8 @@ To deploy the application:
    systemctl status crucible-docker
    
    # Container logs
-   docker logs crucible-platform
-   journalctl -u crucible-docker -f
+   docker logs ${project_name}
+   journalctl -u ${project_name}-docker -f
 
 Instance Status:
 - Infrastructure: ✅ Ready (Docker + gVisor installed)
