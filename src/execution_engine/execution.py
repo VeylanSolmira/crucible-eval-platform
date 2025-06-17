@@ -188,18 +188,35 @@ class DockerEngine(ExecutionEngine):
         self.memory_limit = "100m"
         self.cpu_limit = "0.5"
         self.timeout = 30
-        # Default to ~/crucible/storage if not specified
-        self.temp_base_dir = temp_base_dir or os.path.expanduser("~/crucible/storage")
+        # Use STORAGE_BASE from environment if available (for containerized deployments)
+        # Otherwise default to ~/crucible/storage
+        default_base = os.environ.get('STORAGE_BASE') or os.path.expanduser("~/crucible/storage")
+        self.temp_base_dir = temp_base_dir or default_base
     
     def _build_docker_command(self, temp_file: str) -> list:
         """Build the docker command. Can be overridden by subclasses."""
+        # When running inside a container, we need to map container paths to host paths
+        # for Docker Desktop to be able to mount them
+        mount_path = temp_file
+        
+        # Check if we're running inside a container and using /app/storage
+        if temp_file.startswith('/app/storage/') and os.environ.get('STORAGE_BASE') == '/app/storage':
+            # Get the absolute host path from PWD (working directory on host)
+            # This assumes docker-compose was run from the project root
+            host_pwd = os.environ.get('HOST_PWD', os.getcwd())
+            # Replace /app/storage with ./storage relative to host
+            relative_path = temp_file.replace('/app/storage/', '')
+            mount_path = os.path.join(host_pwd, 'storage', relative_path)
+            
         return [
             'docker', 'run',
             '--rm', '--network', 'none',
             '--memory', self.memory_limit, 
             '--cpus', self.cpu_limit,
             '--read-only',
-            '-v', f'{temp_file}:/code.py:ro',
+            '--cap-drop', 'ALL',  # Drop all capabilities
+            '--security-opt', 'no-new-privileges',
+            '-v', f'{mount_path}:/code.py:ro',
             self.image,
             'python', '/code.py'
         ]
@@ -431,3 +448,50 @@ class GVisorEngine(DockerEngine):
                 self.assertIn('Operation not permitted', result['output'])
         
         return unittest.TestLoader().loadTestsFromTestCase(GVisorEngineTests)
+
+
+class DisabledEngine(ExecutionEngine):
+    """
+    Execution engine that always returns errors.
+    
+    Used when no secure execution environment is available, allowing
+    the platform to start and serve the web interface while clearly
+    indicating that code execution is disabled.
+    """
+    
+    def __init__(self, error_msg: str = "No execution engine available"):
+        """Initialize with a specific error message explaining why execution is disabled."""
+        self.error_msg = error_msg
+        
+    def execute(self, code: str, eval_id: str) -> Dict[str, Any]:
+        """Return an error for any execution attempt."""
+        return {
+            'id': eval_id,
+            'status': 'error',
+            'error': f'Code execution disabled: {self.error_msg}'
+        }
+        
+    def get_description(self) -> str:
+        """Describe the disabled state."""
+        return f"Disabled - {self.error_msg}"
+        
+    def health_check(self) -> Dict[str, Any]:
+        """Report unhealthy status with reason."""
+        return {
+            'healthy': False,
+            'reason': self.error_msg,
+            'engine_type': 'disabled'
+        }
+        
+    def self_test(self) -> Dict[str, Any]:
+        """Return test results showing engine is disabled."""
+        return {
+            'passed': True,  # Not failing, just disabled
+            'tests_passed': ['engine_disabled_check'],
+            'tests_failed': [],
+            'message': f'Engine disabled: {self.error_msg}'
+        }
+    
+    def get_test_suite(self) -> unittest.TestSuite:
+        """Return empty test suite - nothing to test for disabled engine."""
+        return unittest.TestSuite()

@@ -14,7 +14,8 @@ from ..execution_engine.execution import (
     ExecutionEngine,
     SubprocessEngine,
     DockerEngine,
-    GVisorEngine
+    GVisorEngine,
+    DisabledEngine
 )
 
 # Monitoring

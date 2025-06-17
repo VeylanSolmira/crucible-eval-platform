@@ -389,21 +389,26 @@ class RESTfulAPIHandler:
         """Configure route mappings to API service methods"""
         
         def eval_sync(request: APIRequest) -> APIResponse:
-            """Synchronous evaluation endpoint"""
-            data = request.json()
-            if not data or 'code' not in data:
-                return APIResponse.json({'error': 'Missing code parameter'}, 400)
-                
-            try:
-                result = self.api.process_evaluation(data['code'])
-                return APIResponse.json(result)
-            except ValueError as e:
-                return APIResponse.json({'error': str(e)}, 400)
-            except Exception as e:
-                return APIResponse.json({
-                    'error': str(e),
-                    'type': type(e).__name__
-                }, 500)
+            """Synchronous evaluation endpoint (DEPRECATED)"""
+            # Return deprecation warning
+            return APIResponse.json({
+                'error': 'Synchronous evaluation is deprecated',
+                'message': 'This endpoint is deprecated due to timeout issues with long-running evaluations. Please use POST /eval-async instead.',
+                'alternative': {
+                    'endpoint': '/eval-async',
+                    'method': 'POST',
+                    'description': 'Returns immediately with an eval_id to poll for results'
+                }
+            }, 410)  # 410 Gone - indicates deprecated/removed functionality
+            
+            # Original implementation (disabled):
+            # data = request.json()
+            # if not data or 'code' not in data:
+            #     return APIResponse.json({'error': 'Missing code parameter'}, 400)
+            # try:
+            #     result = self.api.process_evaluation(data['code'])
+            #     return APIResponse.json(result)
+            # except...
                 
         def eval_async(request: APIRequest) -> APIResponse:
             """Asynchronous evaluation endpoint"""
@@ -459,12 +464,57 @@ class RESTfulAPIHandler:
                     'type': type(e).__name__
                 }, 500)
                 
+        def openapi_spec(_request: APIRequest) -> APIResponse:
+            """Serve OpenAPI specification"""
+            import os
+            from pathlib import Path
+            
+            # Look for OpenAPI spec file
+            spec_paths = [
+                Path("api/openapi.yaml"),
+                Path("api/openapi.json"),
+                Path(__file__).parent.parent.parent / "api" / "openapi.yaml"
+            ]
+            
+            for spec_path in spec_paths:
+                if spec_path.exists():
+                    try:
+                        with open(spec_path, 'r') as f:
+                            content = f.read()
+                            
+                        # Determine content type based on file extension
+                        if spec_path.suffix == '.yaml':
+                            return APIResponse(
+                                status_code=200,
+                                body=content.encode(),
+                                headers={'Content-Type': 'application/yaml'}
+                            )
+                        else:
+                            return APIResponse(
+                                status_code=200,
+                                body=content.encode(),
+                                headers={'Content-Type': 'application/json'}
+                            )
+                    except Exception as e:
+                        return APIResponse.json({
+                            'error': f'Failed to read OpenAPI spec: {str(e)}',
+                            'type': type(e).__name__
+                        }, 500)
+                        
+            return APIResponse.json({
+                'error': 'OpenAPI specification not found',
+                'paths_checked': [str(p) for p in spec_paths]
+            }, 404)
+                
         # Register routes
         self.routes[(HTTPMethod.POST, '/eval')] = eval_sync
         self.routes[(HTTPMethod.POST, '/eval-async')] = eval_async
         self.routes[(HTTPMethod.GET, '/eval-status/{eval_id}')] = eval_status
         self.routes[(HTTPMethod.GET, '/status')] = platform_status
         self.routes[(HTTPMethod.GET, '/queue-status')] = queue_status
+        self.routes[(HTTPMethod.GET, '/openapi.yaml')] = openapi_spec
+        self.routes[(HTTPMethod.GET, '/openapi.json')] = openapi_spec
+        self.routes[(HTTPMethod.GET, '/spec')] = openapi_spec
         
     def handle_request(self, request: APIRequest) -> APIResponse:
         """

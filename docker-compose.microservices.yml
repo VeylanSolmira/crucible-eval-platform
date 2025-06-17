@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Main platform - no Docker access needed
+  crucible-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crucible:platform
+    container_name: crucible-platform
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./storage:/app/storage
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      - BIND_HOST=0.0.0.0
+      # Tell platform to use remote execution service
+      - EXECUTION_MODE=remote
+      - EXECUTION_SERVICE_URL=http://crucible-executor:8081
+    networks:
+      - crucible-net
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: appuser  # Can run as non-root!
+
+  # Execution service - has Docker access
+  crucible-executor:
+    build:
+      context: .
+      dockerfile: Dockerfile.executor
+    image: crucible:executor
+    container_name: crucible-executor
+    volumes:
+      # This service needs Docker access
+      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
+      - ./storage:/app/storage
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    networks:
+      - crucible-net
+    restart: unless-stopped
+    # This container needs docker group access
+    group_add:
+      - "999"  # docker group - adjust based on system
+
+networks:
+  crucible-net:
+    driver: bridge
+
+volumes:
+  storage:

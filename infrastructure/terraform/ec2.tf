@@ -141,6 +141,28 @@ resource "aws_iam_role_policy" "eval_server_ssm" {
   })
 }
 
+# Policy for accessing ECR (for Docker image pulls)
+resource "aws_iam_role_policy" "eval_server_ecr" {
+  name = "crucible-eval-server-ecr-policy"
+  role = aws_iam_role.eval_server.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # Attach AWS managed policy for SSM
 resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
   role       = aws_iam_role.eval_server.name
@@ -175,6 +197,12 @@ resource "aws_instance" "eval_server" {
     github_branch     = var.github_branch
     deployment_bucket = aws_s3_bucket.deployment.id
     deployment_key    = var.deployment_key
+    ecr_repository_url = aws_ecr_repository.crucible_platform.repository_url
+    docker_service_content = replace(
+      file("${path.module}/templates/crucible-docker.service"),
+      "$${ECR_REPOSITORY_URL}",
+      aws_ecr_repository.crucible_platform.repository_url
+    )
   })
 
   tags = {

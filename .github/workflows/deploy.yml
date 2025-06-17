@@ -1,8 +1,9 @@
-name: Deploy to S3
+name: Deploy to S3 (DEPRECATED - Use deploy-docker.yml)
 
 on:
-  push:
-    branches: [ main ]
+  # Disabled automatic triggers - moving to Docker deployment
+  # push:
+  #   branches: [ main ]
   workflow_dispatch:
 
 jobs:

@@ -50,12 +50,12 @@ class FrontendType(Enum):
 class FrontendConfig:
     """Configuration for frontend services"""
     # Server configuration
-    host: str = "localhost"
+    host: str = os.environ.get('BIND_HOST', 'localhost')  # Configurable bind address
     port: int = 8080
     
     # API integration
     api_base_url: str = "/api"
-    platform_host: str = "localhost"
+    platform_host: str = os.environ.get('PLATFORM_HOST', 'localhost')
     platform_port: int = 8000
     
     # Frontend features

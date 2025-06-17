@@ -735,4 +735,273 @@ git push origin main
 # ✅ Deployment complete notification
 ```
 
+---
+
+## Chapter 10: The Containerization Quest
+
+### Problem: "Works on my machine" isn't good enough
+
+**The Local Success Story**
+```bash
+python app.py
+# ✅ Works perfectly!
+# 🎉 Code execution working
+# 🚀 Ready for production!
+```
+
+**The Container Reality Check**
+```bash
+docker build -t crucible .
+docker run crucible
+# ❌ Permission denied: /var/run/docker.sock
+# 😱 Wait, what?
+```
+
+---
+
+## The Docker Permission Saga
+
+### The Security Best Practice Trap
+
+**What Security Says:**
+```dockerfile
+# Create non-root user
+RUN useradd -m appuser
+USER appuser  # ✅ Security best practice!
+```
+
+**What Reality Says:**
+```bash
+# Error: Permission denied
+# Docker socket needs privileges
+# Your security broke functionality
+```
+
+**The Attempted Solutions:**
+
+**1. The Group Permission Dance**
+```yaml
+group_add:
+  - "999"  # Docker group... maybe?
+```
+- Problem: Group ID varies by system
+- macOS: Doesn't even exist
+- Linux: Different on each distro
+
+**2. The Runtime Permission Fix**
+```bash
+#!/bin/bash
+# Fix permissions at container start?
+chmod 666 /var/run/docker.sock  # 🚨 Security nightmare!
+```
+
+**3. The Architecture Escape**
+```
+"Maybe we should split into microservices?"
+┌─────────────┐     ┌──────────────┐
+│  Platform   │────▶│  Executor    │
+│ (safe user) │     │ (root user)  │
+└─────────────┘     └──────────────┘
+```
+
+---
+
+## The Docker-in-Docker Mind Bender
+
+### Problem: Container paths != Host paths
+
+**The Confusion:**
+```
+Container 1: "Mount /app/storage/file.py"
+Docker: "Looking on host... not found!"
+Container 1: "But it's right here!"
+Docker: "I can't see inside containers!"
+```
+
+**The Visualization:**
+```
+HOST MACHINE               CONTAINER 1           CONTAINER 2
+/Users/.../storage/ ──────▶ /app/storage/ ──?──▶ ❌ FAIL
+     ↑                           ↓
+     │                           │
+     └───── Docker sees this ────┘
+            NOT this!
+```
+
+**The Solution: Path Translation**
+```python
+# Container path: /app/storage/tmp/file.py
+# Host path: $PWD/storage/tmp/file.py
+
+if path.startswith('/app/storage/'):
+    host_path = path.replace('/app/storage/', f'{PWD}/storage/')
+```
+
+---
+
+## The Pragmatic Resolution
+
+### When Perfect is the Enemy of Good
+
+**The Decision Tree:**
+```
+Need Docker access in container?
+├─ Yes
+│  ├─ Spend weeks on "perfect" security?
+│  │  └─ No, this is a demo
+│  └─ Document and use root?
+│     └─ Yes, with clear explanation
+└─ Ship working code
+```
+
+**The Documented Trade-off:**
+```dockerfile
+# PRAGMATIC DECISION: Running as root for Docker socket
+# In production, would use:
+# - Kubernetes Jobs (no socket needed)
+# - Separate execution service
+# - Docker socket proxy
+#
+# For demo: accept trade-off, document clearly
+# USER appuser  # Commented out - need root
+```
+
+---
+
+## Lessons from the Container Journey
+
+### 1. The Abstraction Layer Trap
+Each layer adds complexity:
+- Local Python → Works
+- Add Docker → Permission issues
+- Add Docker-in-Docker → Path confusion
+- Add Security → Nothing works
+
+### 2. Understanding > Cleverness
+The path translation wasn't clever code.
+It was deep understanding of how Docker works.
+
+### 3. Documentation as a Feature
+```python
+# Bad: Silent security compromise
+USER root
+
+# Good: Explained pragmatic choice
+# PRAGMATIC DECISION: [explanation]
+# In production: [better solution]
+# Trade-off: [what we're accepting]
+USER root
+```
+
+---
+
+## The Production Touches
+
+### OpenAPI: Because Professionals Have Standards
+
+**Before:** Mystery meat API
+```bash
+curl http://localhost:8080/api/???
+# 🤷 What endpoints exist?
+```
+
+**After:** Discoverable, documented API
+```bash
+curl http://localhost:8080/api/openapi.yaml
+# 📚 Full API specification
+# 🔧 Import to Postman
+# 🏗️ Generate client SDKs
+# 📖 Always up-to-date docs
+```
+
+**Industry Standard Endpoints:**
+- `/api/openapi.yaml` - YAML format
+- `/api/openapi.json` - JSON format  
+- `/api/spec` - Generic spec endpoint
+
+---
+
+## The Meta Journey
+
+### What We Built vs What We Learned
+
+**Built:**
+- ✅ Working containerized platform
+- ✅ Docker-based code execution
+- ✅ OpenAPI-documented API
+- ✅ Pragmatic security model
+
+**Learned:**
+- 🧠 Docker's architecture deeply
+- 🔐 Security vs functionality trade-offs
+- 🗺️ Path translation techniques
+- 📝 Importance of documentation
+- 🎯 Pragmatism over perfection
+
+**The Real Achievement:**
+Not the code that works,
+but understanding WHY it works.
+
+---
+
+## The Continuing Story
+
+### From MVP to Production-Ready
+
+**The Evolution:**
+```
+extreme_mvp.py
+    ↓
+Modular components
+    ↓
+Full test coverage
+    ↓
+Containerized deployment
+    ↓
+Production patterns (OpenAPI)
+    ↓
+Ready for scale
+```
+
+**Still Human + AI:**
+- Every bug we debugged together
+- Every solution we discovered together
+- Every trade-off we documented together
+
+**The Platform Journey Mirrors the AI Safety Journey:**
+- Start with good intentions
+- Hit real-world complexity
+- Make pragmatic choices
+- Document everything
+- Keep improving
+
+🤖 + 👤 = 🚀
+
+**The code ships.**
+**The learning continues.**
+**The collaboration deepens.**
+
+---
+
+## Next: The Cloud Native Future
+
+Coming attractions:
+- Kubernetes orchestration
+- Horizontal scaling
+- Multi-region deployment
+- Enterprise security patterns
+
+But that's another story...
+
+**For now: We have a working platform!**
+```bash
+docker compose up
+# ✅ Platform running
+# ✅ Code execution working
+# ✅ API documented
+# ✅ Ready for users
+```
+
+**From "Hello World" to "Hello Production" in one incredible journey.**
+
 **Next Evolution:** GitHub Actions for true push-to-deploy automation
