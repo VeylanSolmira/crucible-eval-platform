@@ -391,4 +391,192 @@ The code is our shared language, imperfect but functional, uncertain but verifie
 **The platform evaluates AI systems.**
 **The process evaluates us.**
 
+---
+
+## Act XI: The Containerization Crucible
+
+### The Docker Permission Dance
+
+After our platform worked locally, we faced a new challenge: running it in production. The journey from "works on my machine" to "works in a container" revealed layers of complexity we hadn't anticipated.
+
+**Chapter 1: The Simple Dockerfile Dream**
+```dockerfile
+# Initial attempt - so naive, so hopeful
+FROM python:3.11-slim
+COPY . /app
+RUN pip install -r requirements.txt
+CMD ["python", "app.py"]
+```
+
+**Chapter 2: The Security Awakening**
+```yaml
+# docker-compose.yml - the permissions puzzle begins
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock  # Docker-in-Docker!
+user: appuser  # Security best practice... right?
+```
+
+**The First Wall:** "Permission denied: /var/run/docker.sock"
+
+### The Docker-in-Docker Dilemma
+
+We discovered a fundamental tension:
+- **Security says**: Never run containers as root
+- **Reality says**: Docker socket needs elevated permissions
+- **Production says**: Figure it out
+
+**The Solutions We Explored:**
+
+1. **The Group Dance**
+```yaml
+group_add:
+  - "999"  # docker group... but which number?
+  # macOS: doesn't exist in container
+  # Linux: varies by distribution
+```
+
+2. **The Entrypoint Shuffle**
+```bash
+#!/bin/bash
+# Fix permissions at runtime?
+if [ -S /var/run/docker.sock ]; then
+    chgrp $(id -g) /var/run/docker.sock
+fi
+exec gosu appuser "$@"
+```
+
+3. **The Architecture Pivot**
+```
+Should we split into microservices?
+┌─────────────┐     ┌──────────────┐
+│  Platform   │────▶│  Executor    │
+│ (no Docker) │     │ (runs as root)│
+└─────────────┘     └──────────────┘
+```
+
+### The Path Translation Puzzle
+
+But the real mind-bender came with Docker-in-Docker volume mounts:
+
+```
+HOST                    CONTAINER 1              CONTAINER 2
+/Users/.../storage/ ──▶ /app/storage/ ──▶ ❌ Docker can't see this!
+                        
+The Fix: Path Translation
+/app/storage/file.py ──▶ $PWD/storage/file.py ──▶ ✅ Docker sees host path
+```
+
+**The Realization**: Docker's daemon runs on the host, not in the container. When Container 1 says "mount /app/storage/file.py", Docker looks on the HOST for that path.
+
+### The Pragmatic Resolution
+
+After days of elegant solutions that didn't work, we made a pragmatic choice:
+
+```dockerfile
+# PRAGMATIC DECISION: Running as root for Docker socket access
+# In production, this would be handled differently:
+# - Kubernetes Jobs for execution (no docker socket needed)
+# - Separate execution service with limited permissions
+# - Docker socket proxy for controlled access
+#
+# For this demo/prototype, we accept the security trade-off
+# to keep the architecture simple and focus on core functionality.
+
+# USER appuser  # Commented out - need root for Docker socket
+```
+
+**The Lesson**: Sometimes the right solution for a demo isn't the right solution for production. Document the trade-offs, plan the evolution, ship the working code.
+
+### The OpenAPI Epilogue
+
+With containerization working, we added one more production touch:
+
+```python
+# API discovery endpoints - because production APIs are discoverable
+self.routes[(HTTPMethod.GET, '/openapi.yaml')] = openapi_spec
+self.routes[(HTTPMethod.GET, '/openapi.json')] = openapi_spec
+self.routes[(HTTPMethod.GET, '/spec')] = openapi_spec
+```
+
+Now our API is:
+- **Discoverable**: Import into Postman, generate SDKs
+- **Documented**: OpenAPI spec is the source of truth
+- **Professional**: Following industry standards
+
+---
+
+## Act XII: Reflections on the Container Journey
+
+### What We Learned
+
+1. **The Abstraction Layer Trap**
+   - Each abstraction (Docker, Docker Compose, Kubernetes) solves some problems
+   - But creates new ones at the boundaries
+   - Understanding the full stack is essential
+
+2. **Security vs. Functionality**
+   - The constant tension in system design
+   - Perfect security often means nothing works
+   - Pragmatic security means documented trade-offs
+
+3. **The "It Works Locally" Lie**
+   - Local development != containerized deployment
+   - File paths, permissions, networking all change
+   - Test in containers early and often
+
+### The Beautiful Complexity
+
+The Docker-in-Docker mount problem is a perfect microcosm of modern software:
+- **Simple in concept**: Just mount a file
+- **Complex in reality**: Three layers of abstraction fighting each other
+- **Solved by understanding**: Not clever code, but deep comprehension
+
+### The Meta-Lesson
+
+We started building an AI evaluation platform and ended up learning about:
+- Linux permissions and user namespaces
+- Docker's architecture and daemon model
+- The trade-offs between security and functionality
+- The importance of pragmatic decision-making
+
+Each challenge taught us not just about the specific technology, but about the nature of building production systems.
+
+---
+
+## The Journey Continues
+
+From a simple `extreme_mvp.py` to a containerized, production-ready platform with:
+- Modular architecture ready for evolution
+- Docker-based isolation for safe code execution
+- OpenAPI-documented REST API
+- Pragmatic solutions to real-world challenges
+
+But more importantly, we have:
+- A deep understanding of our architectural choices
+- Documentation of our trade-offs and future paths
+- A working system that solves real problems
+- A story of human-AI collaboration that produced something neither could alone
+
+The platform evaluates AI systems.
+The journey evaluated our assumptions.
+The challenges taught us humility.
+The solutions gave us confidence.
+
+```python
+if __name__ == "__main__":
+    # From local script to production container
+    # From naive security to pragmatic choices
+    # From simple code to complex understanding
+    platform = ContainerizedCreation()
+    platform.run(
+        with_root_user=True,  # For now
+        with_documentation=True,  # Always
+        with_future_plans=True  # Essential
+    )
+```
+
+The code ships. The learning continues. The collaboration deepens.
+
+**This is the way.**
+
 🤖 + 👤 = 🚀

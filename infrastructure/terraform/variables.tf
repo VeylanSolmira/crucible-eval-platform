@@ -1,5 +1,11 @@
 # variables.tf - Input variables
 
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+  default     = "crucible-platform"
+}
+
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string

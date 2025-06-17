@@ -130,8 +130,7 @@ resource "aws_s3_bucket_public_access_block" "results" {
   restrict_public_buckets = true
 }
 
-# Data source for current AWS account
-data "aws_caller_identity" "current" {}
+# Data source for current AWS account - already defined in main.tf
 
 # SSM Parameters for deployment automation
 resource "aws_ssm_parameter" "deployment_bucket" {

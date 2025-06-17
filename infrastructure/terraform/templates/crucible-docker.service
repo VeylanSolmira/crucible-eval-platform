@@ -1,0 +1,37 @@
+[Unit]
+Description=Crucible Platform Docker Container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=30
+StartLimitInterval=0
+
+# Login to ECR before starting
+ExecStartPre=/usr/local/bin/docker-ecr-login
+# Pull latest image
+ExecStartPre=/usr/bin/docker pull ${ECR_REPOSITORY_URL}:latest
+# Stop old container if exists
+ExecStartPre=-/usr/bin/docker stop crucible-platform
+ExecStartPre=-/usr/bin/docker rm crucible-platform
+
+# Run container
+ExecStart=/usr/bin/docker run \
+    --name crucible-platform \
+    --rm \
+    -p 8080:8080 \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /home/ubuntu/storage:/app/storage \
+    -e PYTHONUNBUFFERED=1 \
+    -e DOCKER_HOST=unix:///var/run/docker.sock \
+    -e BIND_HOST=0.0.0.0 \
+    -e HOST_PWD=/home/ubuntu \
+    ${ECR_REPOSITORY_URL}:latest
+
+# Cleanup on stop
+ExecStop=/usr/bin/docker stop crucible-platform
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,7 @@ Run with: python extreme_mvp_frontier_events.py [--unsafe] [--fastapi] [--test] 
 """
 
 import sys
+import os
 import time
 import argparse
 from pathlib import Path
@@ -19,9 +20,9 @@ from src.core.core import QueuedEvaluationPlatform
 
 # Import ALL modular components from components helper
 from src.core.components import (
-    SubprocessEngine,
     DockerEngine,
     GVisorEngine,
+    DisabledEngine,
     AdvancedMonitor,
     TaskQueue,
     FileStorage,
@@ -39,7 +40,6 @@ def main():
     """Clean main entry point - just wire components together"""
     
     parser = argparse.ArgumentParser(description='Crucible Frontier')
-    parser.add_argument('--unsafe', action='store_true', help='Use subprocess only')
     parser.add_argument('--require-gvisor', action='store_true', help='Require gVisor runtime (fail if unavailable)')
     parser.add_argument('--fastapi', action='store_true', help='Use FastAPI')
     parser.add_argument('--test', action='store_true', help='Run tests only')
@@ -57,51 +57,55 @@ def main():
         print("   with OpenAPI validation")
     print()
     
-    # Select execution engine (gVisor > Docker > subprocess)
-    if args.unsafe:
-        engine = SubprocessEngine()
-        print("⚠️  Using subprocess (--unsafe mode)")
+    # Try to set up execution engine, but don't fail if unavailable
+    import platform
+    engine = None
+    execution_available = False
+    execution_error = None
+    
+    print("🔍 Checking execution engine availability...")
+    
+    # Check if gVisor is required but unavailable
+    if args.require_gvisor and platform.system() != 'Linux':
+        execution_error = "gVisor (runsc) is only available on Linux"
+        print(f"❌ ERROR: {execution_error}")
+        print("   You are running on:", platform.system())
     else:
-        import platform
-        
-        # Check if gVisor is required but unavailable
-        if args.require_gvisor and platform.system() != 'Linux':
-            print("❌ ERROR: gVisor (runsc) is only available on Linux")
-            print("   You are running on:", platform.system())
-            print("   Remove --require-gvisor flag or run on Linux")
-            sys.exit(1)
-        
         # Try to initialize engines based on platform
         if platform.system() == 'Linux' or args.require_gvisor:
             try:
                 engine = GVisorEngine()
                 print("🛡️  Using gVisor (most secure)")
+                execution_available = True
             except Exception as e:
                 if args.require_gvisor:
-                    print("❌ ERROR: gVisor required but not available")
-                    print("   Reason:", str(e))
-                    print("   Install gVisor or remove --require-gvisor flag")
-                    sys.exit(1)
+                    execution_error = f"gVisor required but not available: {e}"
+                    print(f"❌ ERROR: {execution_error}")
                 else:
                     # Fall back to Docker
                     try:
                         engine = DockerEngine()
                         print("🐳 Using Docker (secure container isolation)")
+                        execution_available = True
                     except Exception as e:
-                        print(f"⚠️  Docker not available: {e}")
-                        print("   Falling back to subprocess (least secure)")
-                        print("   For better security, please install Docker")
-                        engine = SubprocessEngine()
+                        execution_error = f"Docker not available: {e}"
+                        print(f"⚠️  WARNING: {execution_error}")
         else:
             # macOS, Windows, etc - use Docker as the secure default
             try:
                 engine = DockerEngine()
                 print("🐳 Using Docker (secure container isolation)")
+                execution_available = True
             except Exception as e:
-                print(f"⚠️  Docker not available: {e}")
-                print("   Falling back to subprocess (least secure)")
-                print("   For better security, please install Docker Desktop")
-                engine = SubprocessEngine()
+                execution_error = f"Docker not available: {e}"
+                print(f"⚠️  WARNING: {execution_error}")
+    
+    if not execution_available:
+        print("   ⚠️  Code execution is disabled - web interface will still work")
+        print("   ⚠️  To enable code execution, ensure Docker is accessible")
+        
+        # Use the DisabledEngine when no secure execution is available
+        engine = DisabledEngine(execution_error or "No execution engine available")
     
     # Create event bus first - it's the backbone
     event_bus = EventBus()
@@ -123,7 +127,7 @@ def main():
     
     # Platform (skip tests by default for faster startup)
     platform = QueuedEvaluationPlatform(
-        engine=engine,
+        engine=engine,  # Now engine is always defined (might be DisabledEngine)
         queue=queue,
         monitor=monitor,
         run_tests=args.test  # Only run tests if --test flag is passed
@@ -182,8 +186,8 @@ def main():
         print("\n🔒 Running safe security demos...")
         print("   These demos show security concepts without performing attacks")
         try:
-            from security_scenarios.safe_demo_scenarios import SAFE_DEMO_SCENARIOS
-            from security_scenarios.security_runner import SecurityTestRunner
+            from src.security_scanner.scenarios.safe_demo_scenarios import SAFE_DEMO_SCENARIOS
+            from src.security_scanner.security_runner import SecurityTestRunner
             
             # Use explicit scenario passing - no monkey patching!
             runner = SecurityTestRunner(
@@ -210,8 +214,8 @@ def main():
             return 0
             
         try:
-            from security_scenarios.attack_scenarios import ATTACK_SCENARIOS
-            from security_scenarios.security_runner import SecurityTestRunner
+            from src.security_scanner.scenarios.attack_scenarios import ATTACK_SCENARIOS
+            from src.security_scanner.security_runner import SecurityTestRunner
             
             # Explicit scenario passing - clear what we're running
             runner = SecurityTestRunner(
@@ -240,7 +244,8 @@ def main():
         return 0 if passed == len(components) else 1
     
     # Start integrated server
-    print(f"\n🚀 Integrated server starting on http://localhost:{args.port}")
+    bind_host = os.environ.get('BIND_HOST', 'localhost')
+    print(f"\n🚀 Integrated server starting on http://{bind_host}:{args.port}")
     print("   - Frontend routes: /, /assets/*")
     print("   - API routes: /api/*")
     print("📊 Event history available at: /events")

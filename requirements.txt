@@ -31,7 +31,7 @@
 
 # OpenAPI-first development (optional but recommended)
 openapi-core>=0.18.0  # Request/response validation
-# pyyaml>=6.0           # YAML parsing for OpenAPI specs
+pyyaml>=6.0           # YAML parsing for OpenAPI specs
 # jsonschema>=4.0.0     # JSON schema validation
 
 # Optional: For generating documentation

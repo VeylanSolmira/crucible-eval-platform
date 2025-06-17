@@ -56,8 +56,17 @@ paths:
   /eval:
     post:
       tags: [evaluations]
-      summary: Submit synchronous evaluation
+      summary: Submit synchronous evaluation (DEPRECATED - Use /eval-async instead)
+      deprecated: true
       operationId: evaluateSync
+      description: |
+        **⚠️ DEPRECATED**: Synchronous evaluation is not recommended for production use.
+        
+        This endpoint will timeout for evaluations taking longer than 30 seconds.
+        Please use `/eval-async` instead, which returns immediately with an evaluation ID
+        that can be used to poll for results.
+        
+        This endpoint will be removed in v2.0.
       requestBody:
         required: true
         content:
@@ -66,13 +75,19 @@ paths:
               $ref: '#/components/schemas/EvaluationRequest'
       responses:
         '200':
-          description: Evaluation completed
+          description: Evaluation completed (only for very fast executions)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvaluationResult'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '408':
+          description: Request timeout - evaluation took too long
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/InternalError'
 

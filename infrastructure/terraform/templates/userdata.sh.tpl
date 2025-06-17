@@ -46,8 +46,20 @@ apt-get install -y git jq awscli
 
 # Create application directory structure
 mkdir -p /home/ubuntu/crucible
+mkdir -p /home/ubuntu/storage
 mkdir -p /var/log/crucible
-chown -R ubuntu:ubuntu /home/ubuntu/crucible /var/log/crucible
+chown -R ubuntu:ubuntu /home/ubuntu/crucible /home/ubuntu/storage /var/log/crucible
+
+# Configure AWS CLI for ECR
+aws configure set default.region $(ec2-metadata --availability-zone | sed 's/placement: //' | sed 's/.$//')
+
+# Create docker login helper script
+cat > /usr/local/bin/docker-ecr-login << 'EOFSCRIPT'
+#!/bin/bash
+REGION=$(ec2-metadata --availability-zone | sed 's/placement: //' | sed 's/.$//')
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $(aws ecr describe-repositories --repository-names crucible-platform --query 'repositories[0].repositoryUri' --output text | cut -d/ -f1)
+EOFSCRIPT
+chmod +x /usr/local/bin/docker-ecr-login
 
 # Register this instance as ready for deployment
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
@@ -66,33 +78,45 @@ if [ -n "${deployment_bucket}" ]; then
         --overwrite 2>/dev/null || true
 fi
 
+# Copy systemd service file (with ECR URL already substituted)
+cat > /etc/systemd/system/crucible-docker.service <<'EOFSYSTEMD'
+${docker_service_content}
+EOFSYSTEMD
+
+# Enable but don't start the service (no image yet)
+systemctl daemon-reload
+systemctl enable crucible-docker.service
+
 # Create deployment instructions
 cat > /home/ubuntu/deployment-instructions.txt <<EOF
-=== Crucible Platform Deployment Instructions ===
+=== Crucible Platform Docker Deployment Instructions ===
 
-This EC2 instance is ready for deployment but has NO APPLICATION CODE.
-Following the Kubernetes pattern: infrastructure is ready, code deployment is separate.
+This EC2 instance is ready for Docker deployment but has NO CONTAINER IMAGE.
+Following the Kubernetes pattern: infrastructure is ready, container deployment is separate.
 
 To deploy the application:
 
 1. From GitHub Actions (Recommended):
-   - Go to: https://github.com/YOUR_ORG/YOUR_REPO/actions
-   - Click "Deploy to EC2" workflow
+   - Go to: https://github.com/${github_repo}/actions
+   - Click "Deploy Docker Container" workflow
    - Click "Run workflow" button
-   - Select branch: main
+   - Select branch: ${github_branch}
 
 2. From GitHub CLI:
-   gh workflow run deploy.yml
+   gh workflow run deploy-docker.yml
 
-3. From AWS CLI (after first deployment):
-   aws ssm send-command \\
-     --instance-ids $(curl -s http://169.254.169.254/latest/meta-data/instance-id) \\
-     --document-name "AWS-RunShellScript" \\
-     --parameters 'commands=["/home/ubuntu/update-platform.sh"]'
+3. Check deployment status:
+   # Service status
+   systemctl status crucible-docker
+   
+   # Container logs
+   docker logs crucible-platform
+   journalctl -u crucible-docker -f
 
 Instance Status:
-- Infrastructure: ✅ Ready
-- Application: ⏳ Awaiting deployment
+- Infrastructure: ✅ Ready (Docker + gVisor installed)
+- Container: ⏳ Awaiting deployment
+- ECR Repository: ${ecr_repository_url}
 - Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
 Once deployed, access via SSH tunnel:
