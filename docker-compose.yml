@@ -25,6 +25,7 @@ services:
       - SERVICE_HOST=crucible       # Use service name for inter-container comms
       - PLATFORM_HOST=crucible      # API gateway host
       - HOST_PWD=${PWD}             # Pass host working directory for volume mapping
+      - STORAGE_BASE=/app/storage   # Storage path inside container
     restart: unless-stopped
     # Security options
     security_opt:

@@ -78,7 +78,7 @@ resource "aws_iam_role_policy" "github_actions" {
           "ssm:GetParameter"
         ]
         Resource = [
-          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/crucible/*"
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/*"
         ]
       },
       {
@@ -102,17 +102,27 @@ resource "aws_iam_role_policy" "github_actions" {
         Resource = aws_ecr_repository.crucible_platform.arn
       },
       {
-        # SSM permissions for Docker deployment commands
+        # SSM SendCommand permissions with specific resources
         Effect = "Allow"
         Action = [
-          "ssm:SendCommand",
-          "ssm:GetCommandInvocation",
-          "ssm:ListCommandInvocations"
+          "ssm:SendCommand"
         ]
         Resource = [
           "arn:aws:ssm:${data.aws_region.current.name}::document/AWS-RunShellScript",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*",
-          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:command/*"
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*",
+          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
+        ]
+      },
+      {
+        # SSM GetCommandInvocation requires broader permissions
+        # Using account-scoped wildcard for security (not global *)
+        # See: docs/security/aws-permissions.md#ssm-permissions
+        Effect = "Allow"
+        Action = [
+          "ssm:GetCommandInvocation"
+        ]
+        Resource = [
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
         ]
       },
       {
