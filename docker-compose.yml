@@ -47,6 +47,21 @@ services:
     
     # Currently running as root for Docker socket access (see Dockerfile)
 
+  crucible-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME:-crucible-platform}-frontend:local
+    container_name: ${CONTAINER_NAME:-crucible-platform}-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - API_URL=http://crucible-platform:8080
+    depends_on:
+      - crucible-platform
+    restart: unless-stopped
+    # Run as non-root user (configured in Dockerfile)
+
   # Future: Redis for Celery (Day 3)
   # redis:
   #   image: redis:7-alpine
