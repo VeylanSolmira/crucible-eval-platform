@@ -146,6 +146,7 @@ python3 extreme_mvp_gvisor.py
 1. Add monitoring/metrics (Days 1-2)
 2. Add authentication (Days 3-4)
 3. Load testing & optimization (Day 5)
+4. **Nice to have**: Set up Docker dev/prod parity (see [Docker Dev/Prod Parity Guide](../development/docker-dev-prod-parity.md))
 
 ### Week 4: Advanced Features
 1. Move to ECS/EKS (Days 1-3)

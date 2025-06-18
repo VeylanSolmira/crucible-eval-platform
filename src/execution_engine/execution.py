@@ -203,10 +203,24 @@ class DockerEngine(ExecutionEngine):
         if temp_file.startswith('/app/storage/') and os.environ.get('STORAGE_BASE') == '/app/storage':
             # Get the absolute host path from PWD (working directory on host)
             # This assumes docker-compose was run from the project root
-            host_pwd = os.environ.get('HOST_PWD', os.getcwd())
+            host_pwd = os.environ.get('HOST_PWD')
+            if not host_pwd:
+                # Fallback: try to determine the host path
+                # This handles cases where HOST_PWD isn't set properly
+                raise RuntimeError(
+                    "HOST_PWD environment variable not set. "
+                    "Please ensure docker-compose sets HOST_PWD=${PWD} "
+                    "or run with: HOST_PWD=$(pwd) docker-compose up"
+                )
             # Replace /app/storage with ./storage relative to host
             relative_path = temp_file.replace('/app/storage/', '')
             mount_path = os.path.join(host_pwd, 'storage', relative_path)
+            
+            # Debug logging to help diagnose path issues
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Path mapping: {temp_file} -> {mount_path}")
+            logger.debug(f"HOST_PWD: {host_pwd}, relative_path: {relative_path}")
             
         return [
             'docker', 'run',
@@ -227,6 +241,15 @@ class DockerEngine(ExecutionEngine):
         temp_dir = os.path.join(self.temp_base_dir, "tmp")
         os.makedirs(temp_dir, exist_ok=True)
         
+        # Verify the directory is writable
+        test_file = os.path.join(temp_dir, '.write_test')
+        try:
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+        except Exception as e:
+            raise RuntimeError(f"Cannot write to temp directory {temp_dir}: {e}")
+        
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir=temp_dir) as f:
             f.write(code)
             temp_file = f.name
@@ -238,12 +261,31 @@ class DockerEngine(ExecutionEngine):
         try:
             docker_cmd = self._build_docker_command(temp_file)
             
+            # Log the command for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Executing Docker command: {' '.join(docker_cmd)}")
+            
             result = subprocess.run(
                 docker_cmd,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout
             )
+            
+            # If the command failed, provide more detailed error info
+            if result.returncode != 0:
+                error_msg = result.stderr or result.stdout
+                # Check for specific error patterns
+                if "can't find '__main__' module" in error_msg:
+                    # Add debugging info for the mount path issue
+                    logger.error(f"Python module not found error. Temp file: {temp_file}")
+                    logger.error(f"Docker command: {' '.join(docker_cmd)}")
+                    if os.path.exists(temp_file):
+                        logger.error(f"Temp file exists: True, size: {os.path.getsize(temp_file)}")
+                    else:
+                        logger.error("Temp file does not exist!")
+                    error_msg += f"\nDebug: temp_file={temp_file}, exists={os.path.exists(temp_file)}"
             
             return {
                 'id': eval_id,
@@ -253,6 +295,9 @@ class DockerEngine(ExecutionEngine):
         except subprocess.TimeoutExpired:
             return {'id': eval_id, 'status': 'timeout', 'error': f'Timeout after {self.timeout} seconds'}
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception(f"Error executing code: {e}")
             return {'id': eval_id, 'status': 'error', 'error': str(e)}
         finally:
             if os.path.exists(temp_file):
