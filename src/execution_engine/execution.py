@@ -193,10 +193,8 @@ class DockerEngine(ExecutionEngine):
         default_base = os.environ.get('STORAGE_BASE') or os.path.expanduser("~/crucible/storage")
         self.temp_base_dir = temp_base_dir or default_base
     
-    def _build_docker_command(self, temp_file: str) -> list:
-        """Build the docker command. Can be overridden by subclasses."""
-        # When running inside a container, we need to map container paths to host paths
-        # for Docker Desktop to be able to mount them
+    def _translate_mount_path(self, temp_file: str) -> str:
+        """Translate container paths to host paths for Docker-in-Docker scenarios."""
         mount_path = temp_file
         
         # Check if we're running inside a container and using /app/storage
@@ -221,6 +219,12 @@ class DockerEngine(ExecutionEngine):
             logger = logging.getLogger(__name__)
             logger.debug(f"Path mapping: {temp_file} -> {mount_path}")
             logger.debug(f"HOST_PWD: {host_pwd}, relative_path: {relative_path}")
+        
+        return mount_path
+    
+    def _build_docker_command(self, temp_file: str) -> list:
+        """Build the docker command. Can be overridden by subclasses."""
+        mount_path = self._translate_mount_path(temp_file)
             
         return [
             'docker', 'run',
@@ -403,6 +407,9 @@ class GVisorEngine(DockerEngine):
         
     def _build_docker_command(self, temp_file: str) -> list:
         """Override parent to add gVisor-specific security features"""
+        # Use parent's path translation
+        mount_path = self._translate_mount_path(temp_file)
+        
         docker_cmd = [
             'docker', 'run',
             '--rm',                      # Remove container after exit
@@ -420,7 +427,7 @@ class GVisorEngine(DockerEngine):
             '--read-only',              # Read-only root filesystem
             '--tmpfs', '/tmp:size=10M',  # Small writable /tmp
             '--security-opt', 'no-new-privileges',  # Prevent privilege escalation
-            '-v', f'{temp_file}:/code.py:ro',  # Mount code read-only
+            '-v', f'{mount_path}:/code.py:ro',  # Mount code read-only
             self.image,
             'python', '-u', '/code.py'
         ])
