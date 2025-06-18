@@ -62,7 +62,8 @@ Target: 6-10 hours per day, with clear deliverables that demonstrate platform en
   - [x] Environment configuration with HOST_PWD
   - [x] Path translation for Docker-in-Docker
 - [x] Test sibling container execution - Working!
-- [ ] Update deployment pipeline (next priority)
+- [x] Update deployment pipeline (next priority)
+- [x] Bug fixing and reliability improvements
 
 **Deliverables Achieved**: 
 - ✅ Working API with OpenAPI docs at `/api/openapi.yaml`
@@ -70,25 +71,25 @@ Target: 6-10 hours per day, with clear deliverables that demonstrate platform en
 - ✅ Docker Compose for full local stack
 - ✅ Docker-in-Docker execution with path translation
 
-## Day 1.5: Container Deployment to AWS (4 hours) 🚀 NEXT PRIORITY
+## Day 1.5: Container Deployment to AWS (4 hours) ✅ COMPLETED!
 
 ### Immediate Next Steps:
-- [ ] Push Docker image to Amazon ECR
-  - [ ] Create ECR repository via Terraform
-  - [ ] Configure GitHub Actions to build and push
-  - [ ] Tag images with git SHA and version
-- [ ] Update EC2 deployment
-  - [ ] Modify userdata to pull from ECR
-  - [ ] Update systemd service to use Docker
-  - [ ] Ensure Docker socket permissions
-- [ ] Update GitHub Actions workflow
-  - [ ] Add Docker build step
-  - [ ] Push to ECR on main branch
-  - [ ] Deploy new container to EC2
-- [ ] Test end-to-end deployment
-  - [ ] Push code change
-  - [ ] Verify container updates
-  - [ ] Confirm execution still works
+- [x] Push Docker image to Amazon ECR
+  - [x] Create ECR repository via Terraform
+  - [x] Configure GitHub Actions to build and push
+  - [x] Tag images with git SHA and version
+- [x] Update EC2 deployment
+  - [x] Modify userdata to pull from ECR
+  - [x] Update systemd service to use Docker
+  - [x] Ensure Docker socket permissions
+- [x] Update GitHub Actions workflow
+  - [x] Add Docker build step
+  - [x] Push to ECR on main branch
+  - [x] Deploy new container to EC2
+- [x] Test end-to-end deployment
+  - [x] Push code change
+  - [x] Verify container updates
+  - [x] Confirm execution still works
 
 **Why This Matters**: 
 - Completes our containerization story
@@ -98,18 +99,26 @@ Target: 6-10 hours per day, with clear deliverables that demonstrate platform en
 
 ## Day 2: React Dashboard & Real-time Monitoring (10 hours)
 
-### Morning (5 hours): React Frontend
+### Morning (5 hours): React Frontend 🚀 IN PROGRESS
 - [ ] Create React app with TypeScript
-  - Modern tooling (Vite, ESLint, Prettier)
-  - Tailwind CSS for styling
-  - Component library (shadcn/ui or MUI)
-- [ ] Core components:
-  - Evaluation submission form with code editor (Monaco)
-  - Real-time evaluation status grid
-  - Execution timeline visualization
-  - Resource usage graphs
-- [ ] WebSocket integration for live updates
-- [ ] Dark mode support
+  - [ ] Set up in `/frontend` directory
+  - [ ] Modern tooling (Vite, ESLint, Prettier)
+  - [ ] Tailwind CSS for styling
+  - [ ] Start with basic components (no library yet)
+- [ ] Initial implementation goals:
+  - [ ] Mirror current inline HTML/JS functionality
+  - [ ] Code submission form with textarea
+  - [ ] Execution status display
+  - [ ] Results output panel
+- [ ] Containerization from the start:
+  - [ ] Dockerfile for React app
+  - [ ] Multi-stage build (node + nginx)
+  - [ ] Add to docker-compose.yml
+  - [ ] Configure container networking
+- [ ] Extract current frontend from Python:
+  - [ ] Remove inline HTML from app.py
+  - [ ] Set up CORS for API access
+  - [ ] Configure proxy in development
 
 ### Afternoon (5 hours): Monitoring & Observability
 - [ ] Integrate Prometheus metrics
@@ -135,6 +144,9 @@ Target: 6-10 hours per day, with clear deliverables that demonstrate platform en
 ## Day 3: Advanced Queue System & Testing (9 hours)
 
 ### Morning (5 hours): Celery Integration
+- [ ] Fix deploy-docker.yml to use systemd service
+  - Need to debug SSM permissions for systemctl commands
+  - Ensure consistency between deployments
 - [ ] Replace basic queue with Celery
   - Redis as message broker
   - Separate worker processes
