@@ -152,7 +152,7 @@ def main():
     
     print("✅ Event handlers configured")
     
-    # Frontend configuration
+    # Frontend configuration (for backwards compatibility)
     frontend_config = FrontendConfig(
         port=args.port,
         enable_monitoring=True,
@@ -163,7 +163,8 @@ def main():
             'event_streaming': True,
             'security_warnings': True,
             'storage_enabled': True,
-            'testing_enabled': True
+            'testing_enabled': True,
+            'api_only': True  # New: API-only mode
         }
     )
     
@@ -173,10 +174,10 @@ def main():
     
     print("📡 API service configured")
     
-    # Create integrated frontend with API handler
-    # Use AdvancedHTMLFrontend for full monitoring features
+    # Create API-only server (no HTML frontend)
+    # The React frontend will handle all UI
     frontend = create_frontend(
-        frontend_type=FrontendType.ADVANCED_HTTP,
+        frontend_type=FrontendType.API_ONLY,
         config=frontend_config,
         api_handler=api_handler
     )
