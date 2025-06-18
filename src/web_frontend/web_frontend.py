@@ -44,6 +44,7 @@ class FrontendType(Enum):
     FLASK = "flask"                  # Flask framework
     FASTAPI = "fastapi"              # FastAPI with async
     REACT = "react"                  # React + nginx
+    API_ONLY = "api_only"            # API only, no HTML (for separate frontend)
 
 
 @dataclass
@@ -1278,6 +1279,118 @@ class ReactFrontend(WebFrontendService):
         pass
 
 
+class APIOnlyFrontend(SimpleHTTPFrontend):
+    """
+    API-only frontend for use with separate frontend services.
+    Provides CORS headers and JSON responses only - no HTML.
+    """
+    
+    def start(self) -> None:
+        """Start HTTP server with CORS-enabled handler"""
+        if self.is_running:
+            return
+        
+        parent = self
+        
+        class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
+            def do_OPTIONS(self):
+                """Handle preflight requests"""
+                self.send_response(200)
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+                self.send_header('Access-Control-Max-Age', '3600')
+                self.end_headers()
+            
+            def end_headers(self):
+                """Add CORS headers to all responses"""
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+                super().end_headers()
+            
+            def do_GET(self):
+                """Handle GET with CORS"""
+                try:
+                    if self.path == '/':
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'application/json')
+                        self.end_headers()
+                        response = {
+                            'name': f'{parent.config.features.get("app_name", "Platform")} API',
+                            'version': parent.config.features.get('api_version', '1.0.0'),
+                            'endpoints': {
+                                'evaluate': '/api/eval',
+                                'status': '/api/status',
+                                'queue': '/api/queue-status'
+                            }
+                        }
+                        self.wfile.write(json.dumps(response).encode())
+                    elif self.path.startswith('/api/') and parent.api_handler:
+                        # Forward to API handler
+                        api_request = APIRequest(
+                            method=HTTPMethod.GET,
+                            path=self.path,
+                            headers=dict(self.headers),
+                            body=None
+                        )
+                        response = parent.api_handler(api_request)
+                        self.send_response(response.status_code)
+                        for key, value in response.headers.items():
+                            self.send_header(key, value)
+                        self.end_headers()
+                        self.wfile.write(response.body)
+                    else:
+                        self.send_response(404)
+                        self.send_header('Content-Type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(json.dumps({'error': 'Not found'}).encode())
+                except Exception as e:
+                    self.send_error(500, str(e))
+                    
+            def do_POST(self):
+                """Handle POST with CORS"""
+                try:
+                    if self.path.startswith('/api/') and parent.api_handler:
+                        content_length = int(self.headers.get('Content-Length', 0))
+                        body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else None
+                        
+                        api_request = APIRequest(
+                            method=HTTPMethod.POST,
+                            path=self.path,
+                            headers=dict(self.headers),
+                            body=body
+                        )
+                        response = parent.api_handler(api_request)
+                        self.send_response(response.status_code)
+                        for key, value in response.headers.items():
+                            self.send_header(key, value)
+                        self.end_headers()
+                        self.wfile.write(response.body)
+                    else:
+                        self.send_response(404)
+                        self.send_header('Content-Type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(json.dumps({'error': 'Not found'}).encode())
+                except Exception as e:
+                    self.send_error(500, str(e))
+            
+            def log_message(self, format, *args):
+                # Suppress logs in test mode
+                if not parent.config.features.get('suppress_logs', False):
+                    super().log_message(format, *args)
+        
+        # Use ThreadingTCPServer for concurrent requests
+        self.server = socketserver.ThreadingTCPServer(
+            (self.config.host, self.config.port),
+            CORSRequestHandler
+        )
+        
+        # Start server in background thread
+        self.server_thread = threading.Thread(target=self.server.serve_forever)
+        self.server_thread.daemon = True
+        self.server_thread.start()
+        self.is_running = True
 
 
 # Export frontend factory
@@ -1311,6 +1424,7 @@ def create_frontend(
         FrontendType.FLASK: FlaskFrontend,
         FrontendType.FASTAPI: FastAPIFrontend,
         FrontendType.REACT: ReactFrontend,
+        FrontendType.API_ONLY: APIOnlyFrontend,
     }
     
     frontend_class = frontend_classes.get(frontend_type)

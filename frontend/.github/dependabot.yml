@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Keep npm dependencies up to date
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    target-branch: "main"
+    labels:
+      - "dependencies"
+      - "security"
+    # Security updates get priority
+    allow:
+      - dependency-type: "all"
+    commit-message:
+      prefix: "chore(deps)"
+    # Group updates to reduce noise
+    groups:
+      typescript:
+        patterns:
+          - "@types/*"
+          - "typescript"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react*"
