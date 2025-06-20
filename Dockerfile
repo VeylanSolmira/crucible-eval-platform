@@ -52,6 +52,7 @@ ENV PYTHONPATH=/home/appuser/.local/lib/python3.11/site-packages:$PYTHONPATH
 COPY app.py .
 COPY src/ ./src/
 COPY api/ ./api/
+COPY storage/ ./storage/
 COPY requirements.txt .
 
 # Create storage directory and set ownership

@@ -37,6 +37,22 @@ resource "aws_security_group" "eval_server" {
     cidr_blocks = [var.allowed_ssh_ip]  # Changed from 0.0.0.0/0 for security
   }
 
+  # Future: HTTP/HTTPS for public access (currently commented out)
+  # Uncomment these when ready to expose publicly
+  # ingress {
+  #   from_port   = 80
+  #   to_port     = 80
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
+  # 
+  # ingress {
+  #   from_port   = 443
+  #   to_port     = 443
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
+
   # Additional port for monitoring tools (Prometheus, etc.)
   ingress {
     from_port   = 9090
@@ -191,8 +207,10 @@ resource "aws_key_pair" "eval_server_key" {
   })
 }
 
-# EC2 instance
+# EC2 instances with for_each for blue-green deployment
 resource "aws_instance" "eval_server" {
+  for_each = var.enabled_deployment_colors
+  
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   iam_instance_profile   = aws_iam_instance_profile.eval_server.name
@@ -208,27 +226,25 @@ resource "aws_instance" "eval_server" {
   }
 
   # User data script to install dependencies and setup systemd service
-  user_data = templatefile("${path.module}/templates/userdata.sh.tpl", {
-    github_repo       = var.github_repo
-    github_branch     = var.github_branch
-    deployment_bucket = aws_s3_bucket.deployment.id
-    deployment_key    = var.deployment_key
+  user_data = templatefile("${path.module}/templates/userdata-compose.sh.tpl", {
+    # Variables from old S3/GitHub deployment - kept for reference
+    # github_repo       = var.github_repo
+    # github_branch     = var.github_branch
+    # deployment_bucket = aws_s3_bucket.deployment.id
+    # deployment_key    = var.deployment_key
+    
+    # Active variables used in template
     ecr_repository_url = aws_ecr_repository.crucible_platform.repository_url
     project_name      = var.project_name
-    docker_service_content = replace(
-      replace(
-        file("${path.module}/templates/crucible-docker.service"),
-        "$${ECR_REPOSITORY_URL}",
-        aws_ecr_repository.crucible_platform.repository_url
-      ),
-      "$${CONTAINER_NAME}",
-      var.project_name
-    )
+    compose_service_content = file("${path.module}/../systemd/crucible-compose.service")
+    deployment_color  = each.key
   })
 
   tags = merge(local.common_tags, {
-    Name    = "crucible-eval-server"
-    Purpose = "AI evaluation with gVisor and Docker isolation"
+    Name             = "${var.project_name}-eval-server-${each.key}"
+    Purpose          = "AI evaluation with gVisor and Docker isolation"
+    DeploymentColor  = each.key
+    DeploymentVersion = var.deployment_version
   })
 
   # Force recreation when user_data changes
@@ -236,24 +252,24 @@ resource "aws_instance" "eval_server" {
 }
 
 # Outputs
-output "eval_server_public_ip" {
-  value = aws_instance.eval_server.public_ip
-  description = "Public IP of the evaluation server"
+output "eval_server_public_ips" {
+  value = { for k, v in aws_instance.eval_server : k => v.public_ip }
+  description = "Public IP addresses of the evaluation servers by color"
 }
 
 output "eval_server_public_dns" {
-  value = aws_instance.eval_server.public_dns
-  description = "Public DNS of the evaluation server"
+  value = { for k, v in aws_instance.eval_server : k => v.public_dns }
+  description = "Public DNS of the evaluation servers by color"
 }
 
-output "ssh_command" {
-  value = "ssh ubuntu@${aws_instance.eval_server.public_ip}"
-  description = "SSH command to connect to the server"
+output "ssh_commands" {
+  value = { for k, v in aws_instance.eval_server : k => "ssh ubuntu@${v.public_ip}" }
+  description = "SSH commands to connect to each server"
 }
 
-output "ssh_tunnel_command" {
-  value = "ssh -L 8080:localhost:8080 -L 9090:localhost:9090 ubuntu@${aws_instance.eval_server.public_ip}"
-  description = "SSH tunnel command for local access"
+output "ssh_tunnel_commands" {
+  value = { for k, v in aws_instance.eval_server : k => "ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@${v.public_ip}" }
+  description = "SSH tunnel commands for local access to each server"
 }
 
 output "platform_url_local" {

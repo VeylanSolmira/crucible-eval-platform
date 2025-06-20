@@ -25,16 +25,15 @@ from src.core.components import (
     DisabledEngine,
     AdvancedMonitor,
     TaskQueue,
-    FileStorage,
-    InMemoryStorage,
     create_api_service,
     create_api_handler,
-    create_frontend,
-    FrontendConfig,
-    FrontendType,
     EventBus,
     EventTypes
 )
+
+# Import new storage system
+from storage import FlexibleStorageManager
+from storage.config import StorageConfig
 
 def main():
     """Clean main entry point - just wire components together"""
@@ -115,72 +114,81 @@ def main():
     queue = TaskQueue(max_workers=4)
     monitor = AdvancedMonitor()
     
-    # Storage layer
+    # Configure storage based on arguments and environment
     if args.memory_storage:
-        storage = InMemoryStorage()
-        storage_base = None
+        storage_config = StorageConfig.for_testing(use_memory=True)
+        print("💾 Using in-memory storage")
     else:
-        storage_base = Path("./storage")
-        storage_dir = storage_base / "frontier"
-        storage_dir.mkdir(parents=True, exist_ok=True)
-        storage = FileStorage(str(storage_dir))
+        storage_config = StorageConfig.from_environment()
+        
+        # Ensure file storage directory exists
+        if storage_config.file_storage_path:
+            Path(storage_config.file_storage_path).mkdir(parents=True, exist_ok=True)
+        
+        if storage_config.database_url:
+            print("💾 Using database storage with file fallback")
+        else:
+            print("💾 Using file storage")
+    
+    # Create flexible storage manager
+    storage = FlexibleStorageManager.from_config(storage_config)
     
     # Platform (skip tests by default for faster startup)
     platform = QueuedEvaluationPlatform(
         engine=engine,  # Now engine is always defined (might be DisabledEngine)
         queue=queue,
         monitor=monitor,
-        run_tests=args.test  # Only run tests if --test flag is passed
+        run_tests=args.test,  # Only run tests if --test flag is passed
+        event_bus=event_bus,  # Pass event bus for event-driven architecture
+        storage=storage  # Pass storage for retrieving full evaluation data
     )
     
     # Set up event handlers for loose coupling
+    def handle_evaluation_queued(event):
+        """Store initial evaluation when queued"""
+        eval_id = event['data'].get('eval_id')
+        code = event['data'].get('code')
+        if eval_id and code:
+            success = storage.create_evaluation(eval_id, code, status='queued')
+            if success:
+                print(f"📝 Created evaluation {eval_id}")
+            else:
+                print(f"⚠️  Failed to create evaluation {eval_id}")
+    
     def handle_evaluation_completed(event):
         """Store evaluation results when completed"""
         eval_id = event['data'].get('eval_id')
         result = event['data'].get('result')
         if eval_id and result:
-            storage.store(eval_id, result)
-            print(f"💾 Stored evaluation {eval_id}")
+            # Update the evaluation with completed status and results
+            success = storage.update_evaluation(
+                eval_id,
+                status='completed',
+                output=result.get('output'),
+                error=result.get('error'),
+                success=result.get('success')
+            )
+            if success:
+                print(f"💾 Stored evaluation {eval_id}")
+            else:
+                print(f"⚠️  Failed to store evaluation {eval_id}")
     
     def handle_security_violation(event):
         """Handle security violations"""
         print(f"🚨 SECURITY ALERT: {event['data']}")
     
     # Subscribe handlers to events
+    event_bus.subscribe(EventTypes.EVALUATION_QUEUED, handle_evaluation_queued)
     event_bus.subscribe(EventTypes.EVALUATION_COMPLETED, handle_evaluation_completed)
     event_bus.subscribe(EventTypes.SECURITY_VIOLATION, handle_security_violation)
     
     print("✅ Event handlers configured")
     
-    # Frontend configuration (for backwards compatibility)
-    frontend_config = FrontendConfig(
-        port=args.port,
-        enable_monitoring=True,
-        features={
-            'async_execution': True,
-            'real_time_updates': True,
-            'batch_submission': True,
-            'event_streaming': True,
-            'security_warnings': True,
-            'storage_enabled': True,
-            'testing_enabled': True,
-            'api_only': True  # New: API-only mode
-        }
-    )
-    
-    # Create API service and handler
-    api_service = create_api_service(platform)
+    # Create API service and handler with storage
+    api_service = create_api_service(platform, storage=storage)
     api_handler = create_api_handler(api_service)
     
     print("📡 API service configured")
-    
-    # Create API-only server (no HTML frontend)
-    # The React frontend will handle all UI
-    frontend = create_frontend(
-        frontend_type=FrontendType.API_ONLY,
-        config=frontend_config,
-        api_handler=api_handler
-    )
     
     # Run security demos if requested (SAFE)
     if args.security_demo:
@@ -233,7 +241,7 @@ def main():
     
     # Run tests if requested
     if args.test:
-        components = [engine, queue, monitor, storage, platform, frontend, event_bus]
+        components = [engine, queue, monitor, storage, platform, event_bus]
         passed = sum(1 for c in components if hasattr(c, 'self_test') and c.self_test()['passed'])
         print(f"Tests: {passed}/{len(components)} passed")
         
@@ -244,26 +252,34 @@ def main():
         
         return 0 if passed == len(components) else 1
     
+    # Start FastAPI server
+    from api.servers.fastapi_server import app as fastapi_app
+    import api.servers.fastapi_server as fastapi_server
+    import uvicorn
+    
+    # Override the global api_handler in fastapi_server
+    fastapi_server.api_handler = api_handler
+    
     # Start integrated server
     bind_host = os.environ.get('BIND_HOST', 'localhost')
-    print(f"\n🚀 Integrated server starting on http://{bind_host}:{args.port}")
-    print("   - Frontend routes: /, /assets/*")
+    print(f"\n🚀 FastAPI server starting on http://{bind_host}:{args.port}")
     print("   - API routes: /api/*")
+    print("   - Interactive docs: /docs")
+    print("   - React frontend should connect to this API")
     print("📊 Event history available at: /events")
     
+    print("\n✅ Server running. Press Ctrl+C to stop.")
+    
     try:
-        # Start the integrated server
-        frontend.start()
-        
-        print("\n✅ Server running. Press Ctrl+C to stop.")
-        
-        # Keep running
-        while True:
-            time.sleep(1)
-                
+        uvicorn.run(
+            fastapi_app,
+            host='0.0.0.0',
+            port=args.port,
+            log_level="info",
+            reload=False
+        )
     except KeyboardInterrupt:
         print("\nShutting down...")
-        frontend.stop()
 
 if __name__ == "__main__":
     sys.exit(main())

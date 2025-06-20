@@ -12,6 +12,13 @@ export interface ApiResponse<T> {
   status: 'success' | 'error'
 }
 
+export interface AsyncEvaluationResponse {
+  eval_id: string
+  status: 'queued' | 'processing'
+  message?: string
+  error?: string
+}
+
 export interface EvaluationResult {
   id: string
   status: 'queued' | 'running' | 'completed' | 'failed' | 'timeout'

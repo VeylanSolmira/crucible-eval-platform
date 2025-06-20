@@ -12,11 +12,10 @@ resource "aws_ecr_repository" "crucible_platform" {
     prevent_destroy = false
   }
 
-  tags = {
-    Name        = "Crucible Platform ECR Repository"
-    Environment = var.environment
+  tags = merge(local.common_tags, {
+    Name        = "${var.project_name}-ecr"
     Purpose     = "Container images for Crucible platform"
-  }
+  })
 }
 
 # ECR Lifecycle Policy
@@ -93,6 +92,7 @@ resource "aws_ecr_repository_policy" "crucible_platform" {
     ]
   })
 }
+
 
 # Output the repository URL for use in GitHub Actions
 output "ecr_repository_url" {

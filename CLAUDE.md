@@ -215,6 +215,21 @@ Set in GitHub Settings → Secrets and variables → Actions → Variables:
 - `CONTAINER_NAME` - Docker container name
 - `ECR_REPOSITORY` - ECR repository name
 
+## API Endpoint Changes - IMPORTANT
+**As of the latest refactor, there is only ONE evaluation endpoint**
+- `/api/eval` is the ONLY evaluation endpoint
+- `/api/eval-async` has been REMOVED from the codebase
+- ALL evaluations are asynchronous (no sync operations exist)
+- The API automatically handles async operations by returning an eval_id
+- NEVER suggest using `/api/eval-async` - it does not exist
+
+## Python Code Submission Best Practices
+When handling Python code from frontend:
+1. **JSON Escaping**: Ensure special characters are properly escaped
+2. **Template Literal Issues**: Be careful with ${} in template literals containing Python f-strings
+3. **Validation**: Add code validation before execution
+4. **Error Messages**: Check Docker logs for actual error messages before making assumptions
+
 ## Commands to Remember
 
 ```bash
@@ -228,6 +243,7 @@ pytest tests/integration/ -k "kubernetes"
 
 # Local development
 docker-compose up -d
+./run-api.sh  # Start FastAPI server with hot reload
 skaffold dev
 
 # Kubernetes debugging
