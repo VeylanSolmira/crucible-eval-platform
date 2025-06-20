@@ -11,18 +11,19 @@
 # ruff==0.1.7
 # black==23.11.0
 
-# Future: Web framework dependencies (when frontends evolve)
-# flask==3.0.0          # For FlaskFrontend
-# werkzeug              # 
-# fastapi==0.104.1      # For FastAPIFrontend
-# uvicorn==0.24.0       # ASGI server for FastAPI
-# pydantic==2.5.0       # FastAPI data validation
+# Web framework dependencies
+fastapi==0.104.1      # For FastAPI API server
+uvicorn[standard]==0.24.0  # ASGI server for FastAPI
+pydantic==2.5.0       # FastAPI data validation
 
-# Future: Storage backends (when we need persistence)
-# redis==5.0.1          # For Redis storage backend
-# boto3==1.29.7         # For S3 storage backend
-# psycopg2-binary==2.9.9  # For PostgreSQL storage
-# aiofiles==23.2.1      # For async file operations
+# Database and storage backends
+sqlalchemy==2.0.23      # ORM for database models
+alembic==1.13.0        # Database migrations
+asyncpg==0.29.0        # Async PostgreSQL driver
+psycopg2-binary==2.9.9 # PostgreSQL adapter (for Alembic)
+# redis==5.0.1         # For Redis storage backend (future)
+# boto3==1.29.7        # For S3 storage backend (future)
+# aiofiles==23.2.1     # For async file operations (future)
 
 # Future: Advanced features
 # websockets==12.0      # For WebSocket support

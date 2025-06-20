@@ -104,3 +104,21 @@ variable "deployment_key" {
   type        = string
   default     = "crucible-platform.tar.gz"
 }
+
+# Blue-Green Deployment Variables
+variable "enabled_deployment_colors" {
+  description = "Which deployment colors to create (for blue-green deployments)"
+  type        = set(string)
+  default     = ["blue"]  # Start with just blue
+  
+  validation {
+    condition     = alltrue([for c in var.enabled_deployment_colors : contains(["blue", "green"], c)])
+    error_message = "Deployment colors must be 'blue' or 'green'."
+  }
+}
+
+variable "deployment_version" {
+  description = "Version tag for this deployment"
+  type        = string
+  default     = "1.0"
+}

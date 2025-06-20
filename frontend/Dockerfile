@@ -13,6 +13,9 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
+# Accept API_URL as build argument and set as env var for Next.js build
+ARG API_URL
+ENV API_URL=${API_URL}
 RUN npm run build
 
 # Stage 3: Runner

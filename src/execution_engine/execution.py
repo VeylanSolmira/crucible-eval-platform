@@ -191,7 +191,8 @@ class DockerEngine(ExecutionEngine):
         # Use STORAGE_BASE from environment if available (for containerized deployments)
         # Otherwise default to ~/crucible/storage
         default_base = os.environ.get('STORAGE_BASE') or os.path.expanduser("~/crucible/storage")
-        self.temp_base_dir = temp_base_dir or default_base
+        # Ensure we have an absolute path to avoid relative path issues
+        self.temp_base_dir = os.path.abspath(temp_base_dir or default_base)
     
     def _translate_mount_path(self, temp_file: str) -> str:
         """Translate container paths to host paths for Docker-in-Docker scenarios."""
@@ -240,9 +241,9 @@ class DockerEngine(ExecutionEngine):
         ]
     
     def execute(self, code: str, eval_id: str) -> Dict[str, Any]:
-        # Create temp files in a directory accessible to both systemd service and Docker
-        # This works around PrivateTmp=true in systemd which isolates /tmp
-        temp_dir = os.path.join(self.temp_base_dir, "tmp")
+        # Create a unique temp directory for each evaluation (like K8s pods)
+        # This simulates how each evaluation would have its own pod/container in production
+        temp_dir = os.path.join(self.temp_base_dir, "tmp", f"eval-{eval_id}")
         os.makedirs(temp_dir, exist_ok=True)
         
         # Verify the directory is writable
@@ -304,11 +305,19 @@ class DockerEngine(ExecutionEngine):
             logger.exception(f"Error executing code: {e}")
             return {'id': eval_id, 'status': 'error', 'error': str(e)}
         finally:
+            # Clean up temp file
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
             
-            # Clean up old temp files (older than 1 hour)
-            self._cleanup_old_temp_files(temp_dir)
+            # Clean up evaluation directory (like K8s would clean up the pod)
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                # Use logger if available, otherwise just pass
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to clean up temp directory {temp_dir}: {e}")
     
     def get_description(self) -> str:
         return "Docker (Containerized - Network isolated)"

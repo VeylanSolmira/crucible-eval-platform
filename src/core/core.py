@@ -139,7 +139,9 @@ class QueuedEvaluationPlatform(TestableEvaluationPlatform):
     """
     
     def __init__(self, engine: 'ExecutionEngine', monitor: 'MonitoringService', 
-                 queue: Optional['TaskQueue'] = None, max_workers: int = 3, run_tests: bool = False):
+                 queue: Optional['TaskQueue'] = None, max_workers: int = 3, 
+                 run_tests: bool = False, event_bus: Optional['EventBus'] = None,
+                 storage=None):
         # Initialize base platform (skip tests by default)
         super().__init__(engine, monitor, run_tests=run_tests)
         
@@ -150,6 +152,12 @@ class QueuedEvaluationPlatform(TestableEvaluationPlatform):
             queue = TaskQueue(max_workers=max_workers)
         self.queue = queue
         self.evaluations = {}  # eval_id -> status
+        
+        # Store event bus for publishing events
+        self.event_bus = event_bus
+        
+        # Store optional storage backend
+        self.storage = storage
         
         # Update test results to include queue if tests were run
         if run_tests and hasattr(self.queue, 'self_test'):
@@ -167,6 +175,15 @@ class QueuedEvaluationPlatform(TestableEvaluationPlatform):
         
         # Record evaluation
         self.evaluations[eval_id] = {'status': 'queued', 'result': None}
+        
+        # Emit event to event bus if available
+        if self.event_bus:
+            from ..event_bus.events import EventTypes
+            self.event_bus.publish(EventTypes.EVALUATION_QUEUED, {
+                'eval_id': eval_id,
+                'code': code,
+                'status': 'queued'
+            })
         
         # Submit to queue
         self.queue.submit(eval_id, self._execute_evaluation, code, eval_id)
@@ -190,6 +207,14 @@ class QueuedEvaluationPlatform(TestableEvaluationPlatform):
             self.evaluations[eval_id]['result'] = result
             self.monitor.emit_event(eval_id, 'complete', 'Evaluation complete')
             
+            # Emit event to event bus if available
+            if self.event_bus:
+                from ..event_bus.events import EventTypes
+                self.event_bus.publish(EventTypes.EVALUATION_COMPLETED, {
+                    'eval_id': eval_id,
+                    'result': result
+                })
+            
         except Exception as e:
             self.evaluations[eval_id]['status'] = 'failed'
             self.evaluations[eval_id]['error'] = str(e)
@@ -197,6 +222,23 @@ class QueuedEvaluationPlatform(TestableEvaluationPlatform):
     
     def get_evaluation_status(self, eval_id: str) -> Dict[str, Any]:
         """Get status of an evaluation"""
+        # First check if we have storage and can get full data from there
+        if self.storage:
+            stored_eval = self.storage.get_evaluation(eval_id)
+            if stored_eval:
+                # Return the full stored evaluation data from storage
+                # The storage system knows which fields to include based on the model
+                response = stored_eval.copy()
+                
+                # Ensure eval_id is present (for consistency)
+                response['eval_id'] = eval_id
+                
+                # Add runtime events (not stored in the evaluation record)
+                response['events'] = self.monitor.get_events(eval_id)
+                
+                return response
+        
+        # Fallback to in-memory data if no storage or not found
         if eval_id not in self.evaluations:
             return {'error': 'Evaluation not found'}
         
