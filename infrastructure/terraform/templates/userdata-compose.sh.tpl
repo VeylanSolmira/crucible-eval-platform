@@ -38,20 +38,20 @@ systemctl restart docker
 # Add ubuntu user to docker group
 usermod -aG docker ubuntu
 
-# Install AWS CLI and jq
-apt-get install -y awscli jq
+# Install AWS CLI, jq, and ec2-metadata tools
+apt-get install -y awscli jq ec2-instance-metadata
 
 # Create application directory
 mkdir -p /home/ubuntu/crucible/data
 chown -R ubuntu:ubuntu /home/ubuntu/crucible
 
 # Configure AWS CLI for ECR
-aws configure set default.region $(ec2-metadata --availability-zone | sed 's/placement: //' | sed 's/.$//')
+aws configure set default.region $(ec2metadata --availability-zone | sed 's/.*: //' | sed 's/.$//')
 
 # Create docker login helper script
 cat > /usr/local/bin/docker-ecr-login << 'EOFSCRIPT'
 #!/bin/bash
-REGION=$(ec2-metadata --availability-zone | sed 's/placement: //' | sed 's/.$//')
+REGION=$(ec2metadata --availability-zone | sed 's/.*: //' | sed 's/.$//')
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $(aws ecr describe-repositories --repository-names ${project_name} --query 'repositories[0].repositoryUri' --output text | cut -d/ -f1)
 EOFSCRIPT
 chmod +x /usr/local/bin/docker-ecr-login
