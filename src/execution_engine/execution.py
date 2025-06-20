@@ -188,37 +188,49 @@ class DockerEngine(ExecutionEngine):
         self.memory_limit = "100m"
         self.cpu_limit = "0.5"
         self.timeout = 30
-        # Use STORAGE_BASE from environment if available (for containerized deployments)
-        # Otherwise default to ~/crucible/storage
-        default_base = os.environ.get('STORAGE_BASE') or os.path.expanduser("~/crucible/storage")
-        self.temp_base_dir = temp_base_dir or default_base
+        # Use TEMP_BASE from environment if available (for containerized deployments)
+        # Falls back to STORAGE_BASE for compatibility, then to ~/crucible/data
+        default_base = os.environ.get('TEMP_BASE') or os.environ.get('STORAGE_BASE') or os.path.expanduser("~/crucible/data")
+        # Ensure we have an absolute path to avoid relative path issues
+        self.temp_base_dir = os.path.abspath(temp_base_dir or default_base)
     
     def _translate_mount_path(self, temp_file: str) -> str:
         """Translate container paths to host paths for Docker-in-Docker scenarios."""
         mount_path = temp_file
         
-        # Check if we're running inside a container and using /app/storage
-        if temp_file.startswith('/app/storage/') and os.environ.get('STORAGE_BASE') == '/app/storage':
-            # Get the absolute host path from PWD (working directory on host)
-            # This assumes docker-compose was run from the project root
-            host_pwd = os.environ.get('HOST_PWD')
-            if not host_pwd:
-                # Fallback: try to determine the host path
-                # This handles cases where HOST_PWD isn't set properly
-                raise RuntimeError(
-                    "HOST_PWD environment variable not set. "
-                    "Please ensure docker-compose sets HOST_PWD=${PWD} "
-                    "or run with: HOST_PWD=$(pwd) docker-compose up"
-                )
-            # Replace /app/storage with ./storage relative to host
-            relative_path = temp_file.replace('/app/storage/', '')
-            mount_path = os.path.join(host_pwd, 'storage', relative_path)
+        # Check if we're running inside a container and need path translation
+        host_pwd = os.environ.get('HOST_PWD')
+        
+        if temp_file.startswith('/app/') and host_pwd:
+            # We're in a container and need to translate to host path
+            if temp_file.startswith('/app/storage/'):
+                # Replace /app/storage with ./storage relative to host
+                relative_path = temp_file.replace('/app/storage/', '')
+                mount_path = os.path.join(host_pwd, 'storage', relative_path)
+            elif temp_file.startswith('/app/data/'):
+                # Replace /app/data with ./data relative to host
+                relative_path = temp_file.replace('/app/data/', '')
+                mount_path = os.path.join(host_pwd, 'data', relative_path)
+            else:
+                # Unknown /app/ path - log warning but proceed
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Unknown container path pattern: {temp_file}")
+                mount_path = temp_file
             
             # Debug logging to help diagnose path issues
             import logging
             logger = logging.getLogger(__name__)
             logger.debug(f"Path mapping: {temp_file} -> {mount_path}")
-            logger.debug(f"HOST_PWD: {host_pwd}, relative_path: {relative_path}")
+            logger.debug(f"HOST_PWD: {host_pwd}")
+        
+        elif temp_file.startswith('/app/') and not host_pwd:
+            # We're in a container but HOST_PWD isn't set
+            raise RuntimeError(
+                "HOST_PWD environment variable not set. "
+                "Please ensure docker-compose sets HOST_PWD=${PWD} "
+                "or run with: HOST_PWD=$(pwd) docker-compose up"
+            )
         
         return mount_path
     
@@ -240,9 +252,9 @@ class DockerEngine(ExecutionEngine):
         ]
     
     def execute(self, code: str, eval_id: str) -> Dict[str, Any]:
-        # Create temp files in a directory accessible to both systemd service and Docker
-        # This works around PrivateTmp=true in systemd which isolates /tmp
-        temp_dir = os.path.join(self.temp_base_dir, "tmp")
+        # Create a unique temp directory for each evaluation (like K8s pods)
+        # This simulates how each evaluation would have its own pod/container in production
+        temp_dir = os.path.join(self.temp_base_dir, "tmp", f"eval-{eval_id}")
         os.makedirs(temp_dir, exist_ok=True)
         
         # Verify the directory is writable
@@ -304,11 +316,19 @@ class DockerEngine(ExecutionEngine):
             logger.exception(f"Error executing code: {e}")
             return {'id': eval_id, 'status': 'error', 'error': str(e)}
         finally:
+            # Clean up temp file
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
             
-            # Clean up old temp files (older than 1 hour)
-            self._cleanup_old_temp_files(temp_dir)
+            # Clean up evaluation directory (like K8s would clean up the pod)
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                # Use logger if available, otherwise just pass
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to clean up temp directory {temp_dir}: {e}")
     
     def get_description(self) -> str:
         return "Docker (Containerized - Network isolated)"

@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${PROJECT_NAME:-crucible-platform}:local
+    image: ${BACKEND_IMAGE:-${PROJECT_NAME:-crucible-platform}:local}
     container_name: ${CONTAINER_NAME:-crucible-platform}
     ports:
       - "8080:8080"
@@ -15,8 +15,8 @@ services:
       # macOS: /Users/$USER/.docker/run/docker.sock
       # Linux: /var/run/docker.sock
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
-      # Mount storage directory for persistence
-      - ./storage:/app/storage
+      # Mount data directory for runtime data
+      - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - DOCKER_HOST=unix:///var/run/docker.sock
@@ -26,7 +26,13 @@ services:
       - PLATFORM_HOST=crucible      # API gateway host
       - HOST_PWD=${PWD}             # Pass host working directory for volume mapping
       - STORAGE_BASE=/app/storage   # Storage path inside container
+      - FILE_STORAGE_PATH=/app/data # Runtime data storage path
+      - TEMP_BASE=/app/data         # Temp directory for execution
+      - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     # Security options
     security_opt:
       - no-new-privileges:true
@@ -47,6 +53,58 @@ services:
     
     # Currently running as root for Docker socket access (see Dockerfile)
 
+  crucible-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_URL: http://crucible-platform:8080
+    image: ${FRONTEND_IMAGE:-${PROJECT_NAME:-crucible-platform}-frontend:local}
+    container_name: ${CONTAINER_NAME:-crucible-platform}-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - API_URL=http://crucible-platform:8080
+      - NODE_ENV=production
+    depends_on:
+      - crucible-platform
+    restart: unless-stopped
+    # Run as non-root user (configured in Dockerfile)
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: crucible-postgres
+    environment:
+      POSTGRES_DB: crucible
+      POSTGRES_USER: crucible
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # For development access
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crucible"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Database migration service - run with: docker compose run --rm migrate
+  migrate:
+    build: .
+    image: ${BACKEND_IMAGE:-${PROJECT_NAME:-crucible-platform}:local}
+    container_name: crucible-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+    working_dir: /app/storage/database/migrations
+    entrypoint: ["alembic"]
+    command: ["upgrade", "head"]
+    profiles:
+      - tools  # Only run when explicitly requested
+
   # Future: Redis for Celery (Day 3)
   # redis:
   #   image: redis:7-alpine
@@ -55,20 +113,10 @@ services:
   #     - redis-data:/data
   #   restart: unless-stopped
 
-  # Future: PostgreSQL for persistence
-  # postgres:
-  #   image: postgres:15-alpine
-  #   container_name: crucible-db
-  #   environment:
-  #     POSTGRES_DB: crucible
-  #     POSTGRES_USER: crucible
-  #     POSTGRES_PASSWORD: changeme
-  #   volumes:
-  #     - postgres-data:/var/lib/postgresql/data
-  #   restart: unless-stopped
 
 volumes:
   # redis-data:
-  # postgres-data:
+  postgres-data:
+    driver: local
   storage:
     driver: local

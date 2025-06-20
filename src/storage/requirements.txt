@@ -1,7 +1,0 @@
-# Storage - handles persistent storage
-# Basic filesystem implementation uses only Python stdlib
-# For cloud storage:
-# boto3==1.29.7  # For S3
-# Add these only if running as standalone service:
-# fastapi==0.104.1
-# uvicorn[standard]==0.24.0

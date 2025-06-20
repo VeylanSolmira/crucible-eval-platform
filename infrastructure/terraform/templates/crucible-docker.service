@@ -9,10 +9,13 @@ Restart=always
 RestartSec=30
 StartLimitInterval=0
 
+# Environment variable for image (will be updated by deployment)
+Environment="IMAGE=${ECR_REPOSITORY_URL}:latest"
+
 # Login to ECR before starting
 ExecStartPre=/usr/local/bin/docker-ecr-login
-# Pull latest image
-ExecStartPre=/usr/bin/docker pull ${ECR_REPOSITORY_URL}:latest
+# Pull the image
+ExecStartPre=/usr/bin/docker pull $IMAGE
 # Stop old container if exists
 ExecStartPre=-/usr/bin/docker stop ${CONTAINER_NAME}
 ExecStartPre=-/usr/bin/docker rm ${CONTAINER_NAME}
@@ -29,7 +32,7 @@ ExecStart=/usr/bin/docker run \
     -e BIND_HOST=0.0.0.0 \
     -e HOST_PWD=/home/ubuntu \
     -e STORAGE_BASE=/app/storage \
-    ${ECR_REPOSITORY_URL}:latest
+    $IMAGE
 
 # Cleanup on stop
 ExecStop=/usr/bin/docker stop ${CONTAINER_NAME}

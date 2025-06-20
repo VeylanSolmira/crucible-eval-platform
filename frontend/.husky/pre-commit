@@ -1,0 +1,41 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+cd frontend
+
+# Security checks before commit
+echo "🔒 Running security checks..."
+
+# 1. Check for vulnerable dependencies
+echo "📦 Checking npm dependencies..."
+npm audit --audit-level=moderate
+if [ $? -ne 0 ]; then
+  echo "❌ Security vulnerabilities found! Run 'npm audit' for details."
+  exit 1
+fi
+
+# 2. Check for secrets/API keys
+echo "🔍 Checking for secrets..."
+# Check for common patterns
+if grep -rE "(api_key|apikey|api-key|secret|password|token)" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --exclude-dir=node_modules --exclude-dir=.next . | grep -vE "(// |/\*|\.md:|types/api\.ts)"; then
+  echo "❌ Potential secrets found! Review the files above."
+  exit 1
+fi
+
+# 3. TypeScript type check
+echo "📝 Type checking..."
+npm run tsc --noEmit
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript errors found!"
+  exit 1
+fi
+
+# 4. Lint check
+echo "🧹 Linting..."
+npm run lint
+if [ $? -ne 0 ]; then
+  echo "❌ Lint errors found!"
+  exit 1
+fi
+
+echo "✅ All security checks passed!"
