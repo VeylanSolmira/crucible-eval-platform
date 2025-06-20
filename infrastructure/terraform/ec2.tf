@@ -182,7 +182,8 @@ resource "aws_iam_role_policy" "eval_server_ecr" {
           "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage"
+          "ecr:BatchGetImage",
+          "ecr:DescribeRepositories"
         ]
         Resource = "*"
       }
@@ -247,10 +248,11 @@ resource "aws_instance" "eval_server" {
     DeploymentVersion = var.deployment_version
   })
 
-  # Don't force recreation on userdata changes - critical for blue-green deployments
-  # With this set to false, you can update userdata without destroying instances
-  # New instances will get the new userdata, existing ones keep their old config
-  user_data_replace_on_change = false
+  # Ignore userdata changes - for blue-green, we deploy new code via Docker images
+  # Infrastructure changes should be done by replacing instances entirely
+  lifecycle {
+    ignore_changes = [user_data]
+  }
 }
 
 # Outputs
