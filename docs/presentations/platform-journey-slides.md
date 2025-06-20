@@ -31,6 +31,21 @@ graph LR
 
 ---
 
+## Current State: Production on AWS
+
+**What We've Achieved:**
+- ✅ Full stack deployed on EC2 with Docker Compose
+- ✅ Blue-green deployment with zero downtime
+- ✅ PostgreSQL for persistent storage
+- ✅ React frontend with real-time monitoring
+- ✅ Secure code execution with gVisor
+- ✅ CI/CD pipeline with GitHub Actions
+- ✅ Infrastructure as Code with Terraform
+
+**Live Demo Available!**
+
+---
+
 ## Chapter 1: The Extreme MVP
 ### Problem: Need to evaluate AI code somehow
 
@@ -980,6 +995,32 @@ Ready for scale
 **The code ships.**
 **The learning continues.**
 **The collaboration deepens.**
+
+---
+
+## Chapter 8: Production Deployment Debugging
+### The Real Learning Happens in Production
+
+**Problems We Solved:**
+1. **Userdata Script Failures**
+   - Missing `ec2-instance-metadata` package
+   - Wrong command syntax (`ec2-metadata` vs `ec2metadata`)
+   - Solution: Install `cloud-utils` package
+
+2. **IAM Permission Issues**
+   - ECR login failed: missing `ecr:DescribeRepositories`
+   - Solution: Update IAM policy with targeted Terraform apply
+
+3. **SystemD Service Failures**
+   - `docker-compose` vs `docker compose` command format
+   - Solution: Update to modern Docker Compose v2 syntax
+
+4. **Python Import Mysteries**
+   - Volume mount overwrote Python module!
+   - `./storage:/app/storage` replaced code with empty directory
+   - Solution: Remove conflicting volume mount
+
+**Key Insight:** Production debugging requires understanding the entire stack - from IAM to SystemD to Docker to Python imports.
 
 ---
 

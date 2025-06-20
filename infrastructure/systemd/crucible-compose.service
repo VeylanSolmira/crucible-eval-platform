@@ -20,16 +20,16 @@ EnvironmentFile=/home/ubuntu/crucible/.env
 ExecStartPre=/usr/local/bin/docker-ecr-login
 
 # Pull latest images
-ExecStartPre=/usr/bin/docker-compose pull
+ExecStartPre=/usr/bin/docker compose pull
 
 # Run migrations
-ExecStartPre=/usr/bin/docker-compose --profile tools run --rm migrate
+ExecStartPre=/usr/bin/docker compose --profile tools run --rm migrate
 
 # Start services
-ExecStart=/usr/bin/docker-compose up
+ExecStart=/usr/bin/docker compose up
 
 # Stop services
-ExecStop=/usr/bin/docker-compose down
+ExecStop=/usr/bin/docker compose down
 
 [Install]
 WantedBy=multi-user.target
