@@ -159,9 +159,10 @@ Target: 6-10 hours per day, with clear deliverables that demonstrate platform en
 ## Day 3: Advanced Queue System & Testing (9 hours)
 
 ### Morning (5 hours): Celery Integration
-- [ ] Fix deploy-docker.yml to use systemd service
-  - Need to debug SSM permissions for systemctl commands
-  - Ensure consistency between deployments
+- [x] Fix deploy-docker.yml to use systemd service ✅
+  - Created new deploy-compose.yml workflow
+  - Systemd service installed via userdata
+  - Clean deployment with minimal commands
 - [ ] Replace basic queue with Celery
   - Redis as message broker
   - Separate worker processes
@@ -280,6 +281,35 @@ Target: 6-10 hours per day, with clear deliverables that demonstrate platform en
 - ✅ Event-driven architecture for loose coupling
 - ✅ Platform retrieves full evaluation data from storage
 - ✅ Test utilities for validation
+
+## Day 5.5: Blue-Green Deployment Infrastructure ✅ COMPLETED!
+
+### Morning (4 hours): Infrastructure Updates
+- [x] Implement Terraform for_each for EC2 instances
+  - [x] Update variables to support enabled_deployment_colors
+  - [x] Modify EC2 resource to create multiple instances
+  - [x] Update outputs to show all instance IPs
+- [x] Add AWS Secrets Manager integration
+  - [x] Generate secure database password
+  - [x] Store in Secrets Manager
+  - [x] Update IAM policies for access
+
+### Afternoon (4 hours): Deployment Workflow
+- [x] Create deploy-compose.yml workflow
+  - [x] Build and push both backend and frontend to ECR
+  - [x] Deployment color selection dropdown
+  - [x] Retrieve DB password from Secrets Manager
+  - [x] Deploy via SSM to selected color
+- [x] Update infrastructure for docker-compose
+  - [x] Systemd service via userdata
+  - [x] Clean deployment process
+  - [x] Both blue and green instances deployed
+
+**Delivered**:
+- ✅ True blue-green deployment capability
+- ✅ Zero-downtime deployment ready
+- ✅ Secure password management
+- ✅ Both environments running simultaneously
 
 ## Day 6: Advanced Features & Frontend Polish (9 hours)
 
@@ -465,7 +495,7 @@ Low-priority enhancements that could be tackled after core completion:
 
 ### Additional Features
 - **Multi-region deployment**: Extend Terraform to support multiple AWS regions
-- **Blue-green deployments**: Implement zero-downtime updates
+- ✅ **Blue-green deployments**: Implemented with for_each EC2 instances and deployment color selection
 - **Observability stack**: Add Prometheus, Grafana, and distributed tracing
 - **Cost optimization**: Spot instances, auto-scaling policies
 - **Enhanced security**: Implement OPA policies, admission webhooks
