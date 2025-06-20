@@ -1,0 +1,56 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+
+# Virtual environments
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+/data/
+/infrastructure/
+/docs/
+/demos/
+/slides/
+*.md
+DEPLOYMENT FLOW - COMPLETE TRACE
+CLAUDE.md
+interview-prep.md
+metr-questions.md
+questions.md
+
+# Keep only essential files
+# app.py
+# src/
+# requirements.txt
