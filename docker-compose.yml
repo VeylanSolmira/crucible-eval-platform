@@ -94,7 +94,7 @@ services:
   # Database migration service - run with: docker compose run --rm migrate
   migrate:
     build: .
-    image: ${PROJECT_NAME:-crucible-platform}:local
+    image: ${BACKEND_IMAGE:-${PROJECT_NAME:-crucible-platform}:local}
     container_name: crucible-migrate
     depends_on:
       postgres:
