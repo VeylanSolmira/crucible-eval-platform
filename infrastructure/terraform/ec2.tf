@@ -247,8 +247,10 @@ resource "aws_instance" "eval_server" {
     DeploymentVersion = var.deployment_version
   })
 
-  # Force recreation when user_data changes
-  user_data_replace_on_change = true
+  # Don't force recreation on userdata changes - critical for blue-green deployments
+  # With this set to false, you can update userdata without destroying instances
+  # New instances will get the new userdata, existing ones keep their old config
+  user_data_replace_on_change = false
 }
 
 # Outputs
