@@ -55,9 +55,9 @@ COPY api/ ./api/
 COPY storage/ ./storage/
 COPY requirements.txt .
 
-# Create storage directory and set ownership
-RUN mkdir -p /app/storage/tmp && \
-    chmod 755 /app/storage /app/storage/tmp && \
+# Create data directory for runtime data and set ownership
+RUN mkdir -p /app/data && \
+    chmod 755 /app/data && \
     chown -R appuser:appuser /app
 
 # PRAGMATIC DECISION: Running as root for Docker socket access

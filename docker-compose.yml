@@ -17,6 +17,8 @@ services:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       # Mount storage directory for persistence
       - ./storage:/app/storage
+      # Mount data directory for runtime data
+      - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - DOCKER_HOST=unix:///var/run/docker.sock
@@ -26,6 +28,8 @@ services:
       - PLATFORM_HOST=crucible      # API gateway host
       - HOST_PWD=${PWD}             # Pass host working directory for volume mapping
       - STORAGE_BASE=/app/storage   # Storage path inside container
+      - FILE_STORAGE_PATH=/app/data # Runtime data storage path
+      - TEMP_BASE=/app/data         # Temp directory for execution
       - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
     restart: unless-stopped
     depends_on:

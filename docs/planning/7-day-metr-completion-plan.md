@@ -492,6 +492,7 @@ Low-priority enhancements that could be tackled after core completion:
 
 ### Code Quality & Maintainability
 - **Refactor nested replace() in Terraform**: The current nested `replace()` calls in `ec2.tf` for service file templating work but could be cleaner. Consider refactoring to use `templatefile()` directly on the service file for better readability and maintainability.
+- **Remove container-awareness from execution engine**: The execution engine currently has logic to detect if it's running in a container and translate paths accordingly. This violates separation of concerns - the code shouldn't need to know about its deployment environment. Refactor to use environment variables for all paths and let the deployment layer (docker-compose, systemd) handle the mapping transparently.
 
 ### Additional Features
 - **Multi-region deployment**: Extend Terraform to support multiple AWS regions
