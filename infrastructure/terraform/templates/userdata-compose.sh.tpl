@@ -38,8 +38,8 @@ systemctl restart docker
 # Add ubuntu user to docker group
 usermod -aG docker ubuntu
 
-# Install AWS CLI, jq, and ec2-metadata tools
-apt-get install -y awscli jq ec2-instance-metadata
+# Install AWS CLI, jq, and cloud-utils (contains ec2metadata)
+apt-get install -y awscli jq cloud-utils
 
 # Create application directory
 mkdir -p /home/ubuntu/crucible/data
