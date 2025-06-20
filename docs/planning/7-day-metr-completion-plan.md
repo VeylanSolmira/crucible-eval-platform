@@ -344,9 +344,36 @@ Target: 6-10 hours per day, with clear deliverables that demonstrate platform en
 - ✅ Secure password management
 - ✅ Both environments running simultaneously
 
-## Day 6: Advanced Features & Frontend Polish (9 hours)
+## Day 6: Security & Public Access (8 hours)
 
-### Morning (4 hours): Complete Frontend Database Integration
+### Morning (3 hours): Secure Public Access - Phase 2
+- [ ] Implement IP whitelist approach
+  - [ ] Add allowed_web_ips variable to Terraform
+  - [ ] Update security groups for HTTPS (port 443)
+  - [ ] Add HTTP (port 80) for Let's Encrypt only
+- [ ] Install and configure Nginx
+  - [ ] Reverse proxy for backend (8080) and frontend (3000)
+  - [ ] Security headers configuration
+  - [ ] Rate limiting preparation
+- [ ] Set up HTTPS with Let's Encrypt
+  - [ ] Install certbot
+  - [ ] Configure auto-renewal
+- [ ] DNS configuration
+  - [ ] Determine DNS strategy (Vercel vs Route 53)
+  - [ ] Configure subdomain (eval.veylan.dev)
+  - [ ] Test without making public
+
+### Afternoon (2 hours): Security Hardening
+- [ ] Configure Nginx rate limiting
+- [ ] Set up fail2ban for brute force protection
+- [ ] Configure AWS CloudWatch alarms
+  - [ ] High CPU usage alerts
+  - [ ] Unusual network traffic
+  - [ ] Billing alerts
+- [ ] Create emergency shutdown procedures
+- [ ] Document security runbooks
+
+### Evening (3 hours): Complete Frontend Database Integration
 - [ ] Implement evaluation history page
 - [ ] Add async status polling
 - [ ] Create evaluation detail views
