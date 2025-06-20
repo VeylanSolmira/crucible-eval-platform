@@ -37,21 +37,23 @@ resource "aws_security_group" "eval_server" {
     cidr_blocks = [var.allowed_ssh_ip]  # Changed from 0.0.0.0/0 for security
   }
 
-  # Future: HTTP/HTTPS for public access (currently commented out)
-  # Uncomment these when ready to expose publicly
-  # ingress {
-  #   from_port   = 80
-  #   to_port     = 80
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
-  # 
-  # ingress {
-  #   from_port   = 443
-  #   to_port     = 443
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
+  # HTTP access (for Let's Encrypt challenge and redirect to HTTPS)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_ip]  # Start with IP restriction
+    description = "HTTP for LetsEncrypt and redirect"
+  }
+  
+  # HTTPS access (main web interface)
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_ip]  # Start with IP restriction
+    description = "HTTPS web interface"
+  }
 
   # Additional port for monitoring tools (Prometheus, etc.)
   ingress {
