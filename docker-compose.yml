@@ -58,7 +58,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        API_URL: http://crucible-platform:8080
+        # For production behind nginx, use empty to enable relative URLs
+        API_URL: ${FRONTEND_API_URL:-}
     image: ${FRONTEND_IMAGE:-${PROJECT_NAME:-crucible-platform}-frontend:local}
     container_name: ${CONTAINER_NAME:-crucible-platform}-frontend
     ports:

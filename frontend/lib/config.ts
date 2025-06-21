@@ -12,9 +12,11 @@ export const appConfig = {
     enableMonitoring: process.env.NEXT_PUBLIC_ENABLE_MONITORING !== 'false',
   },
   
-  // API configuration (server-side)
+  // API configuration
   api: {
-    baseUrl: process.env.API_URL || 'http://localhost:8080',
+    // Use relative URLs by default (works behind any proxy)
+    // Can override with API_URL env var for development
+    baseUrl: process.env.API_URL || '',
   },
   
   // Theme
