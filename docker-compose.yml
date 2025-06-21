@@ -105,6 +105,23 @@ services:
     profiles:
       - tools  # Only run when explicitly requested
 
+  # Future: Nginx reverse proxy (currently on host)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: crucible-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./nginx/conf.d:/etc/nginx/conf.d:ro
+  #     - ssl-certs:/etc/nginx/ssl:ro
+  #     - acme-challenge:/var/www/html/.well-known/acme-challenge:ro
+  #   depends_on:
+  #     - crucible-platform
+  #     - crucible-frontend
+  #   restart: unless-stopped
+  
   # Future: Redis for Celery (Day 3)
   # redis:
   #   image: redis:7-alpine
@@ -120,3 +137,5 @@ volumes:
     driver: local
   storage:
     driver: local
+  # ssl-certs:   # For containerized nginx
+  # acme-challenge:  # For Let's Encrypt challenges

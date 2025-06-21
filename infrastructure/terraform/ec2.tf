@@ -262,6 +262,14 @@ resource "aws_instance" "eval_server" {
   lifecycle {
     ignore_changes = [user_data]
   }
+  
+  # Ensure SSL certificates exist before creating instance
+  # This prevents the instance from failing during userdata execution
+  depends_on = [
+    aws_ssm_parameter.ssl_certificate,
+    aws_ssm_parameter.ssl_private_key,
+    aws_ssm_parameter.ssl_issuer_pem
+  ]
 }
 
 # Outputs (moved most outputs to route53.tf for Elastic IPs)

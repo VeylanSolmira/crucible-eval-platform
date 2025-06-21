@@ -39,19 +39,21 @@ systemctl restart docker
 usermod -aG docker ubuntu
 
 # Install AWS CLI, jq, cloud-utils, and web server tools
-apt-get install -y awscli jq cloud-utils nginx certbot python3-certbot-nginx
+apt-get install -y awscli jq cloud-utils nginx
 
 # Create application directory
 mkdir -p /home/ubuntu/crucible/data
 chown -R ubuntu:ubuntu /home/ubuntu/crucible
 
 # Configure AWS CLI for ECR
-aws configure set default.region $(ec2metadata --availability-zone | sed 's/.*: //' | sed 's/.$//')
+AZ=$(ec2metadata --availability-zone)
+aws configure set default.region $${AZ%?}
 
 # Create docker login helper script
 cat > /usr/local/bin/docker-ecr-login << 'EOFSCRIPT'
 #!/bin/bash
-REGION=$(ec2metadata --availability-zone | sed 's/.*: //' | sed 's/.$//')
+AZ=$(ec2metadata --availability-zone)
+REGION=$${AZ%?}
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $(aws ecr describe-repositories --repository-names ${project_name} --query 'repositories[0].repositoryUri' --output text | cut -d/ -f1)
 EOFSCRIPT
 chmod +x /usr/local/bin/docker-ecr-login
@@ -112,10 +114,58 @@ if [ -n "${domain_name}" ]; then
     # Remove default site
     rm -f /etc/nginx/sites-enabled/default
     
+    # Check if SSL certificates are available in SSM Parameter Store FIRST
+    SSL_AVAILABLE=false
+    # Get region from availability zone (remove last character)
+    AZ=$(ec2metadata --availability-zone)
+    REGION=$${AZ%?}  # Remove last character (the AZ letter)
+    
+    if aws ssm get-parameter --name "/${project_name}/ssl/certificate" --region $REGION >/dev/null 2>&1; then
+        echo "SSL certificates found in Parameter Store, installing..."
+        SSL_AVAILABLE=true
+        
+        # Create SSL directory
+        mkdir -p /etc/nginx/ssl
+        
+        # Get certificate
+        aws ssm get-parameter --name "/${project_name}/ssl/certificate" \
+            --with-decryption --region $REGION \
+            --query 'Parameter.Value' --output text > /etc/nginx/ssl/${domain_name}.crt
+        
+        # Get private key
+        aws ssm get-parameter --name "/${project_name}/ssl/private_key" \
+            --with-decryption --region $REGION \
+            --query 'Parameter.Value' --output text > /etc/nginx/ssl/${domain_name}.key
+        
+        # Get issuer chain
+        aws ssm get-parameter --name "/${project_name}/ssl/issuer_pem" \
+            --with-decryption --region $REGION \
+            --query 'Parameter.Value' --output text > /etc/nginx/ssl/${domain_name}.chain.crt
+        
+        # Create full chain
+        cat /etc/nginx/ssl/${domain_name}.crt /etc/nginx/ssl/${domain_name}.chain.crt > /etc/nginx/ssl/${domain_name}.fullchain.crt
+        
+        # Set proper permissions
+        chmod 600 /etc/nginx/ssl/*
+        chown root:root /etc/nginx/ssl/*
+        
+        echo "SSL certificates installed successfully!"
+    else
+        echo "ERROR: No SSL certificates found in Parameter Store"
+        echo "SSL certificates are required for secure operation"
+        echo "Ensure 'create_route53_zone = true' in Terraform and ACME certificates are created"
+        echo "Nginx setup will be skipped to prevent insecure configuration"
+        exit 1  # Fail the userdata script
+    fi
+    
     # Create Nginx configuration
     cat > /etc/nginx/sites-available/crucible <<'EOFNGINX'
 ${nginx_config}
 EOFNGINX
+    
+    # Update the configuration to use SSL certificates
+    sed -i "s|# ssl_certificate .*|ssl_certificate /etc/nginx/ssl/${domain_name}.fullchain.crt;|" /etc/nginx/sites-available/crucible
+    sed -i "s|# ssl_certificate_key .*|ssl_certificate_key /etc/nginx/ssl/${domain_name}.key;|" /etc/nginx/sites-available/crucible
     
     # Create rate limiting configuration
     cat > /etc/nginx/conf.d/rate-limits.conf <<'EOFLIMITS'
@@ -128,13 +178,11 @@ EOFLIMITS
     # Test configuration
     nginx -t
     
-    # Start Nginx
+    # Enable and restart Nginx to ensure new config is loaded
     systemctl enable nginx
-    systemctl start nginx
+    systemctl restart nginx
     
     echo "Nginx configured for ${domain_name}"
-    echo "Note: SSL certificate must be obtained manually after DNS is configured"
-    echo "Run: sudo certbot --nginx -d ${domain_name}"
 else
     echo "No domain configured, skipping Nginx setup"
 fi

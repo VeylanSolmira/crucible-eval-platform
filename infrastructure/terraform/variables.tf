@@ -127,7 +127,7 @@ variable "deployment_version" {
 variable "domain_name" {
   description = "Domain name for the platform (e.g., crucible.veylan.dev)"
   type        = string
-  default     = ""
+  default     = "crucible.veylan.dev"
 }
 
 variable "create_route53_zone" {
@@ -139,7 +139,7 @@ variable "create_route53_zone" {
 variable "active_deployment_color" {
   description = "Which deployment color (blue/green) should receive traffic"
   type        = string
-  default     = "green"
+  default     = "blue"
   
   validation {
     condition     = contains(["blue", "green"], var.active_deployment_color)
@@ -153,4 +153,11 @@ variable "allowed_web_ips" {
   default     = []
   # Start with IP whitelist, then gradually open up
   # Example: ["73.41.64.209/32", "10.0.0.0/8"]
+}
+
+variable "email" {
+  description = "Email address for Let's Encrypt SSL certificate notifications"
+  type        = string
+  default     = "veylan.solmira+crucible@gmail.com"
+  # Required for automated SSL certificate setup
 }

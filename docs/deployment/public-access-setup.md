@@ -155,11 +155,24 @@ sudo nginx -t  # Test configuration
 sudo systemctl reload nginx
 ```
 
-### 4. Obtain SSL Certificate
+### 4. SSL Certificate (Automated with ACME)
 
-**Important**: DNS must be configured and propagated before this step!
+**For Route 53 Managed DNS (Recommended):**
+If you set `create_route53_zone = true`, SSL certificates are automatically managed by Terraform:
 
 ```bash
+# Certificates are automatically obtained during terraform apply
+# They're stored in AWS SSM Parameter Store
+# EC2 instances retrieve them during startup
+```
+
+**For External DNS (Manual):**
+If using external DNS (Vercel, etc.), you'll need to obtain certificates manually:
+
+```bash
+# SSH to instance
+ssh ubuntu@<elastic-ip>
+
 # Test DNS resolution first
 nslookup crucible.veylan.dev
 

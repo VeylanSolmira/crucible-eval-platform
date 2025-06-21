@@ -79,8 +79,12 @@ output "dns_configuration" {
     zone_created = true
     nameservers  = var.domain_name != "" ? aws_route53_zone.crucible[0].name_servers : []
     domain       = var.domain_name
+    instruction  = "Add these nameservers to your domain registrar for ${var.domain_name}"
+    elastic_ip   = aws_eip.eval_server[var.active_deployment_color].public_ip
   } : {
     zone_created = false
+    nameservers  = []
+    domain       = var.domain_name
     instruction  = "Add A record for ${var.domain_name} pointing to ${aws_eip.eval_server[var.active_deployment_color].public_ip}"
     elastic_ip   = aws_eip.eval_server[var.active_deployment_color].public_ip
   }

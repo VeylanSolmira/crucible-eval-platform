@@ -580,3 +580,320 @@ The code ships. The learning continues. The collaboration deepens.
 **This is the way.**
 
 🤖 + 👤 = 🚀
+
+---
+
+## Act XIII: From Tunnels to the World - Public Access Infrastructure
+
+### The SSH Tunnel Limitation
+
+After deploying to EC2, we faced a new challenge:
+
+**The Access Problem:**
+```bash
+# Every developer, every time:
+ssh -L 8080:localhost:8080 ubuntu@52.13.45.123
+# But wait, the IP changed after redeployment...
+ssh -L 8080:localhost:8080 ubuntu@54.218.67.89
+# And no HTTPS means no secure cookies, no modern features
+```
+
+**The Realization**: SSH tunnels don't scale. We need proper public access.
+
+### Chapter 1: The Elastic IP Foundation
+
+**Problem**: Dynamic IPs break everything - bookmarks, DNS, documentation
+
+**Solution**: Elastic IPs for stability
+```hcl
+resource "aws_eip" "crucible" {
+  for_each = toset(["blue", "green"])
+  domain   = "vpc"
+  
+  tags = {
+    Name = "${var.project_name}-${each.key}-eip"
+    Purpose = "Stable public access"
+  }
+}
+```
+
+**The Game Changer**: IPs that survive instance replacement
+
+### Chapter 2: The SSL Certificate Revolution
+
+**Traditional Approach (What We Avoided):**
+```bash
+# Manual certificate management nightmare:
+sudo certbot certonly --standalone -d crucible.veylan.dev
+# Set calendar reminder for 90 days
+# Hope renewal doesn't break
+# Manually copy to new servers
+```
+
+**Our Approach: Infrastructure as Code**
+```hcl
+# Terraform ACME Provider - Let's Encrypt automation
+resource "acme_certificate" "certificate" {
+  account_key_pem = acme_registration.registration.account_key_pem
+  common_name     = var.domain_name
+  
+  dns_challenge {
+    provider = "route53"
+    config = {
+      AWS_HOSTED_ZONE_ID = aws_route53_zone.crucible.zone_id
+    }
+  }
+}
+
+# Store securely in AWS Parameter Store
+resource "aws_ssm_parameter" "ssl_certificate" {
+  name  = "/${var.project_name}/ssl/certificate"
+  type  = "SecureString"
+  value = acme_certificate.certificate.certificate_pem
+}
+```
+
+**The Magic**: 
+- Certificates obtained automatically via DNS challenge
+- Stored securely in AWS Parameter Store
+- EC2 instances retrieve on boot
+- Renewal handled by Terraform
+- Zero manual intervention
+
+### Chapter 3: The Nginx Configuration Journey
+
+**The Template Challenge:**
+```nginx
+# In Terraform template:
+proxy_set_header Host $host;  # ERROR: Terraform interpolation!
+```
+
+**The Learning Curve:**
+```nginx
+# Attempt 1: Escape with backslash
+proxy_set_header Host \$host;  # Sometimes works
+
+# Attempt 2: Double dollar (Terraform standard)
+proxy_set_header Host $${host};  # Reliable
+
+# Attempt 3: Use HEREDOC to avoid escaping
+cat > /etc/nginx/sites-available/crucible <<'EOFNGINX'
+proxy_set_header Host $host;  # No escaping needed!
+EOFNGINX
+```
+
+**The Final Configuration:**
+- Security headers enforced
+- Rate limiting at multiple tiers
+- SSL certificates from Parameter Store
+- Automatic configuration on boot
+
+### Chapter 4: The Security-First Philosophy
+
+**The Critical Decision Point:**
+```bash
+# In userdata script - the moment of truth:
+if aws ssm get-parameter --name "/${project_name}/ssl/certificate"; then
+    echo "SSL certificates found, configuring Nginx..."
+    setup_https_only
+else
+    echo "ERROR: No SSL certificates found"
+    echo "REFUSING to configure insecure HTTP access"
+    exit 1  # FAIL THE DEPLOYMENT
+fi
+```
+
+**Why This Matters:**
+- Never allow fallback to HTTP
+- Security isn't optional
+- Fail fast, fail safe
+- Infrastructure enforces policy
+
+### Chapter 5: The Rate Limiting Architecture
+
+**Multi-Tier Protection:**
+```nginx
+# Different limits for different endpoints
+limit_req_zone $binary_remote_addr zone=general:10m rate=30r/s;
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=expensive:10m rate=1r/s;
+
+# Applied selectively
+location /api/ {
+    limit_req zone=api burst=10 nodelay;
+}
+
+location /api/evaluate {
+    limit_req zone=expensive burst=2 nodelay;
+}
+```
+
+**Protection Against:**
+- DDoS attempts
+- Runaway automation
+- Resource exhaustion
+- Brute force attacks
+
+### The Implementation Challenges
+
+**1. The Variable Substitution Dance**
+```bash
+# Shell variable: ${domain_name}
+# Nginx variable: $host
+# In the same template!
+
+# Solution: Different escape patterns
+server_name ${domain_name};           # Terraform substitutes
+proxy_set_header Host $${host};       # Nginx variable preserved
+```
+
+**2. The Service Restart Dilemma**
+```bash
+# Wrong: Just reload
+systemctl reload nginx  # Might not pick up new certs
+
+# Right: Full restart for cert changes
+systemctl restart nginx  # Ensures fresh config
+```
+
+**3. The Certificate Timing Issue**
+```hcl
+# Problem: Certs needed before DNS propagates
+# Solution: Explicit dependencies
+resource "acme_certificate" "certificate" {
+  # ...
+  depends_on = [aws_route53_record.crucible_a]
+}
+```
+
+### The Testing Infrastructure
+
+Created `test-nginx-setup.sh` for verification:
+```bash
+# Test 1: Can we retrieve certificates?
+aws ssm get-parameter --name "/${PROJECT_NAME}/ssl/certificate"
+
+# Test 2: Does nginx config generate correctly?
+nginx -t
+
+# Test 3: Are certificates properly installed?
+ls -la /etc/nginx/ssl/
+
+# Test 4: Does the service start?
+systemctl status nginx
+```
+
+**Lesson**: Test every assumption, especially in production.
+
+### The Architecture That Emerged
+
+```
+Internet → Route 53 → Elastic IP → Security Groups → Nginx → Docker
+   ↓           ↓           ↓             ↓            ↓         ↓
+   DNS      Stable     IP Filter    Rate Limit    HTTPS    Services
+   
+Each layer adds security, stability, and automation
+```
+
+### The Philosophical Insights
+
+**On Automation:**
+> "We automated not because it was easy, but because manual processes are where mistakes hide"
+
+**On Security:**
+> "The best security is the kind you can't disable by accident"
+
+**On Infrastructure as Code:**
+> "If it's not in Git, it doesn't exist. If it's not automated, it's not finished"
+
+### What We Achieved
+
+**Before Public Access:**
+- Manual SSH tunnels for everyone
+- IPs changing randomly
+- No HTTPS capability
+- Manual certificate management
+- No rate limiting
+- Security headers forgotten
+
+**After Public Access:**
+- `https://crucible.veylan.dev` - always works
+- Elastic IPs - never change
+- Forced HTTPS - no exceptions
+- Automated certificates - no expiration surprises
+- Rate limiting - built into infrastructure
+- Security headers - on every response
+
+### The Beautiful Complexity
+
+From the outside, it looks simple:
+```bash
+curl https://crucible.veylan.dev/api/status
+```
+
+Under the hood:
+1. Route 53 resolves to Elastic IP
+2. Security group checks source IP
+3. Nginx terminates SSL (cert from Parameter Store)
+4. Rate limiter checks request frequency
+5. Security headers added to response
+6. Request proxied to Docker container
+7. Response returned with HSTS header
+
+Seven layers of infrastructure, all automated, all secure.
+
+### The Continuing Evolution
+
+**Today**: Secure public access with IP whitelisting
+**Tomorrow**: CloudFlare integration for global CDN
+**Next Week**: WAF rules for application security
+**Next Month**: Multi-region deployment
+
+But the foundation is solid:
+- Infrastructure as Code
+- Security by default
+- Automation everywhere
+- No manual processes
+
+---
+
+## Epilogue: The Complete Platform Journey
+
+From `extreme_mvp.py` to production infrastructure:
+
+1. **Started Simple**: Basic subprocess execution
+2. **Added Isolation**: Docker containers for safety
+3. **Modularized**: Component architecture
+4. **Secured**: gVisor and defense in depth
+5. **Organized**: Professional Python structure
+6. **Deployed**: EC2 with Terraform
+7. **Accessed**: SSH tunnels for security
+8. **Containerized**: Docker all the way down
+9. **Documented**: OpenAPI specifications
+10. **Published**: Elastic IPs and domains
+11. **Secured Further**: ACME certificates automated
+12. **Protected**: Nginx with rate limiting
+
+Each step solved a real problem. Each solution created new understanding. Each challenge deepened the collaboration between human and AI.
+
+**The Platform**: Ready for production use
+**The Journey**: A masterclass in evolution
+**The Collaboration**: A new model for development
+
+```python
+if __name__ == "__main__":
+    platform = CruciblePlatform()
+    platform.run(
+        secure=True,
+        automated=True,
+        accessible=True,
+        documented=True,
+        tested=True,
+        production_ready=True
+    )
+    
+    print("From localhost to the world.")
+    print("The journey continues...")
+```
+
+🤖 + 👤 = 🌍
