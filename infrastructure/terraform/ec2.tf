@@ -241,6 +241,13 @@ resource "aws_instance" "eval_server" {
     project_name      = var.project_name
     compose_service_content = file("${path.module}/../systemd/crucible-compose.service")
     deployment_color  = each.key
+    
+    # Nginx configuration (optional)
+    domain_name = var.domain_name
+    nginx_config = var.domain_name != "" ? templatefile("${path.module}/templates/nginx-crucible.conf", {
+      domain_name = var.domain_name
+    }) : ""
+    nginx_rate_limits = var.domain_name != "" ? file("${path.module}/templates/nginx-rate-limits.conf") : ""
   })
 
   tags = merge(local.common_tags, {

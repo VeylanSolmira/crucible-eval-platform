@@ -105,4 +105,38 @@ Instance Details:
 EOF
 chown ubuntu:ubuntu /home/ubuntu/deployment-instructions.txt
 
+# Configure Nginx (if domain is configured)
+if [ -n "${domain_name}" ]; then
+    echo "Configuring Nginx for ${domain_name}..."
+    
+    # Remove default site
+    rm -f /etc/nginx/sites-enabled/default
+    
+    # Create Nginx configuration
+    cat > /etc/nginx/sites-available/crucible <<'EOFNGINX'
+${nginx_config}
+EOFNGINX
+    
+    # Create rate limiting configuration
+    cat > /etc/nginx/conf.d/rate-limits.conf <<'EOFLIMITS'
+${nginx_rate_limits}
+EOFLIMITS
+    
+    # Enable site
+    ln -sf /etc/nginx/sites-available/crucible /etc/nginx/sites-enabled/
+    
+    # Test configuration
+    nginx -t
+    
+    # Start Nginx
+    systemctl enable nginx
+    systemctl start nginx
+    
+    echo "Nginx configured for ${domain_name}"
+    echo "Note: SSL certificate must be obtained manually after DNS is configured"
+    echo "Run: sudo certbot --nginx -d ${domain_name}"
+else
+    echo "No domain configured, skipping Nginx setup"
+fi
+
 echo "Infrastructure setup complete! Ready for docker-compose deployment."
