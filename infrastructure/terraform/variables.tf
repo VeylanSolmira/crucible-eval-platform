@@ -122,3 +122,35 @@ variable "deployment_version" {
   type        = string
   default     = "1.0"
 }
+
+# Public Access Variables
+variable "domain_name" {
+  description = "Domain name for the platform (e.g., crucible.veylan.dev)"
+  type        = string
+  default     = ""
+}
+
+variable "create_route53_zone" {
+  description = "Whether to create a Route 53 hosted zone (true if managing DNS, false if delegating)"
+  type        = bool
+  default     = false
+}
+
+variable "active_deployment_color" {
+  description = "Which deployment color (blue/green) should receive traffic"
+  type        = string
+  default     = "green"
+  
+  validation {
+    condition     = contains(["blue", "green"], var.active_deployment_color)
+    error_message = "Active deployment color must be 'blue' or 'green'."
+  }
+}
+
+variable "allowed_web_ips" {
+  description = "IP addresses allowed to access web interface (CIDR format)"
+  type        = list(string)
+  default     = []
+  # Start with IP whitelist, then gradually open up
+  # Example: ["73.41.64.209/32", "10.0.0.0/8"]
+}
