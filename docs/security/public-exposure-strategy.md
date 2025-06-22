@@ -27,19 +27,29 @@ Exposing a code execution platform to the internet requires extreme caution. Thi
 - Zero public exposure
 - **Status: Implemented**
 
-### Phase 2: IP Whitelist (Recommended Next Step) 
+### Phase 2: IP Whitelist (Currently Implementing) ✅
 **What**: Open HTTPS but only to specific IPs
 
 **Implementation**:
-1. Update security group to allow HTTPS from whitelisted IPs
-2. Set up HTTPS with Let's Encrypt
-3. Configure Route 53 subdomain
-4. No changes to Vercel needed (no CNAME yet)
+1. ✅ Update security group to allow HTTPS from whitelisted IPs
+2. ✅ Implement Elastic IPs for stable addressing
+3. ✅ Configure Route 53 infrastructure (optional)
+4. ⏳ Set up HTTPS with Let's Encrypt
+5. ⏳ Configure Nginx reverse proxy
+
+**Infrastructure Updates**:
+- ✅ `allowed_web_ips` variable in Terraform
+- ✅ Elastic IPs for each deployment color
+- ✅ Route 53 configuration (optional)
+- ✅ Support for external DNS providers
+- ✅ Blue-green switching via `active_deployment_color`
 
 **Benefits**:
 - Can access without SSH tunnel
 - Still completely private
 - Can share with specific people by adding their IP
+- Infrastructure as Code for all DNS/IP management
+- Easy blue-green deployment switching
 
 **Risks**: Minimal - only trusted IPs can connect
 

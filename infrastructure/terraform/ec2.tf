@@ -42,7 +42,7 @@ resource "aws_security_group" "eval_server" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_ip]  # Start with IP restriction
+    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : [var.allowed_ssh_ip]
     description = "HTTP for LetsEncrypt and redirect"
   }
   
@@ -51,7 +51,7 @@ resource "aws_security_group" "eval_server" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_ip]  # Start with IP restriction
+    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : [var.allowed_ssh_ip]
     description = "HTTPS web interface"
   }
 
@@ -241,6 +241,13 @@ resource "aws_instance" "eval_server" {
     project_name      = var.project_name
     compose_service_content = file("${path.module}/../systemd/crucible-compose.service")
     deployment_color  = each.key
+    
+    # Nginx configuration (optional)
+    domain_name = var.domain_name
+    nginx_config = var.domain_name != "" ? templatefile("${path.module}/templates/nginx-crucible.conf", {
+      domain_name = var.domain_name
+    }) : ""
+    nginx_rate_limits = var.domain_name != "" ? file("${path.module}/templates/nginx-rate-limits.conf") : ""
   })
 
   tags = merge(local.common_tags, {
@@ -255,30 +262,38 @@ resource "aws_instance" "eval_server" {
   lifecycle {
     ignore_changes = [user_data]
   }
+  
+  # Ensure SSL certificates exist before creating instance
+  # This prevents the instance from failing during userdata execution
+  depends_on = [
+    aws_ssm_parameter.ssl_certificate,
+    aws_ssm_parameter.ssl_private_key,
+    aws_ssm_parameter.ssl_issuer_pem
+  ]
 }
 
-# Outputs
-output "eval_server_public_ips" {
-  value = { for k, v in aws_instance.eval_server : k => v.public_ip }
-  description = "Public IP addresses of the evaluation servers by color"
+# Outputs (moved most outputs to route53.tf for Elastic IPs)
+output "instance_ids" {
+  value = { for k, v in aws_instance.eval_server : k => v.id }
+  description = "EC2 instance IDs by deployment color"
 }
 
-output "eval_server_public_dns" {
-  value = { for k, v in aws_instance.eval_server : k => v.public_dns }
-  description = "Public DNS of the evaluation servers by color"
+output "ssh_commands_elastic" {
+  value = { for k, v in aws_eip.eval_server : k => "ssh ubuntu@${v.public_ip}" }
+  description = "SSH commands using Elastic IPs"
 }
 
-output "ssh_commands" {
-  value = { for k, v in aws_instance.eval_server : k => "ssh ubuntu@${v.public_ip}" }
-  description = "SSH commands to connect to each server"
-}
-
-output "ssh_tunnel_commands" {
-  value = { for k, v in aws_instance.eval_server : k => "ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@${v.public_ip}" }
-  description = "SSH tunnel commands for local access to each server"
+output "ssh_tunnel_commands_elastic" {
+  value = { for k, v in aws_eip.eval_server : k => "ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@${v.public_ip}" }
+  description = "SSH tunnel commands using Elastic IPs"
 }
 
 output "platform_url_local" {
   value = "http://localhost:8080"
   description = "URL to access the platform through SSH tunnel"
+}
+
+output "platform_url_public" {
+  value = var.domain_name != "" ? "https://${var.domain_name}" : "Configure domain_name variable"
+  description = "Public URL for the platform (once DNS is configured)"
 }

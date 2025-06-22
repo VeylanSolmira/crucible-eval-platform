@@ -1045,4 +1045,406 @@ docker compose up
 
 **From "Hello World" to "Hello Production" in one incredible journey.**
 
+---
+
+## Chapter 11: From SSH Tunnels to Public Access
+### Problem: SSH tunnels don't scale for team access
+
+**The SSH Tunnel Reality:**
+```bash
+# Every team member needs to:
+ssh -L 8080:localhost:8080 ubuntu@<changing-ip>
+# Problems:
+# - IP changes on every deployment
+# - Manual tunnel management
+# - No HTTPS for secure access
+# - Can't share with stakeholders
+```
+
+**The Solution: Infrastructure as Code for Public Access**
+
+---
+
+## The Public Access Architecture
+
+### 1. Stable IPs with Elastic IPs
+```hcl
+# No more changing IPs!
+resource "aws_eip" "crucible" {
+  for_each = toset(["blue", "green"])
+  domain   = "vpc"
+  
+  tags = {
+    Name = "${var.project_name}-${each.key}-eip"
+    Color = each.key
+  }
+}
+```
+
+**Benefits:**
+- Permanent IP addresses for each deployment
+- DNS can point to stable endpoints
+- Blue-green switching without DNS changes
+- No more IP hunting after deployments
+
+---
+
+## 2. Automated SSL with Terraform ACME Provider
+
+### The Traditional Way (Manual):
+```bash
+# SSH to server
+sudo certbot --nginx -d crucible.veylan.dev
+# Repeat every 90 days
+# Hope renewal works
+# Manual = Mistakes
+```
+
+### The Infrastructure as Code Way:
+```hcl
+resource "acme_certificate" "certificate" {
+  common_name = var.domain_name
+  
+  dns_challenge {
+    provider = "route53"
+    config = {
+      AWS_HOSTED_ZONE_ID = aws_route53_zone.crucible.zone_id
+    }
+  }
+}
+
+# Store in AWS Parameter Store
+resource "aws_ssm_parameter" "ssl_certificate" {
+  name  = "/${var.project_name}/ssl/certificate"
+  type  = "SecureString"
+  value = acme_certificate.certificate.certificate_pem
+}
+```
+
+**Game Changers:**
+- SSL certificates as code
+- Automatic renewal via Terraform
+- Secure storage in AWS SSM
+- EC2 instances pull certs on boot
+- Zero manual intervention
+
+---
+
+## 3. Nginx Reverse Proxy with Security Headers
+
+### Security-First Configuration:
+```nginx
+server {
+    listen 443 ssl;
+    server_name crucible.veylan.dev;
+    
+    # Automated SSL from Parameter Store
+    ssl_certificate /etc/nginx/ssl/crucible.veylan.dev.fullchain.crt;
+    ssl_certificate_key /etc/nginx/ssl/crucible.veylan.dev.key;
+    
+    # Security headers
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    
+    # Rate limiting
+    limit_req zone=api burst=10 nodelay;
+    
+    # Proxy to backend
+    location /api/ {
+        proxy_pass http://localhost:8080;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+---
+
+## 4. Rate Limiting for Protection
+
+### Multi-Tier Rate Limiting:
+```nginx
+# General traffic: 30 req/sec
+limit_req_zone $binary_remote_addr zone=general:10m rate=30r/s;
+
+# API endpoints: 10 req/sec
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+# Expensive operations: 1 req/sec
+limit_req_zone $binary_remote_addr zone=expensive:10m rate=1r/s;
+```
+
+**Protection Against:**
+- DDoS attempts
+- Runaway scripts
+- Resource exhaustion
+- Brute force attacks
+
+---
+
+## 5. Security-First Design
+
+### The Critical Decision: Fail Secure
+```bash
+# In userdata script:
+if aws ssm get-parameter --name "/${project_name}/ssl/certificate"; then
+    echo "SSL certificates found, configuring Nginx..."
+    # Configure HTTPS
+else
+    echo "ERROR: No SSL certificates found"
+    echo "Nginx setup will be skipped to prevent insecure configuration"
+    exit 1  # Fail the deployment!
+fi
+```
+
+**Philosophy:**
+- Never allow HTTP-only access
+- SSL is mandatory, not optional
+- Fail deployment rather than compromise security
+- Infrastructure enforces security policy
+
+---
+
+## The Complete Public Access Stack
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Route 53 DNS                          │
+│                 crucible.veylan.dev                      │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│                   Elastic IPs                            │
+│         Blue: 52.13.45.123  Green: 54.218.67.89        │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│                 Security Groups                          │
+│              IP Whitelist: ["1.2.3.4/32"]               │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│               Nginx (HTTPS Only)                         │
+│         SSL from AWS Parameter Store                     │
+│            Rate Limiting Active                          │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│              Docker Compose Stack                        │
+│         Frontend (3000) + Backend (8080)                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Implementation Highlights
+
+### 1. DNS Flexibility
+```hcl
+# Option 1: Use existing DNS (Vercel, Cloudflare)
+create_route53_zone = false
+
+# Option 2: Let AWS manage everything
+create_route53_zone = true
+```
+
+### 2. Progressive Access Control
+```hcl
+# Start secure
+allowed_web_ips = ["YOUR.IP/32"]
+
+# Gradually expand
+allowed_web_ips = [
+  "YOUR.IP/32",
+  "TEAM.IP/32",
+  "OFFICE.CIDR/24"
+]
+
+# Eventually: public
+allowed_web_ips = ["0.0.0.0/0"]
+```
+
+### 3. Zero-Downtime Updates
+```bash
+# Blue-green switching
+active_deployment_color = "green"  # was "blue"
+tofu apply  # Traffic switches instantly
+```
+
+---
+
+## Security Achievements
+
+### Before Public Access:
+- ❌ SSH tunnels for everyone
+- ❌ No HTTPS encryption
+- ❌ Dynamic IPs breaking bookmarks
+- ❌ Manual SSL certificate management
+- ❌ No rate limiting
+- ❌ No security headers
+
+### After Public Access:
+- ✅ Stable URLs with Elastic IPs
+- ✅ Forced HTTPS with automated certificates
+- ✅ IP whitelisting for controlled access
+- ✅ Rate limiting at multiple tiers
+- ✅ Security headers preventing attacks
+- ✅ Infrastructure as Code for consistency
+
+---
+
+## The Automation Victory
+
+### What Terraform Now Handles:
+1. **Elastic IP allocation** - No more IP hunting
+2. **Route 53 DNS management** - Optional but powerful
+3. **SSL certificate procurement** - Via ACME protocol
+4. **Certificate renewal** - Before expiration
+5. **Secure storage** - In AWS Parameter Store
+6. **EC2 certificate retrieval** - On instance boot
+7. **Nginx configuration** - With proper escaping
+8. **Security enforcement** - Fail if no SSL
+
+### Human Tasks Remaining:
+1. Set domain name in terraform.tfvars
+2. Run `tofu apply`
+3. There is no step 3
+
+---
+
+## Lessons from Public Access Implementation
+
+### 1. Variable Escaping in Terraform
+```bash
+# The challenge: $ in nginx config
+proxy_set_header Host $host;  # Terraform tries to interpolate!
+
+# The solution: Escape properly
+proxy_set_header Host \$host;  # or use $${host}
+```
+
+### 2. Service Dependencies Matter
+```bash
+# Wrong: Start services immediately
+systemctl start nginx
+
+# Right: Ensure config exists first
+if [ -n "${domain_name}" ]; then
+    configure_nginx
+    systemctl restart nginx  # Not just reload!
+fi
+```
+
+### 3. Certificate Automation Complexity
+**Initial approach:** Let Certbot manage everything
+**Problem:** Certbot needs port 80, conflicts with app
+**Solution:** ACME provider handles cert procurement separately
+
+### 4. The Importance of Testing
+Created `test-nginx-setup.sh` to verify:
+- SSL certificate retrieval
+- Path substitutions
+- Config file generation
+- Service startup
+
+---
+
+## The Meta-Achievement
+
+We didn't just add public access. We created:
+
+**1. A Reproducible Pattern**
+- Every deployment gets identical configuration
+- No manual steps means no human errors
+- Infrastructure as Code means version control
+
+**2. A Secure Foundation**
+- SSL isn't optional, it's enforced
+- Rate limiting isn't added later, it's built-in
+- Security headers aren't forgotten, they're automated
+
+**3. A Learning Experience**
+- Deep dive into Terraform template syntax
+- Understanding systemd service dependencies
+- Mastering nginx configuration escaping
+- Exploring ACME protocol automation
+
+---
+
+## From Local to Global
+
+### The Evolution:
+```
+localhost:8080 (Day 1)
+    ↓
+SSH tunnel (Day 7)
+    ↓
+Elastic IPs (Day 8)
+    ↓
+HTTPS with domain (Day 9)
+    ↓
+Automated SSL (Day 10)
+    ↓
+Production-ready (Today)
+```
+
+### What's Next:
+- CloudFlare integration for DDoS protection
+- WAF rules for application security
+- Geographic load balancing
+- Multi-region deployment
+
+But for now, we have achieved:
+**Secure, stable, automated public access**
+
+---
+
+## The Code That Enables Access
+
+```hcl
+# From terraform/route53.tf
+resource "aws_eip" "crucible" {
+  for_each = toset(["blue", "green"])
+  # Stable IPs for stable access
+}
+
+# From terraform/acme-ssl.tf
+resource "acme_certificate" "certificate" {
+  # SSL as Infrastructure as Code
+}
+
+# From templates/nginx-crucible.conf
+server {
+  listen 443 ssl;
+  # Security by default
+}
+
+# From templates/userdata-compose.sh.tpl
+if [ -n "${domain_name}" ]; then
+  # Auto-configure on boot
+fi
+```
+
+Every line serves a purpose.
+Every configuration enforces security.
+Every deployment maintains stability.
+
+---
+
+## Closing Thoughts on Public Access
+
+We started with `curl localhost:8080` and arrived at `https://crucible.veylan.dev`.
+
+The journey taught us:
+- **Elastic IPs** eliminate the "what's the IP today?" dance
+- **ACME automation** makes SSL certificates trivial
+- **Nginx configuration** requires careful template escaping
+- **Security-first** design means failing safe, not falling back
+- **Infrastructure as Code** turns complex setups into `tofu apply`
+
+**The platform is no longer hidden behind SSH tunnels.**
+**It's ready for the world, securely.**
+
+🔒 + 🌍 = ✅
+
 **Next Evolution:** GitHub Actions for true push-to-deploy automation

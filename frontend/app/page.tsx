@@ -42,7 +42,8 @@ export default function Home() {
   const [activeEvaluations, setActiveEvaluations] = useState<Set<string>>(new Set())
   const eventsEndRef = useRef<HTMLDivElement>(null)
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+  // Use relative URLs when deployed behind proxy, localhost for development
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
 
   const addEvent = useCallback((type: string, data: any) => {
     const event: EventMessage = {

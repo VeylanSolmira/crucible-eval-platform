@@ -1,0 +1,75 @@
+# Security group configuration AFTER Nginx is working
+# This shows what to change in ec2.tf once Nginx is tested and working
+
+# TO IMPLEMENT: Once Nginx is confirmed working, update ec2.tf as shown below
+
+resource "aws_security_group" "eval_server" {
+  name        = "crucible-eval-server-sg"
+  description = "Security group for Crucible evaluation server"
+
+  # SSH access (restricted to your IP)
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_ip]
+  }
+
+  # REMOVE THIS BLOCK - Platform web interface should only be accessible via Nginx
+  # ingress {
+  #   from_port   = 8080
+  #   to_port     = 8080
+  #   protocol    = "tcp"
+  #   cidr_blocks = [var.allowed_ssh_ip]
+  # }
+
+  # HTTP access (for Let's Encrypt challenge and redirect to HTTPS)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Must be open for Let's Encrypt
+    description = "HTTP for LetsEncrypt and redirect"
+  }
+  
+  # HTTPS access (main web interface)
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : [var.allowed_ssh_ip]
+    description = "HTTPS web interface via Nginx"
+  }
+
+  # OPTIONAL: Remove if not using Prometheus
+  # ingress {
+  #   from_port   = 9090
+  #   to_port     = 9090
+  #   protocol    = "tcp"
+  #   cidr_blocks = [var.allowed_ssh_ip]
+  # }
+
+  # Allow all outbound
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.common_tags, {
+    Name    = "crucible-eval-sg"
+    Purpose = "Security group for evaluation server with Nginx proxy"
+  })
+}
+
+# Also update docker-compose.yml to bind to localhost only:
+# 
+# services:
+#   crucible-platform:
+#     ports:
+#       - "127.0.0.1:8080:8080"  # Only accessible from localhost
+#
+#   crucible-frontend:
+#     ports:
+#       - "127.0.0.1:3000:3000"  # Only accessible from localhost
