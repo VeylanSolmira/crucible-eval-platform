@@ -25,7 +25,7 @@ jobs:
     
     - name: Install Python dependencies
       run: |
-        pip install -r api/scripts/requirements-openapi.txt
+        pip install -r api/requirements.txt
     
     - name: Generate OpenAPI spec from API
       run: |
