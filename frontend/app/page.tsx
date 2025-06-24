@@ -1,7 +1,15 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { components } from '@/types/generated/api'
 
+// Use generated types from OpenAPI
+type EvaluationRequest = components['schemas']['EvaluationRequest']
+type EvaluationResponse = components['schemas']['EvaluationResponse']
+type EvaluationStatusResponse = components['schemas']['EvaluationStatusResponse']
+type QueueStatusResponse = components['schemas']['QueueStatusResponse']
+
+// Map to local interface names for minimal code changes
 interface EvaluationResult {
   id: string
   status: string
@@ -60,16 +68,14 @@ export default function Home() {
     try {
       const response = await fetch(`${apiUrl}/api/queue-status`)
       if (response.ok) {
-        const data = await response.json()
-        // Extract the queue data from the nested structure
-        if (data.queue) {
-          setQueueStatus({
-            pending: data.queue.queued || 0,
-            running: data.queue.running || 0,
-            completed: data.queue.completed || 0,
-            failed: data.queue.failed || 0
-          })
-        }
+        const data: QueueStatusResponse = await response.json()
+        // Map the response to our local interface
+        setQueueStatus({
+          pending: data.queued || 0,
+          running: data.processing || 0,
+          completed: 0, // Not provided by API
+          failed: 0 // Not provided by API
+        })
       }
     } catch (error) {
       console.error('Failed to fetch queue status:', error)
@@ -82,8 +88,8 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json()
         setPlatformStatus({
-          platform: data.platform || 'QueuedEvaluationPlatform',
-          status: data.healthy ? 'healthy' : 'unhealthy',
+          platform: 'QueuedEvaluationPlatform',
+          status: data.platform === 'healthy' ? 'healthy' : 'unhealthy',
           engine: data.engine || 'Docker (Containerized - Network isolated)',
           version: data.version || '1.0.0',
           uptime: data.uptime || 0
@@ -117,12 +123,19 @@ export default function Home() {
       addEvent('submission', { type: 'single', code: code.substring(0, 50) + '...' })
       await fetchQueueStatus()
       
+      const request: EvaluationRequest = { 
+        code,
+        language: 'python',
+        engine: 'docker',
+        timeout: 30
+      }
+      
       const response = await fetch(`${apiUrl}/api/eval`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify(request),
       })
 
       if (!response.ok) {
@@ -130,7 +143,7 @@ export default function Home() {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
-      const data = await response.json()
+      const data: EvaluationResponse = await response.json()
       
       // Process the response using our helper
       const result = processEvaluationResponse(data)
@@ -227,19 +240,14 @@ export default function Home() {
           throw new Error('Failed to fetch status')
         }
         
-        const data = await response.json()
+        const data: EvaluationStatusResponse = await response.json()
         
-        // Extract the actual result from the nested structure
-        const evalResult: EvaluationResult = data.result ? {
-          id: data.eval_id || evalId,
-          status: data.result.status,
-          output: data.result.output,
-          error: data.result.error
-        } : {
+        // Extract the result from the API response
+        const evalResult: EvaluationResult = {
           id: data.eval_id || evalId,
           status: data.status || 'unknown',
-          output: '',
-          error: data.error
+          output: data.output || '',
+          error: data.error || ''
         }
         
         // Update the result

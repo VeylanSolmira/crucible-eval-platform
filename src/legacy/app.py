@@ -47,6 +47,7 @@ def main():
     parser.add_argument('--port', type=int, default=8000, help='Port (default: 8000)')
     parser.add_argument('--security-test', action='store_true', help='Run security attack scenarios')
     parser.add_argument('--security-demo', action='store_true', help='Run safe security demos (no attacks)')
+    parser.add_argument('--remote-queue', action='store_true', help='Use remote queue service instead of local')
     
     args = parser.parse_args()
     
@@ -111,7 +112,16 @@ def main():
     print("📢 Event bus initialized")
     
     # Create core components
-    queue = TaskQueue(max_workers=4)
+    # Choose between local in-process queue or remote HTTP queue
+    if args.remote_queue:
+        print("📡 Using remote queue service (microservices mode)")
+        from src.queue.remote_queue import RemoteTaskQueue
+        queue = RemoteTaskQueue()
+        # RISK: Assumes queue service is running at http://localhost:8081
+    else:
+        print("📦 Using local in-process queue (monolithic mode)")
+        queue = TaskQueue(max_workers=4)
+    
     monitor = AdvancedMonitor()
     
     # Configure storage based on arguments and environment

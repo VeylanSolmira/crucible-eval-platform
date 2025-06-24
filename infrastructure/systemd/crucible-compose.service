@@ -19,13 +19,16 @@ EnvironmentFile=/home/ubuntu/crucible/.env
 # Login to ECR before starting
 ExecStartPre=/usr/local/bin/docker-ecr-login
 
+# Set compose files based on environment
+Environment="COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml"
+
 # Pull latest images
 ExecStartPre=/usr/bin/docker compose pull
 
 # Run migrations
 ExecStartPre=/usr/bin/docker compose --profile tools run --rm migrate
 
-# Start services
+# Start services (production mode)
 ExecStart=/usr/bin/docker compose up
 
 # Stop services

@@ -38,8 +38,8 @@ systemctl restart docker
 # Add ubuntu user to docker group
 usermod -aG docker ubuntu
 
-# Install AWS CLI, jq, cloud-utils, and web server tools
-apt-get install -y awscli jq cloud-utils nginx
+# Install AWS CLI, jq, cloud-utils
+apt-get install -y awscli jq cloud-utils
 
 # Create application directory
 mkdir -p /home/ubuntu/crucible/data
@@ -94,11 +94,12 @@ To deploy the application stack:
    docker-compose logs
 
 3. Access services:
-   - Backend API: http://localhost:8080 (via SSH tunnel)
-   - Frontend UI: http://localhost:3000 (via SSH tunnel)
+   - Via HTTPS: https://${domain_name} (if domain configured)
+   - Via HTTP: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+   - Via SSH tunnel: http://localhost:8000
    
-SSH tunnel command:
-ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+SSH tunnel command (for local development):
+ssh -L 8000:localhost:8000 ubuntu@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
 Instance Details:
 - Instance ID: $INSTANCE_ID
@@ -107,84 +108,54 @@ Instance Details:
 EOF
 chown ubuntu:ubuntu /home/ubuntu/deployment-instructions.txt
 
-# Configure Nginx (if domain is configured)
+# Fetch SSL certificates for containerized nginx (if domain is configured)
 if [ -n "${domain_name}" ]; then
-    echo "Configuring Nginx for ${domain_name}..."
+    echo "Fetching SSL certificates for ${domain_name}..."
     
-    # Remove default site
-    rm -f /etc/nginx/sites-enabled/default
-    
-    # Check if SSL certificates are available in SSM Parameter Store FIRST
-    SSL_AVAILABLE=false
-    # Get region from availability zone (remove last character)
+    # Get region from availability zone
     AZ=$(ec2metadata --availability-zone)
     REGION=$${AZ%?}  # Remove last character (the AZ letter)
     
+    # Check if SSL certificates are available in SSM Parameter Store
     if aws ssm get-parameter --name "/${project_name}/ssl/certificate" --region $REGION >/dev/null 2>&1; then
         echo "SSL certificates found in Parameter Store, installing..."
-        SSL_AVAILABLE=true
         
-        # Create SSL directory
+        # Create SSL directory for nginx container to mount
         mkdir -p /etc/nginx/ssl
         
-        # Get certificate
+        # Get certificate (nginx container expects cert.pem)
         aws ssm get-parameter --name "/${project_name}/ssl/certificate" \
             --with-decryption --region $REGION \
-            --query 'Parameter.Value' --output text > /etc/nginx/ssl/${domain_name}.crt
+            --query 'Parameter.Value' --output text > /etc/nginx/ssl/cert.pem
         
-        # Get private key
+        # Get private key (nginx container expects key.pem)
         aws ssm get-parameter --name "/${project_name}/ssl/private_key" \
             --with-decryption --region $REGION \
-            --query 'Parameter.Value' --output text > /etc/nginx/ssl/${domain_name}.key
+            --query 'Parameter.Value' --output text > /etc/nginx/ssl/key.pem
         
-        # Get issuer chain
-        aws ssm get-parameter --name "/${project_name}/ssl/issuer_pem" \
-            --with-decryption --region $REGION \
-            --query 'Parameter.Value' --output text > /etc/nginx/ssl/${domain_name}.chain.crt
-        
-        # Create full chain
-        cat /etc/nginx/ssl/${domain_name}.crt /etc/nginx/ssl/${domain_name}.chain.crt > /etc/nginx/ssl/${domain_name}.fullchain.crt
+        # Get issuer chain if available
+        if aws ssm get-parameter --name "/${project_name}/ssl/issuer_pem" --region $REGION >/dev/null 2>&1; then
+            aws ssm get-parameter --name "/${project_name}/ssl/issuer_pem" \
+                --with-decryption --region $REGION \
+                --query 'Parameter.Value' --output text > /etc/nginx/ssl/chain.pem
+            
+            # Create full chain
+            cat /etc/nginx/ssl/cert.pem /etc/nginx/ssl/chain.pem > /etc/nginx/ssl/fullchain.pem
+        fi
         
         # Set proper permissions
         chmod 600 /etc/nginx/ssl/*
         chown root:root /etc/nginx/ssl/*
         
-        echo "SSL certificates installed successfully!"
+        echo "SSL certificates installed successfully for nginx container!"
     else
         echo "ERROR: No SSL certificates found in Parameter Store"
         echo "SSL certificates are required for secure operation"
         echo "Ensure 'create_route53_zone = true' in Terraform and ACME certificates are created"
-        echo "Nginx setup will be skipped to prevent insecure configuration"
         exit 1  # Fail the userdata script
     fi
-    
-    # Create Nginx configuration
-    cat > /etc/nginx/sites-available/crucible <<'EOFNGINX'
-${nginx_config}
-EOFNGINX
-    
-    # Update the configuration to use SSL certificates
-    sed -i "s|# ssl_certificate .*|ssl_certificate /etc/nginx/ssl/${domain_name}.fullchain.crt;|" /etc/nginx/sites-available/crucible
-    sed -i "s|# ssl_certificate_key .*|ssl_certificate_key /etc/nginx/ssl/${domain_name}.key;|" /etc/nginx/sites-available/crucible
-    
-    # Create rate limiting configuration
-    cat > /etc/nginx/conf.d/rate-limits.conf <<'EOFLIMITS'
-${nginx_rate_limits}
-EOFLIMITS
-    
-    # Enable site
-    ln -sf /etc/nginx/sites-available/crucible /etc/nginx/sites-enabled/
-    
-    # Test configuration
-    nginx -t
-    
-    # Enable and restart Nginx to ensure new config is loaded
-    systemctl enable nginx
-    systemctl restart nginx
-    
-    echo "Nginx configured for ${domain_name}"
 else
-    echo "No domain configured, skipping Nginx setup"
+    echo "No domain configured, skipping SSL certificate setup"
 fi
 
 echo "Infrastructure setup complete! Ready for docker-compose deployment."

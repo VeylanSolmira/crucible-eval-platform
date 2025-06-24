@@ -7,8 +7,7 @@ on:
     inputs:
       deployment_color:
         description: 'Deployment color (blue or green)'
-        required: true
-        default: 'blue'
+        required: false
         type: choice
         options:
           - blue
@@ -117,8 +116,8 @@ jobs:
     - name: Get deployment parameters
       id: params
       run: |
-        # Determine deployment color
-        DEPLOYMENT_COLOR="${{ github.event.inputs.deployment_color || 'blue' }}"
+        # Determine deployment color (use repository variable as default)
+        DEPLOYMENT_COLOR="${{ github.event.inputs.deployment_color || vars.DEFAULT_DEPLOYMENT_TARGET || 'green' }}"
         echo "deployment_color=$DEPLOYMENT_COLOR" >> $GITHUB_OUTPUT
         
         # Get image URLs from SSM
@@ -166,14 +165,17 @@ jobs:
         
         # Base64 encode files for safe transmission
         COMPOSE_B64=$(base64 -w 0 docker-compose.yml)
+        COMPOSE_PROD_B64=$(base64 -w 0 docker-compose.prod.yml)
         ENV_B64=$(base64 -w 0 deploy.env)
         echo "compose_b64=$COMPOSE_B64" >> $GITHUB_OUTPUT
+        echo "compose_prod_b64=$COMPOSE_PROD_B64" >> $GITHUB_OUTPUT
         echo "env_b64=$ENV_B64" >> $GITHUB_OUTPUT
     
     - name: Deploy to EC2 instances
       env:
         INSTANCE_IDS: ${{ steps.params.outputs.instance_ids }}
         COMPOSE_B64: ${{ steps.compose.outputs.compose_b64 }}
+        COMPOSE_PROD_B64: ${{ steps.compose.outputs.compose_prod_b64 }}
         ENV_B64: ${{ steps.compose.outputs.env_b64 }}
       run: |
         # Send deployment command
@@ -187,6 +189,7 @@ jobs:
             "",
             "# Deploy new files",
             "echo \"'"$COMPOSE_B64"'\" | base64 -d > docker-compose.yml",
+            "echo \"'"$COMPOSE_PROD_B64"'\" | base64 -d > docker-compose.prod.yml",
             "echo \"'"$ENV_B64"'\" | base64 -d > .env",
             "",
             "# Restart service (systemd handles pull, migrate, start)",

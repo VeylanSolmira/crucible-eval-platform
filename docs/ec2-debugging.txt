@@ -1,0 +1,47 @@
+
+      1. List all frontend images with their tags:
+         docker images | grep -E 'REPOSITORY|frontend'
+
+      2. Check what image the running container is using:
+         docker inspect crucible-platform-frontend
+      --format='{{.Config.Image}}'
+
+      3. Check what the docker-compose.yml expects:
+         grep -A5 'crucible-frontend:'
+      /home/ubuntu/crucible/docker-compose.yml | grep
+      image
+
+      The GitHub Actions should have pushed images with
+      tags like:
+      - frontend-3adffbfd4d278945836a190d54f488fbf2edd39d
+       (git SHA)
+      - frontend-latest")
+  ⎿ On the EC2 instance:                                 
+
+    1. List all frontend images with their tags:
+       docker images | grep -E 'REPOSITORY|frontend'
+
+    2. Check what image the running container is using:
+       docker inspect crucible-platform-frontend
+    --format='{{.Config.Image}}'
+
+    3. Check what the docker-compose.yml expects:
+       grep -A5 'crucible-frontend:'
+    /home/ubuntu/crucible/docker-compose.yml | grep image
+
+    The GitHub Actions should have pushed images with
+    tags like:
+    - frontend-3adffbfd4d278945836a190d54f488fbf2edd39d
+    (git SHA)
+    - frontend-latest
+
+
+01:37
+
+⏺ If the images don't match, we may need to:
+  1. Manually pull the specific image tag that was built
+  2. Or check if the GitHub Actions actually pushed the
+  frontend image successfully
+
+  You can also check the GitHub Actions log to see what
+  image tags were pushed.

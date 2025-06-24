@@ -1,57 +1,98 @@
-version: '3.8'
-
 services:
-  crucible-platform:
+  # Build base image first (used by all Python services)
+  # Run: docker-compose build base
+  base:
+    image: crucible-base
     build:
       context: .
-      dockerfile: Dockerfile
-    image: ${BACKEND_IMAGE:-${PROJECT_NAME:-crucible-platform}:local}
-    container_name: ${CONTAINER_NAME:-crucible-platform}
-    ports:
-      - "8080:8080"
+      dockerfile: base.Dockerfile
+    command: echo "Base image built successfully"
+
+  # Docker Socket Proxy - Secure access to Docker API
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.1
+    container_name: docker-socket-proxy
     volumes:
-      # Mount Docker socket for sibling containers
-      # Set DOCKER_SOCKET_PATH in .env file for your platform:
-      # macOS: /Users/$USER/.docker/run/docker.sock
-      # Linux: /var/run/docker.sock
-      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
-      # Mount data directory for runtime data
-      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Container operations (all required by executor)
+      CONTAINERS: 1         # List containers
+      CONTAINERS_CREATE: 1  # Create containers
+      CONTAINERS_START: 1   # Start containers (implicit in run)
+      CONTAINERS_STOP: 1    # Stop containers on timeout
+      CONTAINERS_WAIT: 1    # Wait for completion
+      CONTAINERS_REMOVE: 1  # Cleanup
+      # Image operations
+      IMAGES: 1            # List and inspect images
+      # Required for API operations
+      POST: 1              # HTTP POST for create/pull
+      PING: 1              # Health checks
+      # Explicitly deny everything else
+      EXEC: 0              # No exec into containers
+      VOLUMES: 0           # No volume management
+      NETWORKS: 0          # No network management
+      BUILD: 0             # No building images
+      INFO: 0              # Not used by executor
+      VERSION: 1           # Required by Docker Python client initialization
+    networks:
+      - docker-api
+    restart: unless-stopped
+    mem_limit: 50m
+  # API Service (Microservices Mode)
+  api-service:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${PROJECT_NAME:-crucible-platform}/api-service:local
+    container_name: api-service
+    # Port exposed only internally for nginx proxy
+    # ports:
+    #   - "8080:8080"
     environment:
       - PYTHONUNBUFFERED=1
-      - DOCKER_HOST=unix:///var/run/docker.sock
       - LOG_LEVEL=INFO
-      - BIND_HOST=0.0.0.0           # Bind to all interfaces in container
-      - SERVICE_HOST=crucible       # Use service name for inter-container comms
-      - PLATFORM_HOST=crucible      # API gateway host
-      - HOST_PWD=${PWD}             # Pass host working directory for volume mapping
-      - STORAGE_BASE=/app/storage   # Storage path inside container
-      - FILE_STORAGE_PATH=/app/data # Runtime data storage path
-      - TEMP_BASE=/app/data         # Temp directory for execution
+      - QUEUE_SERVICE_URL=http://queue:8081
+      - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
-    restart: unless-stopped
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
+      - ENABLE_CACHING=false  # Disable caching to avoid stale data in distributed setup
     depends_on:
+      redis:
+        condition: service_healthy
       postgres:
         condition: service_healthy
-    # Security options
-    security_opt:
-      - no-new-privileges:true
-    read_only: false  # Need write for temp files, but could be true with tmpfs
-    # tmpfs:
-    #   - /tmp:size=100M
-    
-    # Previous approach for non-root Docker access (kept for reference):
-    # Override user to match host's docker group (usually 999 or 998)
-    # You may need to adjust this based on your system
-    # Run: getent group docker | cut -d: -f3
-    # to find your docker group ID
-    # group_add:
-    #   - "999"  # docker group - adjust if needed
-    #   # If the above doesn't work, try uncommenting one of these:
-    #   # - "998"  # Common on some systems
-    #   # - "0"    # root group (less secure but may work)
-    
-    # Currently running as root for Docker socket access (see Dockerfile)
+      queue:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 128m
+
+  # Monolithic Platform (DEPRECATED - Use api-gateway for microservices mode)
+  # crucible-platform:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   image: ${BACKEND_IMAGE:-${PROJECT_NAME:-crucible-platform}:local}
+  #   container_name: ${CONTAINER_NAME:-crucible-platform}
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
+  #     - ./data:/app/data
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #     - DOCKER_HOST=unix:///var/run/docker.sock
+  #     - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   mem_limit: 128m
 
   crucible-frontend:
     build:
@@ -62,15 +103,22 @@ services:
         API_URL: ${FRONTEND_API_URL:-}
     image: ${FRONTEND_IMAGE:-${PROJECT_NAME:-crucible-platform}-frontend:local}
     container_name: ${CONTAINER_NAME:-crucible-platform}-frontend
-    ports:
-      - "3000:3000"
+    # Port exposed only internally for nginx proxy
+    # ports:
+    #   - "3000:3000"
     environment:
-      - API_URL=http://crucible-platform:8080
+      - API_URL=http://api-service:8080
       - NODE_ENV=production
     depends_on:
-      - crucible-platform
+      - api-service
     restart: unless-stopped
     # Run as non-root user (configured in Dockerfile)
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec
 
   postgres:
     image: postgres:15-alpine
@@ -106,37 +154,201 @@ services:
     profiles:
       - tools  # Only run when explicitly requested
 
-  # Future: Nginx reverse proxy (currently on host)
-  # nginx:
-  #   image: nginx:alpine
-  #   container_name: crucible-nginx
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-  #     - ./nginx/conf.d:/etc/nginx/conf.d:ro
-  #     - ssl-certs:/etc/nginx/ssl:ro
-  #     - acme-challenge:/var/www/html/.well-known/acme-challenge:ro
-  #   depends_on:
-  #     - crucible-platform
-  #     - crucible-frontend
-  #   restart: unless-stopped
-  
-  # Future: Redis for Celery (Day 3)
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: crucible-redis
-  #   volumes:
-  #     - redis-data:/data
-  #   restart: unless-stopped
+  # Queue Service - HTTP wrapper around existing TaskQueue
+  # This modularizes our queue component for future Celery migration
+  queue:
+    build:
+      context: .
+      dockerfile: queue-service/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${PROJECT_NAME:-crucible-platform}/queue:local
+    container_name: queue-service
+    ports:
+      - "8081:8081"  # Expose queue API
+    environment:
+      - API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8081/health').raise_for_status()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 100m
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec
 
+  # Queue Worker - Routes tasks from queue to executors
+  # This will become Celery beat/scheduler in the future
+  queue-worker:
+    build:
+      context: .
+      dockerfile: queue-worker/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${PROJECT_NAME:-crucible-platform}/queue-worker:local
+    container_name: queue-worker
+    environment:
+      - QUEUE_SERVICE_URL=http://queue:8081
+      - QUEUE_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
+      - REDIS_URL=redis://redis:6379
+      - EXECUTOR_COUNT=1  # Reduced for t2.micro constraints
+      - EXECUTOR_BASE_URL=http://executor
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    depends_on:
+      - queue
+      - redis
+    restart: unless-stopped
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec
+
+  # Executor Services - Python execution environments
+  # These ARE the sandboxes where code runs
+  # NOTE: Only needed if CREATE_ISOLATED_CONTAINERS=false
+  # When true, queue-worker creates fresh containers for each execution
+  executor-1:
+    build:
+      context: .
+      dockerfile: executor-service/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${PROJECT_NAME:-crucible-platform}/executor:local
+    container_name: executor-1
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    depends_on:
+      - docker-proxy
+    networks:
+      - default
+      - docker-api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "/healthcheck.py"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    # Security: Limited resources for the executor itself
+    mem_limit: 128m
+    cpus: 0.25
+    # Additional security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec
+
+  # Additional executors commented out for t2.micro resource constraints
+  # Uncomment for larger instances or production
+  # executor-2:
+  #   extends: executor-1
+  #   container_name: executor-2
+  #
+  # executor-3:
+  #   extends: executor-1
+  #   container_name: executor-3
+
+  # Storage Worker - Handles all database writes via events
+  storage-worker:
+    build:
+      context: .
+      dockerfile: storage-worker/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${PROJECT_NAME:-crucible-platform}/storage-worker:local
+    container_name: storage-worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 128m
+
+  # Redis for Event Bus and Future Celery
+  redis:
+    image: redis:7-alpine
+    container_name: crucible-redis
+    ports:
+      - "6379:6379"  # For development access
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 100m  # Redis is memory efficient
+
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME:-crucible-platform}/nginx:local
+    container_name: crucible-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+      # Only expose dev port if explicitly enabled
+      - "${NGINX_DEV_PORT:-127.0.0.1:8000}:8000"  # HTTP-only dev port (localhost only by default)
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - acme-challenge:/var/www/html/.well-known/acme-challenge
+      - ssl-certs:/etc/nginx/ssl
+    environment:
+      # SSL certificates can be provided via environment variables
+      - SSL_CERT=${SSL_CERT:-}
+      - SSL_KEY=${SSL_KEY:-}
+    depends_on:
+      - api-service
+      - crucible-frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
 volumes:
-  # redis-data:
+  redis-data:
+    driver: local
   postgres-data:
     driver: local
   storage:
     driver: local
-  # ssl-certs:   # For containerized nginx
-  # acme-challenge:  # For Let's Encrypt challenges
+  ssl-certs:   # For containerized nginx
+    driver: local
+  acme-challenge:  # For Let's Encrypt challenges
+    driver: local
+
+networks:
+  default:
+    driver: bridge
+  docker-api:
+    driver: bridge
+    internal: true  # No external access

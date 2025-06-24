@@ -4,8 +4,8 @@ const nextConfig = {
   
   // API routes will be proxied to backend
   async rewrites() {
-    // Use environment variable in production, localhost in development
-    const apiUrl = process.env.API_URL || 'http://localhost:8080'
+    // For Docker, use the service name; for local dev, use localhost
+    const apiUrl = process.env.API_URL || 'http://api-service:8080'
     return [
       {
         source: '/api/:path*',

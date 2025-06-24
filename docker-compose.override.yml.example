@@ -1,0 +1,32 @@
+# Local development overrides
+# Copy this to docker-compose.override.yml for local development
+# This file is automatically loaded by docker-compose and should NOT be committed
+
+version: '3.8'
+
+services:
+  # Re-expose API and frontend ports for direct access during development
+  api-service:
+    ports:
+      - "8080:8080"
+  
+  frontend:
+    ports:
+      - "3000:3000"
+    environment:
+      # Enable hot reload
+      - NODE_ENV=development
+  
+  # Expose nginx dev port on all interfaces for local development
+  nginx:
+    environment:
+      - NGINX_DEV_PORT=0.0.0.0:8000  # Expose on all interfaces locally
+
+  # Development-only volumes for hot reload
+  postgres:
+    ports:
+      - "5432:5432"  # Direct DB access for debugging
+  
+  redis:
+    ports:
+      - "6379:6379"  # Direct Redis access for debugging

@@ -1,0 +1,76 @@
+# Production overrides for docker-compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+#
+# This file:
+# - Mounts host SSL certificates into nginx
+# - Sets production environment variables
+# - Disables development ports
+
+version: '3.8'
+
+services:
+  nginx:
+    environment:
+      # Enable production mode - fail if no valid SSL
+      - PRODUCTION_MODE=true
+      # Disable dev port
+      - NGINX_DEV_PORT=
+    volumes:
+      # Mount host SSL certificates (fetched by EC2 userdata)
+      - /etc/nginx/ssl:/etc/nginx/ssl:ro
+      # Keep other volumes from base compose
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - acme-challenge:/var/www/html/.well-known/acme-challenge
+    # Production logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Disable all development ports
+  api-service:
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  
+  crucible-frontend:
+    ports: []
+    environment:
+      - NODE_ENV=production
+      - API_URL=  # Use relative URLs in production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  
+  postgres:
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+  
+  redis:
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  
+  # Add production health check endpoint
+  # This allows the load balancer to check nginx directly
+  nginx:
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "--quiet", "--tries=1", "--spider", "https://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s

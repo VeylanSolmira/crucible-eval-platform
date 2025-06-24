@@ -132,10 +132,10 @@ class DatabaseStorage(StorageService):
                 }
                 
                 # Add optional fields if present
-                if eval_record.output_preview:
-                    result['output'] = eval_record.output_preview
-                if eval_record.error_preview:
-                    result['error'] = eval_record.error_preview
+                if eval_record.output:
+                    result['output'] = eval_record.output
+                if eval_record.error:
+                    result['error'] = eval_record.error
                 if eval_record.exit_code is not None:
                     result['exit_code'] = eval_record.exit_code
                 if eval_record.runtime_ms is not None:

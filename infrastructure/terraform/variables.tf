@@ -139,7 +139,7 @@ variable "create_route53_zone" {
 variable "active_deployment_color" {
   description = "Which deployment color (blue/green) should receive traffic"
   type        = string
-  default     = "blue"
+  default     = "green"
   
   validation {
     condition     = contains(["blue", "green"], var.active_deployment_color)
