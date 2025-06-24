@@ -38,6 +38,12 @@ services:
       - docker-api
     restart: unless-stopped
     mem_limit: 50m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2375/_ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
   # API Service (Microservices Mode)
   api-service:
     build:
@@ -96,8 +102,8 @@ services:
 
   crucible-frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         # For production behind nginx, use empty to enable relative URLs
         API_URL: ${FRONTEND_API_URL:-}
@@ -119,6 +125,12 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=100M,noexec
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   postgres:
     image: postgres:15-alpine

@@ -1,0 +1,535 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Crucible API Service (Microservices Mode)",
+    "description": "API service for distributed Crucible platform",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Root endpoint with HTML interface",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "description": "Gateway health check",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval": {
+      "post": {
+        "summary": "Evaluate",
+        "description": "Submit code for evaluation",
+        "operationId": "evaluate_api_eval_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval-status/{eval_id}": {
+      "get": {
+        "summary": "Get Evaluation Status",
+        "description": "Get evaluation status from storage",
+        "operationId": "get_evaluation_status_api_eval_status__eval_id__get",
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations": {
+      "get": {
+        "summary": "Get Evaluations",
+        "description": "Get evaluation history",
+        "operationId": "get_evaluations_api_evaluations_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/queue-status": {
+      "get": {
+        "summary": "Get Queue Status",
+        "description": "Get queue status",
+        "operationId": "get_queue_status_api_queue_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "Platform Status",
+        "description": "Overall platform status",
+        "operationId": "platform_status_api_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Health check endpoint",
+        "operationId": "health_check_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openapi.yaml": {
+      "get": {
+        "summary": "Get Openapi Spec",
+        "description": "Serve OpenAPI specification",
+        "operationId": "get_openapi_spec_api_openapi_yaml_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EvaluationRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": "python"
+          },
+          "engine": {
+            "type": "string",
+            "title": "Engine",
+            "default": "docker"
+          },
+          "timeout": {
+            "type": "integer",
+            "title": "Timeout",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "EvaluationRequest"
+      },
+      "EvaluationResponse": {
+        "properties": {
+          "eval_id": {
+            "type": "string",
+            "title": "Eval Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "queued"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "Evaluation queued for processing"
+          },
+          "queue_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Position"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eval_id"
+        ],
+        "title": "EvaluationResponse"
+      },
+      "EvaluationStatusResponse": {
+        "properties": {
+          "eval_id": {
+            "type": "string",
+            "title": "Eval Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output",
+            "default": ""
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          },
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "eval_id",
+          "status"
+        ],
+        "title": "EvaluationStatusResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "services": {
+            "$ref": "#/components/schemas/ServiceHealthInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "services"
+        ],
+        "title": "HealthResponse"
+      },
+      "QueueStatusResponse": {
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "title": "Queued",
+            "default": 0
+          },
+          "processing": {
+            "type": "integer",
+            "title": "Processing",
+            "default": 0
+          },
+          "queue_length": {
+            "type": "integer",
+            "title": "Queue Length",
+            "default": 0
+          },
+          "total_tasks": {
+            "type": "integer",
+            "title": "Total Tasks",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "title": "QueueStatusResponse"
+      },
+      "ServiceHealthInfo": {
+        "properties": {
+          "gateway": {
+            "type": "string",
+            "title": "Gateway",
+            "default": "healthy"
+          },
+          "queue": {
+            "type": "string",
+            "title": "Queue",
+            "default": "healthy"
+          },
+          "storage": {
+            "type": "string",
+            "title": "Storage",
+            "default": "healthy"
+          },
+          "executor": {
+            "type": "string",
+            "title": "Executor",
+            "default": "healthy"
+          }
+        },
+        "type": "object",
+        "title": "ServiceHealthInfo"
+      },
+      "StatusResponse": {
+        "properties": {
+          "platform": {
+            "type": "string",
+            "title": "Platform",
+            "default": "healthy"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "microservices"
+          },
+          "services": {
+            "$ref": "#/components/schemas/ServiceHealthInfo"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/QueueStatusResponse"
+          },
+          "storage": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Storage",
+            "default": {}
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "2.0.0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "services",
+          "queue"
+        ],
+        "title": "StatusResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

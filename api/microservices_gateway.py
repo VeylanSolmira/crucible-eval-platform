@@ -172,6 +172,35 @@ async def startup():
     """Start background tasks"""
     asyncio.create_task(check_service_health())
     asyncio.create_task(poll_completed_evaluations())
+    
+    # Auto-export OpenAPI specification on startup
+    try:
+        try:
+            import yaml
+        except ImportError:
+            logger.warning("PyYAML not installed, skipping OpenAPI YAML export")
+            yaml = None
+            
+        openapi_schema = app.openapi()
+        
+        # Write both YAML and JSON versions
+        spec_dir = Path(__file__).parent
+        
+        # Write YAML version if yaml is available
+        if yaml:
+            with open(spec_dir / "openapi.yaml", "w") as f:
+                yaml.dump(openapi_schema, f, default_flow_style=False, sort_keys=False)
+                logger.info(f"Exported OpenAPI YAML to: {spec_dir / 'openapi.yaml'}")
+        
+        # Write JSON version
+        with open(spec_dir / "openapi.json", "w") as f:
+            json.dump(openapi_schema, f, indent=2)
+            logger.info(f"Exported OpenAPI JSON to: {spec_dir / 'openapi.json'}")
+            
+    except Exception as e:
+        logger.error(f"Failed to export OpenAPI spec: {e}")
+        # Don't fail startup if export fails
+    
     logger.info("API Service started in microservices mode")
 
 @app.on_event("shutdown")

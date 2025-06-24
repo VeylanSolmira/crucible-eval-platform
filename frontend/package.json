@@ -17,8 +17,8 @@
     "check-deps": "npm-check-updates",
     "prepare": "cd .. && husky install frontend/.husky",
     "pre-commit": "npm run type-check && npm run lint && npm run security-check",
-    "generate-types": "openapi-typescript http://localhost:8080/openapi.json -o ./types/generated/api.ts",
-    "generate-types:docker": "openapi-typescript http://crucible-platform:8080/api/openapi.json -o ./types/generated/api.ts"
+    "generate-types": "openapi-typescript ../api/openapi.yaml -o ./types/generated/api.ts",
+    "generate-types:docker": "openapi-typescript ../api/openapi.yaml -o ./types/generated/api.ts"
   },
   "dependencies": {
     "next": "14.2.30",

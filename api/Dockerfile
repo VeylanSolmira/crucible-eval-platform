@@ -6,7 +6,8 @@ WORKDIR /app
 # Install storage dependencies for database access
 RUN pip install --no-cache-dir \
     sqlalchemy==2.0.23 \
-    psycopg2-binary==2.9.9
+    psycopg2-binary==2.9.9 \
+    pyyaml==6.0.1
 
 # Copy API service code and dependencies
 # Note: This Dockerfile should be built from the repository root:

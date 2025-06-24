@@ -1,575 +1,355 @@
-openapi: 3.0.0
+openapi: 3.1.0
 info:
-  title: Crucible Evaluation Platform API
-  description: API for secure AI model evaluation with comprehensive safety measures
-  version: 1.0.0
-  contact:
-    name: Platform Team
-    email: platform@crucible.ai
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
-
-servers:
-  - url: http://localhost:8000
-    description: Development server
-  - url: https://api.crucible.ai
-    description: Production server
-
-tags:
-  - name: evaluations
-    description: Code evaluation operations
-  - name: monitoring
-    description: Real-time monitoring and events
-  - name: storage
-    description: Result storage and retrieval
-  - name: health
-    description: System health and status
-
+  title: Crucible API Service (Microservices Mode)
+  description: API service for distributed Crucible platform
+  version: 2.0.0
 paths:
-  /health:
+  /:
     get:
-      tags: [health]
-      summary: Health check
-      operationId: getHealth
+      summary: Root
+      description: Root endpoint with HTML interface
+      operationId: root__get
       responses:
         '200':
-          description: Service is healthy
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /health:
+    get:
+      summary: Health
+      description: Gateway health check
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/eval:
+    post:
+      summary: Evaluate
+      description: Submit code for evaluation
+      operationId: evaluate_api_eval_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
-
-  /status:
+                $ref: '#/components/schemas/EvaluationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/eval-status/{eval_id}:
     get:
-      tags: [health]
-      summary: Get platform status
-      operationId: getStatus
+      summary: Get Evaluation Status
+      description: Get evaluation status from storage
+      operationId: get_evaluation_status_api_eval_status__eval_id__get
+      parameters:
+      - name: eval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Id
       responses:
         '200':
-          description: Platform status
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationStatusResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/evaluations:
+    get:
+      summary: Get Evaluations
+      description: Get evaluation history
+      operationId: get_evaluations_api_evaluations_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/queue-status:
+    get:
+      summary: Get Queue Status
+      description: Get queue status
+      operationId: get_queue_status_api_queue_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatusResponse'
+  /api/status:
+    get:
+      summary: Platform Status
+      description: Overall platform status
+      operationId: platform_status_api_status_get
+      responses:
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusResponse'
-
-  /eval:
-    post:
-      tags: [evaluations]
-      summary: Submit synchronous evaluation (DEPRECATED - Use /eval-async instead)
-      deprecated: true
-      operationId: evaluateSync
-      description: |
-        **⚠️ DEPRECATED**: Synchronous evaluation is not recommended for production use.
-        
-        This endpoint will timeout for evaluations taking longer than 30 seconds.
-        Please use `/eval-async` instead, which returns immediately with an evaluation ID
-        that can be used to poll for results.
-        
-        This endpoint will be removed in v2.0.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EvaluationRequest'
-      responses:
-        '200':
-          description: Evaluation completed (only for very fast executions)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationResult'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '408':
-          description: Request timeout - evaluation took too long
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /eval-async:
-    post:
-      tags: [evaluations]
-      summary: Submit asynchronous evaluation
-      operationId: evaluateAsync
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EvaluationRequest'
-      responses:
-        '202':
-          description: Evaluation accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationAccepted'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-
-  /eval-status/{evalId}:
+  /api/health:
     get:
-      tags: [evaluations]
-      summary: Get evaluation status
-      operationId: getEvaluationStatus
-      parameters:
-        - name: evalId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      summary: Health Check
+      description: Health check endpoint
+      operationId: health_check_api_health_get
       responses:
         '200':
-          description: Evaluation status
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvaluationStatus'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /queue-status:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/openapi.yaml:
     get:
-      tags: [monitoring]
-      summary: Get queue status
-      operationId: getQueueStatus
+      summary: Get Openapi Spec
+      description: Serve OpenAPI specification
+      operationId: get_openapi_spec_api_openapi_yaml_get
       responses:
         '200':
-          description: Queue status
+          description: Successful Response
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/QueueStatus'
-
-  /events:
-    get:
-      tags: [monitoring]
-      summary: Stream evaluation events
-      operationId: streamEvents
-      parameters:
-        - name: evalId
-          in: query
-          schema:
-            type: string
-            format: uuid
-          description: Filter events by evaluation ID
-      responses:
-        '200':
-          description: Event stream
-          content:
-            text/event-stream:
-              schema:
-                type: string
-                example: 'data: {"type": "progress", "message": "Evaluation started"}\n\n'
-
-  /storage:
-    get:
-      tags: [storage]
-      summary: List stored evaluations
-      operationId: listEvaluations
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 100
-            minimum: 1
-            maximum: 1000
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        '200':
-          description: List of stored evaluations
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StoredEvaluationsList'
-
-  /storage/{evalId}:
-    get:
-      tags: [storage]
-      summary: Get stored evaluation
-      operationId: getStoredEvaluation
-      parameters:
-        - name: evalId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Stored evaluation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StoredEvaluation'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /test:
-    post:
-      tags: [health]
-      summary: Run component tests
-      operationId: runTests
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                components:
-                  type: array
-                  items:
-                    type: string
-                    enum: [engine, queue, monitor, storage, platform, api]
-      responses:
-        '200':
-          description: Test results
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TestResults'
-
+              schema: {}
 components:
   schemas:
     EvaluationRequest:
-      type: object
-      required:
-        - code
       properties:
         code:
           type: string
-          description: Python code to evaluate
-          maxLength: 100000
-          example: "print('Hello, World!')"
-        timeout:
-          type: integer
-          description: Timeout in seconds
-          default: 30
-          minimum: 1
-          maximum: 300
-        resources:
-          $ref: '#/components/schemas/ResourceLimits'
-
-    ResourceLimits:
-      type: object
-      properties:
-        memory_mb:
-          type: integer
-          default: 512
-          minimum: 128
-          maximum: 2048
-        cpu_shares:
-          type: integer
-          default: 1024
-          minimum: 256
-          maximum: 4096
-
-    EvaluationResult:
-      type: object
-      required:
-        - success
-        - eval_id
-      properties:
-        success:
-          type: boolean
-        eval_id:
+          title: Code
+        language:
           type: string
-          format: uuid
-        output:
-          type: string
-        error:
-          type: string
-        execution_time:
-          type: number
-          format: float
-        resource_usage:
-          $ref: '#/components/schemas/ResourceUsage'
-
-    ResourceUsage:
-      type: object
-      properties:
-        memory_peak_mb:
-          type: number
-        cpu_time_seconds:
-          type: number
-        wall_time_seconds:
-          type: number
-
-    EvaluationAccepted:
-      type: object
-      required:
-        - eval_id
-        - status
-      properties:
-        eval_id:
-          type: string
-          format: uuid
-        status:
-          type: string
-          enum: [queued, running, completed, failed]
-        queue_position:
-          type: integer
-        estimated_start_time:
-          type: string
-          format: date-time
-
-    EvaluationStatus:
-      allOf:
-        - $ref: '#/components/schemas/EvaluationAccepted'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/EvaluationResult'
-            events:
-              type: array
-              items:
-                $ref: '#/components/schemas/EvaluationEvent'
-
-    EvaluationEvent:
-      type: object
-      required:
-        - timestamp
-        - type
-        - message
-      properties:
-        timestamp:
-          type: string
-          format: date-time
-        type:
-          type: string
-          enum: [queued, started, progress, completed, failed, error]
-        message:
-          type: string
-        details:
-          type: object
-          additionalProperties: true
-
-    HealthResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          type: string
-          enum: [healthy, degraded, unhealthy]
-        timestamp:
-          type: string
-          format: date-time
-        version:
-          type: string
-
-    StatusResponse:
-      type: object
-      required:
-        - status
-        - components
-      properties:
-        status:
-          type: string
-          enum: [healthy, degraded, unhealthy]
-        components:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/ComponentStatus'
+          title: Language
+          default: python
         engine:
           type: string
-          enum: [subprocess, docker, gvisor]
-        api_framework:
-          type: string
-        uptime:
+          title: Engine
+          default: docker
+        timeout:
           type: integer
-
-    ComponentStatus:
+          title: Timeout
+          default: 30
       type: object
       required:
-        - healthy
-      properties:
-        healthy:
-          type: boolean
-        component:
-          type: string
-        message:
-          type: string
-
-    QueueStatus:
-      type: object
-      required:
-        - queue
-      properties:
-        queue:
-          type: object
-          properties:
-            queued:
-              type: integer
-            running:
-              type: integer
-            completed:
-              type: integer
-            failed:
-              type: integer
-            workers:
-              type: integer
-            capacity:
-              type: integer
-
-    StoredEvaluationsList:
-      type: object
-      required:
-        - evaluations
-        - total
-      properties:
-        evaluations:
-          type: array
-          items:
-            $ref: '#/components/schemas/StoredEvaluationSummary'
-        total:
-          type: integer
-        limit:
-          type: integer
-        offset:
-          type: integer
-
-    StoredEvaluationSummary:
-      type: object
-      required:
-        - eval_id
-        - timestamp
-        - status
+      - code
+      title: EvaluationRequest
+    EvaluationResponse:
       properties:
         eval_id:
           type: string
-          format: uuid
-        timestamp:
-          type: string
-          format: date-time
+          title: Eval Id
         status:
           type: string
-          enum: [completed, failed]
-        code_preview:
-          type: string
-          maxLength: 100
-
-    StoredEvaluation:
-      allOf:
-        - $ref: '#/components/schemas/StoredEvaluationSummary'
-        - type: object
-          properties:
-            code:
-              type: string
-            result:
-              $ref: '#/components/schemas/EvaluationResult'
-            events:
-              type: array
-              items:
-                $ref: '#/components/schemas/EvaluationEvent'
-
-    TestResults:
-      type: object
-      properties:
-        results:
-          type: object
-          additionalProperties:
-            type: object
-            properties:
-              passed:
-                type: boolean
-              message:
-                type: string
-              tests:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    passed:
-                      type: boolean
-                    message:
-                      type: string
-
-    Error:
-      type: object
-      required:
-        - error
-        - message
-      properties:
-        error:
-          type: string
+          title: Status
+          default: queued
         message:
           type: string
-        details:
-          type: object
+          title: Message
+          default: Evaluation queued for processing
+        queue_position:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Queue Position
+      type: object
+      required:
+      - eval_id
+      title: EvaluationResponse
+    EvaluationStatusResponse:
+      properties:
+        eval_id:
+          type: string
+          title: Eval Id
+        status:
+          type: string
+          title: Status
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        completed_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Completed At
+        output:
+          type: string
+          title: Output
+          default: ''
+        error:
+          type: string
+          title: Error
+          default: ''
+        success:
+          type: boolean
+          title: Success
+          default: false
+      type: object
+      required:
+      - eval_id
+      - status
+      title: EvaluationStatusResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+          default: ok
+        timestamp:
+          type: string
+          title: Timestamp
+        services:
+          $ref: '#/components/schemas/ServiceHealthInfo'
+      type: object
+      required:
+      - timestamp
+      - services
+      title: HealthResponse
+    QueueStatusResponse:
+      properties:
+        queued:
+          type: integer
+          title: Queued
+          default: 0
+        processing:
+          type: integer
+          title: Processing
+          default: 0
+        queue_length:
+          type: integer
+          title: Queue Length
+          default: 0
+        total_tasks:
+          type: integer
+          title: Total Tasks
+          default: 0
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+      type: object
+      title: QueueStatusResponse
+    ServiceHealthInfo:
+      properties:
+        gateway:
+          type: string
+          title: Gateway
+          default: healthy
+        queue:
+          type: string
+          title: Queue
+          default: healthy
+        storage:
+          type: string
+          title: Storage
+          default: healthy
+        executor:
+          type: string
+          title: Executor
+          default: healthy
+      type: object
+      title: ServiceHealthInfo
+    StatusResponse:
+      properties:
+        platform:
+          type: string
+          title: Platform
+          default: healthy
+        mode:
+          type: string
+          title: Mode
+          default: microservices
+        services:
+          $ref: '#/components/schemas/ServiceHealthInfo'
+        queue:
+          $ref: '#/components/schemas/QueueStatusResponse'
+        storage:
           additionalProperties: true
-
-  responses:
-    BadRequest:
-      description: Bad request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            error: "ValidationError"
-            message: "Invalid request body"
-            details:
-              field: "code"
-              reason: "Code cannot be empty"
-
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            error: "NotFound"
-            message: "Evaluation not found"
-
-    InternalError:
-      description: Internal server error
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            error: "InternalError"
-            message: "An unexpected error occurred"
-
-    ServiceUnavailable:
-      description: Service temporarily unavailable
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            error: "ServiceUnavailable"
-            message: "Queue is full, please try again later"
-
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
-# Security can be applied globally or per-operation
-# security:
-#   - ApiKeyAuth: []
+          type: object
+          title: Storage
+          default: {}
+        version:
+          type: string
+          title: Version
+          default: 2.0.0
+      type: object
+      required:
+      - services
+      - queue
+      title: StatusResponse
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
