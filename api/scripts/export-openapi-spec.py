@@ -24,11 +24,13 @@ yaml_path = Path(__file__).parent.parent / "openapi.yaml"
 # Write JSON version
 with open(json_path, 'w') as f:
     json.dump(openapi_schema, f, indent=2)
+    f.write('\n')  # Ensure file ends with newline
     print(f"✅ Exported OpenAPI JSON to: {json_path}")
 
 # Write YAML version
 with open(yaml_path, 'w') as f:
     yaml.dump(openapi_schema, f, default_flow_style=False, sort_keys=False)
+    # yaml.dump already adds a final newline
     print(f"✅ Exported OpenAPI YAML to: {yaml_path}")
 
 print("\nYou can now use these files for:")
