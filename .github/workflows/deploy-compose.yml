@@ -43,57 +43,85 @@ jobs:
       with:
         mask-password: 'true'
     
-    - name: Build and push backend image
+    - name: Build base image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Build backend
-        docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-latest
-        
-        # Push backend
-        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-$IMAGE_TAG
-        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-latest
-        
-        echo "✅ Pushed backend image: $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-$IMAGE_TAG"
+        # Build base image first (used by other services)
+        docker build -t crucible-base -f base.Dockerfile .
+        echo "✅ Built base image"
     
-    - name: Build and push frontend image
+    - name: Build and push all service images
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Build frontend
-        cd frontend
-        docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-latest
+        # Build and push each service
+        services=(
+          "nginx:./nginx"
+          "api:./api"
+          "frontend:./frontend"
+          "executor-service:./executor-service"
+          "queue-service:./queue-service"
+          "queue-worker:./queue-worker"
+          "storage-worker:./storage-worker"
+        )
         
-        # Push frontend
-        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-$IMAGE_TAG
-        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-latest
-        
-        echo "✅ Pushed frontend image: $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-$IMAGE_TAG"
+        for service_info in "${services[@]}"; do
+          IFS=':' read -r service_name service_path <<< "$service_info"
+          echo "🔨 Building $service_name from $service_path"
+          
+          # Build with base image arg if it's a Python service
+          if [[ "$service_name" != "nginx" && "$service_name" != "frontend" ]]; then
+            docker build --build-arg BASE_IMAGE=crucible-base -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $service_path
+          else
+            docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $service_path
+          fi
+          
+          # Tag as latest
+          docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-latest
+          
+          # Push both tags
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-latest
+          
+          echo "✅ Pushed $service_name image"
+        done
     
     - name: Update SSM parameters with new images
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Store backend image
+        # Store image URLs for all services
+        services=(
+          "nginx"
+          "api"
+          "frontend"
+          "executor-service"
+          "queue-service"
+          "queue-worker"
+          "storage-worker"
+        )
+        
+        for service in "${services[@]}"; do
+          aws ssm put-parameter \
+            --name "/${{ env.PROJECT_NAME }}/$service-image" \
+            --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service-$IMAGE_TAG" \
+            --type String \
+            --overwrite
+          echo "📝 Stored $service image URL in SSM"
+        done
+        
+        # Keep legacy parameter names for backward compatibility
         aws ssm put-parameter \
           --name "/${{ env.PROJECT_NAME }}/backend-image" \
-          --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-$IMAGE_TAG" \
+          --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:api-$IMAGE_TAG" \
           --type String \
           --overwrite
         
-        # Store frontend image
-        aws ssm put-parameter \
-          --name "/${{ env.PROJECT_NAME }}/frontend-image" \
-          --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-$IMAGE_TAG" \
-          --type String \
-          --overwrite
-        
-        echo "📝 Updated SSM parameters with new images"
+        echo "✅ Updated all SSM parameters with new images"
 
   deploy:
     needs: build-and-push
@@ -120,11 +148,27 @@ jobs:
         DEPLOYMENT_COLOR="${{ github.event.inputs.deployment_color || vars.DEFAULT_DEPLOYMENT_TARGET || 'green' }}"
         echo "deployment_color=$DEPLOYMENT_COLOR" >> $GITHUB_OUTPUT
         
-        # Get image URLs from SSM
-        BACKEND_IMAGE=$(aws ssm get-parameter --name "/${{ env.PROJECT_NAME }}/backend-image" --query 'Parameter.Value' --output text)
-        FRONTEND_IMAGE=$(aws ssm get-parameter --name "/${{ env.PROJECT_NAME }}/frontend-image" --query 'Parameter.Value' --output text)
+        # Get all service image URLs from SSM
+        services=(
+          "nginx"
+          "api"
+          "frontend"
+          "executor-service"
+          "queue-service"
+          "queue-worker"
+          "storage-worker"
+        )
+        
+        for service in "${services[@]}"; do
+          IMAGE_URL=$(aws ssm get-parameter --name "/${{ env.PROJECT_NAME }}/$service-image" --query 'Parameter.Value' --output text)
+          # Convert dashes to underscores for bash variable names
+          VAR_NAME=$(echo "$service" | tr '-' '_')_image
+          echo "${VAR_NAME}=$IMAGE_URL" >> $GITHUB_OUTPUT
+        done
+        
+        # Legacy support
+        BACKEND_IMAGE=$(aws ssm get-parameter --name "/${{ env.PROJECT_NAME }}/api-image" --query 'Parameter.Value' --output text)
         echo "backend_image=$BACKEND_IMAGE" >> $GITHUB_OUTPUT
-        echo "frontend_image=$FRONTEND_IMAGE" >> $GITHUB_OUTPUT
         
         # Find EC2 instances
         INSTANCE_IDS=$(aws ec2 describe-instances \
@@ -156,10 +200,21 @@ jobs:
     - name: Prepare deployment files
       id: compose
       run: |
-        # Create .env file with image URLs
+        # Create .env file with all service image URLs
         cat > deploy.env << EOF
-        BACKEND_IMAGE=${{ steps.params.outputs.backend_image }}
+        # Service Images
+        NGINX_IMAGE=${{ steps.params.outputs.nginx_image }}
+        API_IMAGE=${{ steps.params.outputs.api_image }}
         FRONTEND_IMAGE=${{ steps.params.outputs.frontend_image }}
+        EXECUTOR_SERVICE_IMAGE=${{ steps.params.outputs.executor_service_image }}
+        QUEUE_SERVICE_IMAGE=${{ steps.params.outputs.queue_service_image }}
+        QUEUE_WORKER_IMAGE=${{ steps.params.outputs.queue_worker_image }}
+        STORAGE_WORKER_IMAGE=${{ steps.params.outputs.storage_worker_image }}
+        
+        # Legacy names for compatibility
+        BACKEND_IMAGE=${{ steps.params.outputs.api_image }}
+        
+        # Database
         DB_PASSWORD=${{ steps.secrets.outputs.db_password }}
         EOF
         

@@ -9,7 +9,9 @@
 version: '3.8'
 
 services:
+  # Override images to use ECR versions
   nginx:
+    image: ${NGINX_IMAGE:-crucible-platform/nginx:latest}
     environment:
       # Enable production mode - fail if no valid SSL
       - PRODUCTION_MODE=true
@@ -22,6 +24,13 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - acme-challenge:/var/www/html/.well-known/acme-challenge
+    # Production health check for load balancer
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "--quiet", "--tries=1", "--spider", "https://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     # Production logging
     logging:
       driver: "json-file"
@@ -31,6 +40,7 @@ services:
 
   # Disable all development ports
   api-service:
+    image: ${API_IMAGE:-crucible-platform/api-service:latest}
     ports: []
     logging:
       driver: "json-file"
@@ -39,10 +49,43 @@ services:
         max-file: "5"
   
   crucible-frontend:
+    image: ${FRONTEND_IMAGE:-crucible-platform/frontend:latest}
     ports: []
     environment:
       - NODE_ENV=production
       - API_URL=  # Use relative URLs in production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  
+  executor-service:
+    image: ${EXECUTOR_SERVICE_IMAGE:-crucible-platform/executor-service:latest}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  
+  queue:
+    image: ${QUEUE_SERVICE_IMAGE:-crucible-platform/queue-service:latest}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  
+  queue-worker:
+    image: ${QUEUE_WORKER_IMAGE:-crucible-platform/queue-worker:latest}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  
+  storage-worker:
+    image: ${STORAGE_WORKER_IMAGE:-crucible-platform/storage-worker:latest}
     logging:
       driver: "json-file"
       options:
@@ -64,13 +107,3 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-  
-  # Add production health check endpoint
-  # This allows the load balancer to check nginx directly
-  nginx:
-    healthcheck:
-      test: ["CMD", "wget", "--no-check-certificate", "--quiet", "--tries=1", "--spider", "https://localhost/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
