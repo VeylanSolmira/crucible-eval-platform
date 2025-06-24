@@ -31,6 +31,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     
+    - name: Check for fresh OpenAPI spec
+      id: check-spec
+      continue-on-error: true
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: generate-openapi-spec.yml
+        name: openapi-spec
+        path: api/
+        search_artifacts: true
+        if_no_artifact_found: warn
+    
     - name: Configure AWS credentials via OIDC
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -57,6 +68,13 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
+        # Note if we're using a fresh OpenAPI spec
+        if [ -f "api/openapi.yaml" ] && [ "${{ steps.check-spec.outcome }}" == "success" ]; then
+          echo "📋 Using fresh OpenAPI spec from artifact"
+        else
+          echo "📋 Using committed OpenAPI spec"
+        fi
+        
         # Build and push each service
         # Format: "service-name:dockerfile-path:build-context"
         # Most services use their directory as context, but api needs root for storage/

@@ -1,0 +1,72 @@
+name: Generate OpenAPI Spec
+
+on:
+  push:
+    paths:
+      - 'api/**/*.py'
+      - '!api/openapi.yaml'  # Don't trigger on spec changes
+      - '!api/openapi.json'
+  pull_request:
+    paths:
+      - 'api/**/*.py'
+  workflow_dispatch:
+
+jobs:
+  generate-spec:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pyyaml
+    
+    - name: Generate OpenAPI spec from API
+      run: |
+        python api/scripts/export-openapi-spec.py
+    
+    - name: Validate OpenAPI spec
+      run: |
+        # Check that spec was generated
+        test -f api/openapi.yaml || exit 1
+        test -f api/openapi.json || exit 1
+        
+        # Check spec has required fields
+        python -c "
+        import yaml
+        with open('api/openapi.yaml') as f:
+            spec = yaml.safe_load(f)
+        assert 'openapi' in spec
+        assert 'paths' in spec
+        assert '/api/eval' in spec['paths']
+        print('✅ OpenAPI spec validated')
+        "
+    
+    - name: Upload OpenAPI spec as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openapi-spec
+        path: |
+          api/openapi.yaml
+          api/openapi.json
+        retention-days: 7
+    
+    - name: Check if spec changed
+      id: check-changes
+      run: |
+        if git diff --quiet api/openapi.yaml api/openapi.json; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "✅ OpenAPI spec is up to date"
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "⚠️ OpenAPI spec has changes"
+          echo "::warning::OpenAPI spec has changed. Please update the committed spec."
+          git diff --stat api/openapi.yaml api/openapi.json
+        fi
