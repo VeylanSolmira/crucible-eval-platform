@@ -3,13 +3,9 @@ FROM crucible-base AS storage-worker
 
 WORKDIR /app
 
-# Install storage dependencies
-RUN pip install --no-cache-dir \
-    redis[hiredis]==5.0.1 \
-    aiohttp==3.9.1 \
-    sqlalchemy==2.0.23 \
-    psycopg2-binary==2.9.9 \
-    alembic==1.12.1
+# Copy requirements and install dependencies
+COPY storage-worker/requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy storage worker and dependencies
 # Note: This Dockerfile should be built from the repository root:

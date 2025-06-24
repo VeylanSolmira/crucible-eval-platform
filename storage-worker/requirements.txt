@@ -1,0 +1,13 @@
+# Storage Worker Service
+# Handles asynchronous storage operations
+
+# Redis with C extensions for performance
+redis[hiredis]==5.0.1
+
+# Async HTTP client
+aiohttp==3.9.1
+
+# Database dependencies
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1

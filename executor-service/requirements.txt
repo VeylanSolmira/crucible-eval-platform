@@ -1,0 +1,5 @@
+# Executor Service
+# Executes code in Docker containers
+
+# Docker SDK for container management
+docker==6.1.3

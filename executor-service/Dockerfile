@@ -3,8 +3,9 @@ FROM crucible-base AS executor-service
 
 WORKDIR /app
 
-# Install Docker client library (only executor needs this)
-RUN pip install --no-cache-dir docker==6.1.3
+# Copy requirements and install dependencies
+COPY executor-service/requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy only the executor app
 COPY executor-service/app.py /app/
