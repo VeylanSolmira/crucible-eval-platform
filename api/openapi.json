@@ -479,7 +479,6 @@
             "$ref": "#/components/schemas/QueueStatusResponse"
           },
           "storage": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Storage",
             "default": {}
