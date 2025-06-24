@@ -4,7 +4,7 @@ FROM crucible-base AS queue-worker
 WORKDIR /app
 
 # Copy only the queue worker app
-COPY queue-worker/app.py /app/
+COPY app.py /app/
 
 # Update health check for queue worker port
 RUN sed -i 's/localhost:8080/localhost:8084/g' /healthcheck.py
