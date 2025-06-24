@@ -12,6 +12,8 @@ RUN pip install --no-cache-dir \
     alembic==1.12.1
 
 # Copy storage worker and dependencies
+# Note: This Dockerfile should be built from the repository root:
+# docker build -f storage-worker/Dockerfile .
 COPY storage-worker/app.py /app/
 COPY storage/ /app/storage/
 

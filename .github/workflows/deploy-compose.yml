@@ -58,25 +58,27 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         # Build and push each service
+        # Format: "service-name:dockerfile-path:build-context"
+        # Most services use their directory as context, but api needs root for storage/
         services=(
-          "nginx:./nginx"
-          "api:./api"
-          "frontend:./frontend"
-          "executor-service:./executor-service"
-          "queue-service:./queue-service"
-          "queue-worker:./queue-worker"
-          "storage-worker:./storage-worker"
+          "nginx:nginx/Dockerfile:./nginx"
+          "api:api/Dockerfile:."
+          "frontend:frontend/Dockerfile:./frontend"
+          "executor-service:executor-service/Dockerfile:./executor-service"
+          "queue-service:queue-service/Dockerfile:./queue-service"
+          "queue-worker:queue-worker/Dockerfile:./queue-worker"
+          "storage-worker:storage-worker/Dockerfile:."
         )
         
         for service_info in "${services[@]}"; do
-          IFS=':' read -r service_name service_path <<< "$service_info"
-          echo "🔨 Building $service_name from $service_path"
+          IFS=':' read -r service_name dockerfile_path build_context <<< "$service_info"
+          echo "🔨 Building $service_name using $dockerfile_path from context $build_context"
           
           # Build with base image arg if it's a Python service
           if [[ "$service_name" != "nginx" && "$service_name" != "frontend" ]]; then
-            docker build --build-arg BASE_IMAGE=crucible-base -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $service_path
+            docker build --build-arg BASE_IMAGE=crucible-base -f $dockerfile_path -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $build_context
           else
-            docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $service_path
+            docker build -f $dockerfile_path -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $build_context
           fi
           
           # Tag as latest

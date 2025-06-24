@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir \
     psycopg2-binary==2.9.9
 
 # Copy API service code and dependencies
+# Note: This Dockerfile should be built from the repository root:
+# docker build -f api/Dockerfile .
 COPY api/ /app/api/
 COPY storage/ /app/storage/
 
