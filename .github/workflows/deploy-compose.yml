@@ -82,7 +82,7 @@ jobs:
         services=(
           "nginx:nginx/Dockerfile:./nginx"
           "api:api/Dockerfile:."
-          "frontend:frontend/Dockerfile:./frontend"
+          "frontend:frontend/Dockerfile:."
           "executor-service:executor-service/Dockerfile:./executor-service"
           "queue-service:queue-service/Dockerfile:./queue-service"
           "queue-worker:queue-worker/Dockerfile:./queue-worker"
