@@ -25,8 +25,7 @@ jobs:
     
     - name: Install Python dependencies
       run: |
-        pip install -r requirements.txt
-        pip install pyyaml
+        pip install -r api/scripts/requirements-openapi.txt
     
     - name: Generate OpenAPI spec from API
       run: |
