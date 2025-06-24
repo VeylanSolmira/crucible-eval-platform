@@ -15,13 +15,16 @@
 fastapi==0.104.1      # For FastAPI API server
 uvicorn[standard]==0.24.0  # ASGI server for FastAPI
 pydantic==2.5.0       # FastAPI data validation
+httpx==0.25.0         # HTTP client for service communication
+redis==5.0.1          # For Redis pub/sub and caching
+structlog==23.2.0     # Structured logging
 
 # Database and storage backends
 sqlalchemy==2.0.23      # ORM for database models
 alembic==1.13.0        # Database migrations
 asyncpg==0.29.0        # Async PostgreSQL driver
 psycopg2-binary==2.9.9 # PostgreSQL adapter (for Alembic)
-# redis==5.0.1         # For Redis storage backend (future)
+# Already added above with other web framework dependencies
 # boto3==1.29.7        # For S3 storage backend (future)
 # aiofiles==23.2.1     # For async file operations (future)
 
