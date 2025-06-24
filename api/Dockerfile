@@ -3,11 +3,11 @@ FROM crucible-base AS api-service
 
 WORKDIR /app
 
-# Install storage dependencies for database access
-RUN pip install --no-cache-dir \
-    sqlalchemy==2.0.23 \
-    psycopg2-binary==2.9.9 \
-    pyyaml==6.0.1
+# Copy API requirements first for better layer caching
+COPY api/requirements.txt /app/api/requirements.txt
+
+# Install API dependencies
+RUN pip install --no-cache-dir -r /app/api/requirements.txt
 
 # Copy API service code and dependencies
 # Note: This Dockerfile should be built from the repository root:

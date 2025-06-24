@@ -1,14 +1,19 @@
 # API Service - Microservices gateway
+# Full dependencies for the API service
+
+# Core API framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
+
+# Service communication
 httpx==0.25.0
 redis==5.0.1
-structlog==23.2.0
 
-# For OpenAPI generation
+# Utilities
+structlog==23.2.0
 pyyaml>=6.0
 
-# Storage dependencies (imported by microservices_gateway)
+# Storage dependencies
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
