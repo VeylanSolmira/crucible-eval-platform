@@ -143,14 +143,14 @@ export class ApiClient {
     console.log('Batch endpoint not available, submitting individually with rate limit protection');
     
     const results = [];
-    for (const [index, eval] of evaluations.entries()) {
+    for (const [index, evaluation] of evaluations.entries()) {
       try {
         // Small delay between submissions to be nice to the server
         if (index > 0) {
           await this.delay(100);
         }
         
-        const result = await this.submitEvaluation(eval.code, eval.options);
+        const result = await this.submitEvaluation(evaluation.code, evaluation.options);
         results.push(result);
       } catch (error) {
         results.push({ 
