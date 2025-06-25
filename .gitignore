@@ -8,6 +8,11 @@ env/
 venv/
 ENV/
 .venv
+venv*/
+env*/
+*venv/
+*env/
+.env*/
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
