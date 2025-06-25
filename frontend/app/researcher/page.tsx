@@ -5,6 +5,7 @@ import { CodeEditorWithTemplates } from '../../src/components/CodeEditorWithTemp
 import { ExecutionConfig, ExecutionConfigData } from '../../src/components/ExecutionConfig'
 import { ExecutionMonitor } from '../../src/components/ExecutionMonitor'
 import { ErrorDisplay } from '../../src/components/ErrorDisplay'
+import { smartApi } from '../../src/utils/smartApiClient'
 import type { components } from '@/types/generated/api'
 
 // Type definitions
@@ -258,36 +259,28 @@ export default function ResearcherUI() {
       addEvent('submission', { type: 'batch', count: 5 })
       await fetchQueueStatus()
       
-      // Submit 5 evaluations in parallel
-      const promises = Array.from({ length: 5 }, async (_, i) => {
-        const evalCode = `# Evaluation ${i + 1}\nprint(f"This is evaluation ${i + 1}")\nimport time\ntime.sleep(${Math.random() * 2})`
-        
-        const response = await fetch(`${apiUrl}/api/eval`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            code: evalCode,
-            timeout: execConfig.timeout 
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-        }
-
-        return response.json()
-      })
+      // Prepare batch evaluations
+      const evaluations = Array.from({ length: 5 }, (_, i) => ({
+        code: `# Evaluation ${i + 1}\nprint(f"This is evaluation ${i + 1}")\nimport time\ntime.sleep(${Math.random() * 2})`,
+        options: { timeout: execConfig.timeout }
+      }))
       
-      const results = await Promise.allSettled(promises)
+      // Submit using smart API client (handles rate limiting automatically)
+      const results = await smartApi.submitBatch(evaluations)
       
       // Process results
       const resultsMap = new Map<string, EvaluationResult>()
       results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          const evalId = result.value.eval_id
+        if (result.error) {
+          const errorId = `error-${index}`
+          resultsMap.set(errorId, {
+            id: errorId,
+            status: 'error',
+            error: result.error
+          })
+          addEvent('error', { batch_index: index + 1, message: result.error })
+        } else {
+          const evalId = result.eval_id
           const evalResult: EvaluationResult = {
             id: evalId,
             status: 'queued',
@@ -295,25 +288,22 @@ export default function ResearcherUI() {
           }
           resultsMap.set(evalId, evalResult)
           
-          // Poll for each result
+          // Poll for each result (also rate-limited)
           pollBatchEvaluationStatus(evalId, resultsMap)
           
           addEvent('evaluation_submitted', { 
             id: evalId, 
             batch_index: index + 1 
           })
-        } else {
-          const errorId = `error-${index}`
-          resultsMap.set(errorId, {
-            id: errorId,
-            status: 'error',
-            error: result.reason?.message || 'Failed to submit evaluation'
-          })
-          addEvent('error', { batch_index: index + 1, message: result.reason?.message })
         }
       })
       
       setMultipleResults(resultsMap)
+      
+      // Show API stats in event log
+      const stats = smartApi.getStats()
+      addEvent('api_stats', stats)
+      
       await fetchQueueStatus()
     } catch (error) {
       addEvent('error', { message: error instanceof Error ? error.message : 'Failed to submit evaluations' })
@@ -326,12 +316,7 @@ export default function ResearcherUI() {
   const pollBatchEvaluationStatus = useCallback(async (evalId: string, resultsMap: Map<string, EvaluationResult>) => {
     const poll = async () => {
       try {
-        const response = await fetch(`${apiUrl}/api/eval-status/${evalId}`)
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-        
-        const data: EvaluationStatusResponse = await response.json()
+        const data: EvaluationStatusResponse = await smartApi.checkStatus(evalId)
         
         const evalResult: EvaluationResult = {
           id: data.eval_id || evalId,
