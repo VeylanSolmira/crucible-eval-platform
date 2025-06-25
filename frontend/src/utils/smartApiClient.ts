@@ -202,9 +202,9 @@ export class SmartApiClient {
       console.log('Batch endpoint not available, submitting individually');
       
       const results = [];
-      for (const eval of evaluations) {
+      for (const evaluation of evaluations) {
         try {
-          const result = await this.submitEvaluation(eval.code, eval.options);
+          const result = await this.submitEvaluation(evaluation.code, evaluation.options);
           results.push(result);
         } catch (error) {
           results.push({ error: error instanceof Error ? error.message : 'Failed' });
