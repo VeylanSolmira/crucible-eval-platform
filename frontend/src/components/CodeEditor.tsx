@@ -116,5 +116,5 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   );
 };
 
-// Re-export monaco for use in other components
-export { monaco } from '@monaco-editor/react';
+// Re-export Monaco type for use in other components
+export type { Monaco } from '@monaco-editor/react';
