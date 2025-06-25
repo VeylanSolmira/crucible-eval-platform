@@ -78,14 +78,14 @@ jobs:
         
         # Build and push each service
         # Format: "service-name:dockerfile-path:build-context"
-        # Most services use their directory as context, but api needs root for storage/
+        # All services use project root as build context for consistency
         services=(
-          "nginx:nginx/Dockerfile:./nginx"
+          "nginx:nginx/Dockerfile:."
           "api:api/Dockerfile:."
           "frontend:frontend/Dockerfile:."
-          "executor-service:executor-service/Dockerfile:./executor-service"
-          "queue-service:queue-service/Dockerfile:./queue-service"
-          "queue-worker:queue-worker/Dockerfile:./queue-worker"
+          "executor-service:executor-service/Dockerfile:."
+          "queue-service:queue-service/Dockerfile:."
+          "queue-worker:queue-worker/Dockerfile:."
           "storage-worker:storage-worker/Dockerfile:."
         )
         

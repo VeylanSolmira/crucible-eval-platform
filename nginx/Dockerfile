@@ -11,11 +11,11 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost/health || exit 1
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY conf.d/*.conf /etc/nginx/conf.d/
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/conf.d/*.conf /etc/nginx/conf.d/
 
 # Create a script to handle SSL certificate setup
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY nginx/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Expose ports

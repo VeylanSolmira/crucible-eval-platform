@@ -318,8 +318,8 @@ services:
   # Nginx Reverse Proxy
   nginx:
     build:
-      context: ./nginx
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: nginx/Dockerfile
     image: ${PROJECT_NAME:-crucible-platform}/nginx:local
     container_name: crucible-nginx
     ports:
