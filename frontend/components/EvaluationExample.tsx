@@ -65,6 +65,15 @@ export function EvaluationExample() {
         </div>
       )}
 
+      {evalId && isLoading && (
+        <div className="mt-6 p-4 bg-gray-100 rounded">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-3"></div>
+            <span>Loading evaluation status...</span>
+          </div>
+        </div>
+      )}
+
       {status && (
         <div className="mt-6 p-4 bg-gray-100 rounded">
           <h3 className="font-semibold mb-2">Evaluation Status</h3>

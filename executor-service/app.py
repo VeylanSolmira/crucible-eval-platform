@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 
 from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 import uvicorn
 import docker
@@ -19,7 +20,14 @@ from docker.errors import ContainerError, ImageNotFound, APIError
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Executor Service")
+app = FastAPI(
+    title="Crucible Executor Service",
+    description="Creates isolated containers for secure code execution using Docker",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 # Docker client will use DOCKER_HOST env var (tcp://docker-proxy:2375)
 docker_client = docker.from_env()
@@ -220,6 +228,56 @@ async def status():
             'status': 'error',
             'error': str(e)
         }
+
+# OpenAPI endpoints
+@app.get("/openapi.yaml", include_in_schema=False)
+async def get_openapi_yaml():
+    """Get OpenAPI specification in YAML format"""
+    from fastapi.openapi.utils import get_openapi
+    import yaml
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes
+    )
+    
+    yaml_content = yaml.dump(openapi_schema, sort_keys=False)
+    return Response(content=yaml_content, media_type="application/yaml")
+
+@app.on_event("startup")
+async def startup():
+    """Export OpenAPI spec on startup"""
+    try:
+        from fastapi.openapi.utils import get_openapi
+        import yaml
+        import json
+        from pathlib import Path
+        
+        # Get OpenAPI schema
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes
+        )
+        
+        # Create directory if it doesn't exist
+        Path("/app/executor-service").mkdir(exist_ok=True)
+        
+        # Export as JSON
+        with open("/app/executor-service/openapi.json", "w") as f:
+            json.dump(openapi_schema, f, indent=2)
+        
+        # Export as YAML
+        with open("/app/executor-service/openapi.yaml", "w") as f:
+            yaml.dump(openapi_schema, f, sort_keys=False)
+        
+        logger.info("OpenAPI spec exported to /app/executor-service/openapi.json and openapi.yaml")
+    except Exception as e:
+        logger.error(f"Failed to export OpenAPI spec: {e}")
+        # Don't fail startup if export fails
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8083)

@@ -1,13 +1,15 @@
 # Storage Worker Service
-# Handles asynchronous storage operations
+# Handles asynchronous storage operations via Storage Service API
 
 # Redis with C extensions for performance
 redis[hiredis]==5.0.1
 
-# Async HTTP client
-aiohttp==3.9.1
+# Async HTTP client for Storage Service API calls
+httpx==0.25.2
 
-# Database dependencies
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-alembic==1.12.1
+# Structured logging
+structlog==23.2.0
+
+# Web framework for health endpoint
+fastapi==0.104.1
+uvicorn[standard]==0.24.0

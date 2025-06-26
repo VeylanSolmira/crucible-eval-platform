@@ -60,11 +60,14 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
       - QUEUE_SERVICE_URL=http://queue:8081
+      - STORAGE_SERVICE_URL=http://storage-service:8082
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
       - ENABLE_CACHING=false  # Disable caching to avoid stale data in distributed setup
     depends_on:
+      base:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
@@ -182,6 +185,9 @@ services:
       - API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
+    depends_on:
+      base:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8081/health').raise_for_status()"]
@@ -215,8 +221,12 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
     depends_on:
-      - queue
-      - redis
+      base:
+        condition: service_completed_successfully
+      queue:
+        condition: service_started
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     # Security hardening
     security_opt:
@@ -242,7 +252,10 @@ services:
       - LOG_LEVEL=INFO
       - DOCKER_HOST=tcp://docker-proxy:2375
     depends_on:
-      - docker-proxy
+      base:
+        condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
     networks:
       - default
       - docker-api
@@ -287,6 +300,8 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
     depends_on:
+      base:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
@@ -298,6 +313,49 @@ services:
       timeout: 3s
       retries: 3
     mem_limit: 128m
+
+  # Storage Service - RESTful API for data access
+  storage-service:
+    build:
+      context: .
+      dockerfile: storage-service/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${PROJECT_NAME:-crucible-platform}/storage-service:local
+    container_name: storage-service
+    ports:
+      - "8082:8082"  # For development access
+    environment:
+      - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+      - REDIS_URL=redis://redis:6379
+      - STORAGE_BACKEND=database
+      - FALLBACK_BACKEND=file
+      - ENABLE_CACHING=true
+      - FILE_STORAGE_PATH=/app/data
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data  # For file storage backend
+    depends_on:
+      base:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 256m
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec
 
   # Redis for Event Bus and Future Celery
   redis:

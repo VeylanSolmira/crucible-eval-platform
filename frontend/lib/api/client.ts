@@ -68,11 +68,16 @@ export class CrucibleAPIClient {
 
   /**
    * Submit an evaluation
+   * Uses type-safe paths from OpenAPI spec
    */
   async submitEvaluation(
-    request: EvaluationRequest
-  ): Promise<{ data?: EvaluationAccepted; error?: Error }> {
-    return typedFetch<EvaluationAccepted>(
+    request: paths['/api/eval']['post']['requestBody']['content']['application/json']
+  ): Promise<{ 
+    data?: paths['/api/eval']['post']['responses']['200']['content']['application/json']; 
+    error?: Error 
+  }> {
+    type ResponseType = paths['/api/eval']['post']['responses']['200']['content']['application/json']
+    return typedFetch<ResponseType>(
       `${this.baseUrl}/api/eval`,
       {
         method: 'POST',
@@ -83,11 +88,16 @@ export class CrucibleAPIClient {
 
   /**
    * Get evaluation status
+   * Uses type-safe paths from OpenAPI spec
    */
   async getEvaluationStatus(
     evalId: string
-  ): Promise<{ data?: EvaluationStatusResponse; error?: Error }> {
-    return typedFetch<EvaluationStatusResponse>(
+  ): Promise<{ 
+    data?: paths['/api/eval-status/{eval_id}']['get']['responses']['200']['content']['application/json']; 
+    error?: Error 
+  }> {
+    type ResponseType = paths['/api/eval-status/{eval_id}']['get']['responses']['200']['content']['application/json']
+    return typedFetch<ResponseType>(
       `${this.baseUrl}/api/eval-status/${evalId}`
     )
   }

@@ -50,6 +50,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/eval-batch:
+    post:
+      summary: Evaluate Batch
+      description: Submit multiple evaluations as a batch
+      operationId: evaluate_batch_api_eval_batch_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchEvaluationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchEvaluationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/eval-status/{eval_id}:
     get:
       summary: Get Evaluation Status
@@ -156,6 +180,40 @@ paths:
               schema: {}
 components:
   schemas:
+    BatchEvaluationRequest:
+      properties:
+        evaluations:
+          items:
+            $ref: '#/components/schemas/EvaluationRequest'
+          type: array
+          title: Evaluations
+      type: object
+      required:
+      - evaluations
+      title: BatchEvaluationRequest
+    BatchEvaluationResponse:
+      properties:
+        evaluations:
+          items:
+            $ref: '#/components/schemas/EvaluationResponse'
+          type: array
+          title: Evaluations
+        total:
+          type: integer
+          title: Total
+        queued:
+          type: integer
+          title: Queued
+        failed:
+          type: integer
+          title: Failed
+      type: object
+      required:
+      - evaluations
+      - total
+      - queued
+      - failed
+      title: BatchEvaluationResponse
     EvaluationRequest:
       properties:
         code:
@@ -319,6 +377,7 @@ components:
         queue:
           $ref: '#/components/schemas/QueueStatusResponse'
         storage:
+          additionalProperties: true
           type: object
           title: Storage
           default: {}

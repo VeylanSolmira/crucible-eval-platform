@@ -17,6 +17,7 @@ import json
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI
+from fastapi.responses import Response
 import uvicorn
 import redis.asyncio as redis
 
@@ -238,7 +239,14 @@ class QueueWorker:
         }
 
 # FastAPI app for health/status
-app = FastAPI(title="Queue Worker")
+app = FastAPI(
+    title="Crucible Queue Worker",
+    description="Scheduler service that pulls tasks from queue and routes them to executor workers",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 worker: Optional[QueueWorker] = None
 
@@ -247,6 +255,37 @@ async def startup():
     global worker
     worker = QueueWorker()
     asyncio.create_task(worker.run())
+    
+    # Export OpenAPI spec
+    try:
+        from fastapi.openapi.utils import get_openapi
+        import yaml
+        import json
+        from pathlib import Path
+        
+        # Get OpenAPI schema
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes
+        )
+        
+        # Create directory if it doesn't exist
+        Path("/app/queue-worker").mkdir(exist_ok=True)
+        
+        # Export as JSON
+        with open("/app/queue-worker/openapi.json", "w") as f:
+            json.dump(openapi_schema, f, indent=2)
+        
+        # Export as YAML
+        with open("/app/queue-worker/openapi.yaml", "w") as f:
+            yaml.dump(openapi_schema, f, sort_keys=False)
+        
+        logger.info("OpenAPI spec exported to /app/queue-worker/openapi.json and openapi.yaml")
+    except Exception as e:
+        logger.error(f"Failed to export OpenAPI spec: {e}")
+        # Don't fail startup if export fails
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -269,6 +308,23 @@ async def status():
     if worker:
         return await worker.get_status()
     return {"status": "not_initialized"}
+
+# OpenAPI endpoints
+@app.get("/openapi.yaml", include_in_schema=False)
+async def get_openapi_yaml():
+    """Get OpenAPI specification in YAML format"""
+    from fastapi.openapi.utils import get_openapi
+    import yaml
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes
+    )
+    
+    yaml_content = yaml.dump(openapi_schema, sort_keys=False)
+    return Response(content=yaml_content, media_type="application/yaml")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8084)

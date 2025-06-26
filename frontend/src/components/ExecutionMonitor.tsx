@@ -76,6 +76,9 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
         clearInterval(metricsIntervalRef.current);
       }
     }
+    
+    // Return undefined to satisfy TypeScript
+    return undefined;
   }, [isRunning, evalId]);
 
   useEffect(() => {

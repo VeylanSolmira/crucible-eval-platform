@@ -185,18 +185,26 @@ export class SmartApiClient {
     return this.fetch('/api/eval', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, ...options })
+      body: JSON.stringify({ 
+        code, 
+        language: 'python',
+        engine: 'docker',
+        timeout: 30,
+        ...options 
+      })
     });
   }
 
-  async submitBatch(evaluations: Array<{ code: string; options?: any }>): Promise<any[]> {
+  async submitBatch(evaluations: Array<{ code: string; language?: string; engine?: string; timeout?: number }>): Promise<any> {
     // Try batch endpoint first
     try {
-      return await this.fetch('/api/eval-batch', {
+      const response = await this.fetch<any>('/api/eval-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ evaluations })
       });
+      // Return the evaluations array from the response
+      return response.evaluations || [];
     } catch (error) {
       // Fallback to individual submissions
       console.log('Batch endpoint not available, submitting individually');
@@ -204,7 +212,11 @@ export class SmartApiClient {
       const results = [];
       for (const evaluation of evaluations) {
         try {
-          const result = await this.submitEvaluation(evaluation.code, evaluation.options);
+          const result = await this.submitEvaluation(evaluation.code, {
+            language: evaluation.language || 'python',
+            engine: evaluation.engine || 'docker',
+            timeout: evaluation.timeout || 30
+          });
           results.push(result);
         } catch (error) {
           results.push({ error: error instanceof Error ? error.message : 'Failed' });

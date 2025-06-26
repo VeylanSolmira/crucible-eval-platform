@@ -15,8 +15,7 @@ from typing import Dict, Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import redis.asyncio as redis
-from storage import FlexibleStorageManager
-from storage.config import StorageConfig
+import httpx
 import structlog
 
 # Configure standard logging for libraries (redis, etc)
@@ -50,12 +49,13 @@ class StorageWorker:
         self.redis = redis.from_url(redis_url)
         self.pubsub = self.redis.pubsub()
         
-        # Storage configuration
-        storage_config = StorageConfig.from_environment()
-        self.storage = FlexibleStorageManager.from_config(storage_config)
+        # HTTP client for storage service
+        self.storage_url = os.getenv("STORAGE_SERVICE_URL", "http://storage-service:8082")
+        self.client = httpx.AsyncClient(timeout=30.0)
         logger.info("storage_worker.initialized", 
-                   backend="flexible_storage",
-                   redis_url=redis_url)
+                   backend="storage_service_api",
+                   redis_url=redis_url,
+                   storage_url=self.storage_url)
         
         self.running = True
         self.events_processed = 0
@@ -110,14 +110,19 @@ class StorageWorker:
             return
         
         try:
-            success = self.storage.create_evaluation(
-                eval_id=eval_id,
-                code=code,
-                status='queued',
-                metadata=data.get('metadata', {})
+            # Call storage service API to create evaluation
+            response = await self.client.post(
+                f"{self.storage_url}/evaluations",
+                json={
+                    "id": eval_id,
+                    "code": code,
+                    "language": data.get('language', 'python'),
+                    "status": 'queued',
+                    "metadata": data.get('metadata', {})
+                }
             )
             
-            if success:
+            if response.status_code == 200:
                 logger.info(f"Stored queued evaluation {eval_id}")
                 # Publish confirmation event (other services can listen)
                 await self.redis.publish(
@@ -125,7 +130,7 @@ class StorageWorker:
                     json.dumps({"eval_id": eval_id, "timestamp": datetime.utcnow().isoformat()})
                 )
             else:
-                logger.error(f"Failed to store queued evaluation {eval_id}")
+                logger.error(f"Failed to store queued evaluation {eval_id}: {response.status_code}")
                 
         except Exception as e:
             logger.error(f"Error storing queued evaluation {eval_id}: {e}")
@@ -140,16 +145,18 @@ class StorageWorker:
             return
         
         try:
-            success = self.storage.update_evaluation(
-                eval_id=eval_id,
-                status='completed',
-                output=result.get('output'),
-                error=result.get('error'),
-                success=result.get('success', False),
-                metadata=result.get('metadata', {})
+            # Call storage service API to update evaluation
+            response = await self.client.put(
+                f"{self.storage_url}/evaluations/{eval_id}",
+                json={
+                    "status": 'completed',
+                    "output": result.get('output'),
+                    "error": result.get('error'),
+                    "metadata": result.get('metadata', {})
+                }
             )
             
-            if success:
+            if response.status_code == 200:
                 logger.info(f"Updated completed evaluation {eval_id}")
                 # Publish confirmation event
                 await self.redis.publish(
@@ -176,14 +183,16 @@ class StorageWorker:
             return
         
         try:
-            success = self.storage.update_evaluation(
-                eval_id=eval_id,
-                status='failed',
-                error=error,
-                success=False
+            # Call storage service API to update evaluation
+            response = await self.client.put(
+                f"{self.storage_url}/evaluations/{eval_id}",
+                json={
+                    "status": 'failed',
+                    "error": error
+                }
             )
             
-            if success:
+            if response.status_code == 200:
                 logger.info(f"Updated failed evaluation {eval_id}")
                 # Publish confirmation event
                 await self.redis.publish(
@@ -209,13 +218,18 @@ class StorageWorker:
         except:
             redis_healthy = False
         
-        # Check storage health
-        storage_health = self.storage.health_check()
+        # Check storage service health
+        storage_healthy = False
+        try:
+            response = await self.client.get(f"{self.storage_url}/health")
+            storage_healthy = response.status_code == 200
+        except:
+            storage_healthy = False
         
         return {
-            "healthy": redis_healthy and storage_health.get("healthy", False),
+            "healthy": redis_healthy and storage_healthy,
             "redis": "healthy" if redis_healthy else "unhealthy",
-            "storage": storage_health,
+            "storage": "healthy" if storage_healthy else "unhealthy",
             "events_processed": self.events_processed,
             "uptime": "TODO"  # Add uptime tracking
         }
@@ -226,7 +240,7 @@ class StorageWorker:
         self.running = False
         await self.pubsub.unsubscribe()
         await self.redis.close()
-        self.storage.close()
+        await self.client.aclose()
 
 # Health endpoint using FastAPI
 # NOTE: This adds ~20-30MB overhead for a single endpoint. Consider alternatives:

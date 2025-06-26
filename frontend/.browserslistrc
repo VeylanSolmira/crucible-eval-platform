@@ -1,0 +1,19 @@
+# Browsers that we support
+# Used by Babel, Autoprefixer, and other tools
+
+# All browsers updated in the last 2 years
+last 2 years
+
+# Exclude browsers with no recent updates
+not dead
+
+# Must have at least 0.5% market share
+> 0.5%
+
+# Exclude Opera Mini (doesn't support modern JavaScript)
+not op_mini all
+
+# Specific exclusions for known incompatible browsers
+not ie 11
+not ios < 14
+not safari < 14

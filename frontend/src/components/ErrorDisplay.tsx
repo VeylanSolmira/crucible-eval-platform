@@ -98,7 +98,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
     // Extract error type and message
     const errorMatch = errorText.match(/(\w+Error): (.+)/);
-    if (errorMatch) {
+    if (errorMatch && errorMatch[1] && errorMatch[2]) {
       parsed.type = errorMatch[1];
       parsed.message = errorMatch[2];
     }
@@ -107,6 +107,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     let inTraceback = false;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      if (!line) continue;
       
       if (line.includes('Traceback (most recent call last)')) {
         inTraceback = true;
@@ -115,7 +116,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
       if (inTraceback && line.match(/^\s*File "(.+)", line (\d+), in (.+)$/)) {
         const match = line.match(/^\s*File "(.+)", line (\d+), in (.+)$/);
-        if (match) {
+        if (match && match[1] && match[2] && match[3]) {
           const frame = {
             file: match[1],
             line: parseInt(match[2]),
@@ -124,8 +125,9 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
           };
 
           // Get the code line if available
-          if (i + 1 < lines.length && lines[i + 1].match(/^\s{4}/)) {
-            frame.code = lines[i + 1].trim();
+          const nextLine = lines[i + 1];
+          if (nextLine && nextLine.match(/^\s{4}/)) {
+            frame.code = nextLine.trim();
           }
 
           parsed.traceback?.push(frame);
@@ -135,7 +137,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
       // Extract line number from syntax errors
       if (parsed.type === 'SyntaxError') {
         const lineMatch = errorText.match(/line (\d+)/);
-        if (lineMatch) {
+        if (lineMatch && lineMatch[1]) {
           parsed.lineNumber = parseInt(lineMatch[1]);
         }
       }

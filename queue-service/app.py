@@ -10,7 +10,7 @@ import logging
 from collections import deque
 import json
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Response
 from pydantic import BaseModel
 import redis.asyncio as redis
 
@@ -18,7 +18,14 @@ import redis.asyncio as redis
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Queue Service", version="1.0.0")
+app = FastAPI(
+    title="Crucible Queue Service",
+    description="Simple REST API for task queueing, providing network API for task distribution",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 # Simple in-memory queue (deque for FIFO behavior)
 task_queue = deque()
@@ -57,10 +64,41 @@ async def publish_event(channel: str, data: Dict[str, Any]):
 
 @app.on_event("startup")
 async def startup():
-    """Initialize Redis connection"""
+    """Initialize Redis connection and export OpenAPI spec"""
     global redis_client
     redis_client = redis.from_url(REDIS_URL)
     logger.info("Queue service started")
+    
+    # Export OpenAPI spec
+    try:
+        from fastapi.openapi.utils import get_openapi
+        import yaml
+        import json
+        from pathlib import Path
+        
+        # Get OpenAPI schema
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes
+        )
+        
+        # Create directory if it doesn't exist
+        Path("/app/queue-service").mkdir(exist_ok=True)
+        
+        # Export as JSON
+        with open("/app/queue-service/openapi.json", "w") as f:
+            json.dump(openapi_schema, f, indent=2)
+        
+        # Export as YAML
+        with open("/app/queue-service/openapi.yaml", "w") as f:
+            yaml.dump(openapi_schema, f, sort_keys=False)
+        
+        logger.info("OpenAPI spec exported to /app/queue-service/openapi.json and openapi.yaml")
+    except Exception as e:
+        logger.error(f"Failed to export OpenAPI spec: {e}")
+        # Don't fail startup if export fails
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -214,6 +252,23 @@ async def clear_queue() -> Dict:
         "status": "cleared",
         "tasks_removed": count
     }
+
+# OpenAPI endpoints
+@app.get("/openapi.yaml", include_in_schema=False)
+async def get_openapi_yaml():
+    """Get OpenAPI specification in YAML format"""
+    from fastapi.openapi.utils import get_openapi
+    import yaml
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes
+    )
+    
+    yaml_content = yaml.dump(openapi_schema, sort_keys=False)
+    return Response(content=yaml_content, media_type="application/yaml")
 
 if __name__ == "__main__":
     import uvicorn

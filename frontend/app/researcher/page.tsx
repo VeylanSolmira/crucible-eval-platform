@@ -262,7 +262,9 @@ export default function ResearcherUI() {
       // Prepare batch evaluations
       const evaluations = Array.from({ length: 5 }, (_, i) => ({
         code: `# Evaluation ${i + 1}\nprint(f"This is evaluation ${i + 1}")\nimport time\ntime.sleep(${Math.random() * 2})`,
-        options: { timeout: execConfig.timeout }
+        language: 'python',
+        engine: 'docker',
+        timeout: execConfig.timeout
       }))
       
       // Submit using smart API client (handles rate limiting automatically)
@@ -270,7 +272,7 @@ export default function ResearcherUI() {
       
       // Process results
       const resultsMap = new Map<string, EvaluationResult>()
-      results.forEach((result, index) => {
+      results.forEach((result: any, index: number) => {
         if (result.error) {
           const errorId = `error-${index}`
           resultsMap.set(errorId, {
@@ -433,16 +435,23 @@ export default function ResearcherUI() {
           {queueStatus && (
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Queue Status</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
-                  <span className="text-xs text-gray-600">Pending:</span>
-                  <span className="ml-1 font-semibold text-sm">{queueStatus.pending}</span>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
+                    <span className="text-xs text-gray-600">Pending:</span>
+                    <span className="ml-1 font-semibold text-sm">{queueStatus.pending}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
+                    <span className="text-xs text-gray-600">Running:</span>
+                    <span className="ml-1 font-semibold text-sm">{queueStatus.running}</span>
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
-                  <span className="text-xs text-gray-600">Running:</span>
-                  <span className="ml-1 font-semibold text-sm">{queueStatus.running}</span>
+                <div className="flex items-center pt-1 border-t border-gray-100">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full mr-2"></div>
+                  <span className="text-xs text-gray-600">Your Active:</span>
+                  <span className="ml-1 font-semibold text-sm">{activeEvaluations.size}</span>
                 </div>
               </div>
             </div>
