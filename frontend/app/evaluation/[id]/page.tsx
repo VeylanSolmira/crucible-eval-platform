@@ -103,7 +103,7 @@ export default function EvaluationDetailPage({ params }: { params: { id: string 
     )
   }
 
-  const { evaluation: eval, events, storage_locations, timeline, metadata } = evaluation
+  const { evaluation: evalData, storage_locations, timeline, metadata } = evaluation
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -112,7 +112,7 @@ export default function EvaluationDetailPage({ params }: { params: { id: string 
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Evaluation Details</h1>
-              <p className="text-sm text-gray-600 mt-1 font-mono">{eval.id}</p>
+              <p className="text-sm text-gray-600 mt-1 font-mono">{evalData.id}</p>
             </div>
             <div className="flex space-x-3">
               <button
@@ -141,16 +141,16 @@ export default function EvaluationDetailPage({ params }: { params: { id: string 
               <div className="mt-1">
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    eval.status === 'completed'
+                    evalData.status === 'completed'
                       ? 'bg-green-100 text-green-800'
-                      : eval.status === 'failed'
+                      : evalData.status === 'failed'
                       ? 'bg-red-100 text-red-800'
-                      : eval.status === 'running'
+                      : evalData.status === 'running'
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-yellow-100 text-yellow-800'
                   }`}
                 >
-                  {eval.status.toUpperCase()}
+                  {evalData.status.toUpperCase()}
                 </span>
               </div>
             </div>
@@ -162,11 +162,11 @@ export default function EvaluationDetailPage({ params }: { params: { id: string 
             </div>
             <div>
               <div className="text-sm text-gray-600">Created</div>
-              <div className="text-sm font-medium mt-1">{formatTimestamp(eval.created_at)}</div>
+              <div className="text-sm font-medium mt-1">{formatTimestamp(evalData.created_at)}</div>
             </div>
             <div>
               <div className="text-sm text-gray-600">Completed</div>
-              <div className="text-sm font-medium mt-1">{formatTimestamp(eval.completed_at)}</div>
+              <div className="text-sm font-medium mt-1">{formatTimestamp(evalData.completed_at)}</div>
             </div>
           </div>
         </div>
@@ -224,10 +224,10 @@ export default function EvaluationDetailPage({ params }: { params: { id: string 
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-900">Source Code</h3>
-                  <span className="text-sm text-gray-600">Language: {eval.language}</span>
+                  <span className="text-sm text-gray-600">Language: {evalData.language}</span>
                 </div>
                 <pre className="p-4 bg-gray-50 rounded-md text-sm overflow-x-auto font-mono">
-                  {eval.code}
+                  {evalData.code}
                 </pre>
               </div>
             )}
@@ -236,13 +236,13 @@ export default function EvaluationDetailPage({ params }: { params: { id: string 
             {activeTab === 'output' && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Execution Output</h3>
-                {eval.output ? (
+                {evalData.output ? (
                   <pre className="p-4 bg-gray-50 rounded-md text-sm overflow-x-auto font-mono">
-                    {eval.output}
+                    {evalData.output}
                   </pre>
-                ) : eval.error ? (
+                ) : evalData.error ? (
                   <pre className="p-4 bg-red-50 text-red-700 rounded-md text-sm overflow-x-auto font-mono">
-                    {eval.error}
+                    {evalData.error}
                   </pre>
                 ) : (
                   <p className="text-gray-500">No output available</p>

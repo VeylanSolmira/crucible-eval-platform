@@ -2051,7 +2051,142 @@ GET /openapi.yaml
 
 ---
 
-## Chapter 18: The Batch Evaluation Paradigm
+## Chapter 18: The Storage Explorer & Research Monitoring
+
+### Problem: Researchers Can't See Where Their Data Lives
+
+**The Black Box Problem:**
+```python
+# Researcher submits evaluation
+eval_id = submit_evaluation(code)
+# Where is it stored? 🤷
+# Is it in memory? Database? File? Redis?
+# How much space is it using?
+# What events were logged?
+```
+
+**The Storage Explorer Solution:**
+
+We built a complete storage visualization system:
+
+```typescript
+// Storage Overview Dashboard
+┌─────────────────────────────────────────────┐
+│ Total Evaluations: 1,234                    │
+│ Total Storage: 1.2 GB                       │
+│ Active Backends: 4                          │
+└─────────────────────────────────────────────┘
+
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ PostgreSQL      │ │ Redis Cache     │ │ File System     │
+│ 1,234 records   │ │ 89 keys         │ │ 156 files       │
+│ 15 MB           │ │ 92% hit rate    │ │ 1.1 GB          │
+│ [View Details]  │ │ [View Details]  │ │ [Browse Files]  │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+```
+
+### The Two-Layer Monitoring Strategy
+
+**Infrastructure Monitoring (Ops Team):**
+- Prometheus metrics
+- Grafana dashboards
+- System health (CPU, memory, disk)
+- Service uptime and latency
+
+**Research Monitoring (Our Focus):**
+- Storage Explorer
+- Evaluation timelines
+- Artifact browsing
+- Event streams
+
+### Implementation Details
+
+**1. Storage Service API Extensions:**
+```python
+@app.get("/storage/overview")
+async def get_storage_overview():
+    """Aggregated view across all backends"""
+    return {
+        "backends": {
+            "database": {"evaluations": 1234, "size_bytes": 15728640},
+            "redis": {"keys": 89, "hit_rate": 0.92},
+            "file": {"files": 156, "total_size_bytes": 1073741824}
+        },
+        "summary": {
+            "total_evaluations": 1234,
+            "total_storage_bytes": 1089994752
+        }
+    }
+
+@app.get("/evaluations/{eval_id}/complete")
+async def get_evaluation_complete(eval_id: str):
+    """Complete evaluation with all artifacts"""
+    return {
+        "evaluation": {...},
+        "events": [...],
+        "storage_locations": {
+            "metadata": "database",
+            "output": "file:///data/outputs/eval_123.txt",
+            "cache": "redis://pending:eval_123"
+        },
+        "timeline": [...]
+    }
+```
+
+**2. Frontend Storage Pages:**
+- `/storage` - Overview dashboard with collapsible cards
+- `/storage/database` - Table statistics and recent evaluations
+- `/storage/file` - Directory browser with file listings
+- `/storage/redis` - Cache information and key patterns
+- `/evaluation/[id]` - Complete evaluation details with tabs
+
+### Key Features
+
+**1. Collapsible Backend Cards:**
+```typescript
+<StorageBackendCard 
+  backend="database"
+  expanded={isExpanded}
+  onToggle={() => toggleBackend('database')}
+>
+  {/* Detailed metrics when expanded */}
+  <DatabaseMetrics />
+  <RecentEvaluations />
+  <NavigationButton href="/storage/database" />
+</StorageBackendCard>
+```
+
+**2. Clickable Evaluation Navigation:**
+```typescript
+// Click any evaluation card to see full details
+<EvaluationCard 
+  evaluation={eval}
+  onClick={() => router.push(`/evaluation/${eval.id}`)}
+/>
+```
+
+**3. Storage Location Tracking:**
+```typescript
+// Shows exactly where each piece of data lives
+<StorageLocations>
+  <Location type="metadata" path="database" />
+  <Location type="output" path="file:///data/outputs/eval_123.txt" />
+  <Location type="events" path="database" />
+  <Location type="cache" path="redis://eval:123" />
+</StorageLocations>
+```
+
+### Why This Matters for METR
+
+1. **Transparency**: Researchers see the full data lifecycle
+2. **Debugging**: Easy to trace where evaluations are stored
+3. **Performance**: Understand cache hits and storage distribution
+4. **Cost**: Monitor storage usage across backends
+5. **Compliance**: Complete audit trail of data locations
+
+---
+
+## Chapter 19: The Batch Evaluation Paradigm
 
 ### Problem: Researchers Run Many Experiments
 
@@ -2119,6 +2254,13 @@ const results = await smartApi.submitBatch(evaluations)
 
 ## Production Evolution Summary
 
+### Week 3 Achievements
+1. **Storage Explorer**: Complete visibility into all storage backends
+2. **Startup improvements**: Smart health checks and 503 handling
+3. **Redis pending check**: Distinguish "pending" from "not found"
+4. **HTTP status codes**: Proper 202 for async operations
+5. **Documentation**: Unified monitoring strategy
+
 ### Security Improvements
 1. **Frontend**: ES2020 eliminates polyfill vulnerabilities
 2. **Reserved words**: Fixed 'eval' usage in strict mode
@@ -2146,6 +2288,8 @@ const results = await smartApi.submitBatch(evaluations)
 - **Storage backends**: 4 (DB, File, S3, Redis)
 - **Type coverage**: 98%
 - **Security vulnerabilities**: 0 in production code
+- **Storage Explorer pages**: 5 (overview + 4 backends)
+- **Monitoring layers**: 2 (Infrastructure + Research)
 
 ---
 
@@ -2175,6 +2319,12 @@ const results = await smartApi.submitBatch(evaluations)
 - Human provided judgment and verification
 - Together we built production-grade infrastructure
 - Neither could have done it alone
+
+### 5. Build vs Buy Decisions
+- Storage Explorer: Custom built for researcher needs
+- Infrastructure monitoring: Will integrate existing tools
+- Best of both worlds approach
+- Pragmatic over dogmatic
 
 ---
 

@@ -198,35 +198,35 @@ export default function DatabasePage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {details.recent_evaluations.map((eval) => (
-                  <tr key={eval.id} className="hover:bg-gray-50">
+                {details.recent_evaluations.map((evaluation) => (
+                  <tr key={evaluation.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      {eval.id.substring(0, 8)}...
+                      {evaluation.id.substring(0, 8)}...
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          eval.status === 'completed'
+                          evaluation.status === 'completed'
                             ? 'bg-green-100 text-green-800'
-                            : eval.status === 'failed'
+                            : evaluation.status === 'failed'
                             ? 'bg-red-100 text-red-800'
-                            : eval.status === 'running'
+                            : evaluation.status === 'running'
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}
                       >
-                        {eval.status}
+                        {evaluation.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {eval.language}
+                      {evaluation.language}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatTimestamp(eval.created_at)}
+                      {formatTimestamp(evaluation.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
-                        onClick={() => router.push(`/evaluation/${eval.id}`)}
+                        onClick={() => router.push(`/evaluation/${evaluation.id}`)}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         View Details →

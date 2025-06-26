@@ -175,7 +175,7 @@ export default function FilePage() {
           <h2 className="text-lg font-semibold mb-4 text-gray-900">Directory Browser</h2>
           <div className="space-y-2">
             {directories.map(dir => {
-              const files = groupedFiles[dir]
+              const files = groupedFiles[dir] || []
               const isExpanded = expandedPaths.has(dir)
               const totalSize = files.reduce((sum, f) => sum + f.size, 0)
               
