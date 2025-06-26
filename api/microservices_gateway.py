@@ -153,7 +153,18 @@ async def check_service_health():
             service_health["redis"] = False
         
         service_health["last_check"] = datetime.utcnow().isoformat()
-        await asyncio.sleep(30)  # Check every 30 seconds
+        
+        # More frequent checks during startup (first 2 minutes)
+        startup_time = 120  # seconds
+        if hasattr(check_service_health, 'start_time'):
+            elapsed = (datetime.utcnow() - check_service_health.start_time).total_seconds()
+            if elapsed < startup_time:
+                await asyncio.sleep(5)  # Check every 5 seconds during startup
+            else:
+                await asyncio.sleep(30)  # Normal 30 second interval
+        else:
+            check_service_health.start_time = datetime.utcnow()
+            await asyncio.sleep(5)
 
 async def check_service_health_once():
     """Run a single health check of all services"""
@@ -438,8 +449,19 @@ async def evaluate_batch(request: BatchEvaluationRequest):
 )
 async def get_evaluation_status(eval_id: str, response: Response):
     """Get evaluation status from storage service"""
+    # During startup, retry once if storage appears unavailable
     if not service_health["storage"]:
-        raise HTTPException(status_code=503, detail="Storage service unavailable")
+        # Check if we're in startup period (first 2 minutes)
+        if hasattr(check_service_health, 'start_time'):
+            elapsed = (datetime.utcnow() - check_service_health.start_time).total_seconds()
+            if elapsed < 120:
+                # Do a quick health check and retry
+                logger.info("Storage appears unavailable during startup, doing quick health check")
+                await check_service_health_once()
+                if not service_health["storage"]:
+                    raise HTTPException(status_code=503, detail="Storage service unavailable")
+        else:
+            raise HTTPException(status_code=503, detail="Storage service unavailable")
     
     try:
         # Proxy to storage service
@@ -473,14 +495,14 @@ async def get_evaluation_status(eval_id: str, response: Response):
         
         evaluation = storage_response.json()
         
-        # Return typed response
+        # Return typed response, ensuring None values are converted to empty strings
         return EvaluationStatusResponse(
             eval_id=evaluation.get('id', eval_id),
             status=evaluation.get('status', 'unknown'),
             created_at=evaluation.get('created_at'),
             completed_at=evaluation.get('completed_at'),
-            output=evaluation.get('output', ''),
-            error=evaluation.get('error', ''),
+            output=evaluation.get('output') or '',
+            error=evaluation.get('error') or '',
             success=evaluation.get('status') == 'completed'
         )
     except HTTPException:

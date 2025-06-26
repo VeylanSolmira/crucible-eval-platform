@@ -237,6 +237,13 @@ export default function Home() {
       try {
         const response = await fetch(`${apiUrl}/api/eval-status/${evalId}`)
         if (!response.ok && response.status !== 202) {
+          // Special handling for 503 (service unavailable)
+          if (response.status === 503) {
+            console.log('Services still starting up, will retry...')
+            // Continue polling during startup
+            setTimeout(() => poll(), 2000)
+            return
+          }
           throw new Error('Failed to fetch status')
         }
         
