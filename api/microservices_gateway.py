@@ -6,7 +6,7 @@ import os
 import sys
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 import httpx
 import asyncio
@@ -15,24 +15,21 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse, Response
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
 # Import Redis for event publishing
 import redis.asyncio as redis
 
-# Import storage for reading evaluations (read-only)
-from storage import FlexibleStorageManager
-from storage.config import StorageConfig
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Service URLs from environment
 QUEUE_SERVICE_URL = os.getenv("QUEUE_SERVICE_URL", "http://queue:8081")
+STORAGE_SERVICE_URL = os.getenv("STORAGE_SERVICE_URL", "http://storage-service:8082")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev-internal-api-key")
 
@@ -60,11 +57,7 @@ client = httpx.AsyncClient(
 # Initialize Redis for event publishing
 redis_client = redis.from_url(REDIS_URL)
 logger.info(f"Connected to Redis for event publishing")
-
-# Initialize storage for reading only (storage worker handles writes)
-storage_config = StorageConfig.from_environment()
-storage = FlexibleStorageManager.from_config(storage_config)
-logger.info(f"Storage initialized for reading")
+logger.info(f"Storage service URL: {STORAGE_SERVICE_URL}")
 
 # Request models
 class EvaluationRequest(BaseModel):
@@ -78,6 +71,15 @@ class EvaluationResponse(BaseModel):
     status: str = "queued"
     message: str = "Evaluation queued for processing"
     queue_position: Optional[int] = None
+
+class BatchEvaluationRequest(BaseModel):
+    evaluations: List[EvaluationRequest]
+    
+class BatchEvaluationResponse(BaseModel):
+    evaluations: List[EvaluationResponse]
+    total: int
+    queued: int
+    failed: int
 
 class EvaluationStatusResponse(BaseModel):
     eval_id: str
@@ -119,7 +121,7 @@ service_health = {
     "gateway": True,
     "queue": False,
     "redis": False,
-    "storage": True,  # Storage is read-only, so we just check if initialized
+    "storage": False,
     "last_check": None
 }
 
@@ -134,6 +136,14 @@ async def check_service_health():
             logger.error(f"Queue health check failed: {e}")
             service_health["queue"] = False
         
+        try:
+            # Check storage service
+            response = await client.get(f"{STORAGE_SERVICE_URL}/health")
+            service_health["storage"] = response.status_code == 200
+        except Exception as e:
+            logger.error(f"Storage health check failed: {e}")
+            service_health["storage"] = False
+        
         # Check Redis
         try:
             await redis_client.ping()
@@ -144,6 +154,35 @@ async def check_service_health():
         
         service_health["last_check"] = datetime.utcnow().isoformat()
         await asyncio.sleep(30)  # Check every 30 seconds
+
+async def check_service_health_once():
+    """Run a single health check of all services"""
+    try:
+        # Check queue service
+        response = await client.get(f"{QUEUE_SERVICE_URL}/health")
+        service_health["queue"] = response.status_code == 200
+    except Exception as e:
+        logger.error(f"Queue health check failed: {e}")
+        service_health["queue"] = False
+    
+    try:
+        # Check storage service
+        response = await client.get(f"{STORAGE_SERVICE_URL}/health")
+        service_health["storage"] = response.status_code == 200
+    except Exception as e:
+        logger.error(f"Storage health check failed: {e}")
+        service_health["storage"] = False
+    
+    # Check Redis
+    try:
+        await redis_client.ping()
+        service_health["redis"] = True
+    except Exception as e:
+        logger.error(f"Redis health check failed: {e}")
+        service_health["redis"] = False
+    
+    service_health["last_check"] = datetime.utcnow().isoformat()
+    logger.info(f"Initial health check complete: {service_health}")
 
 # Event publishing functions
 async def publish_evaluation_event(channel: str, data: Dict[str, Any]):
@@ -170,6 +209,10 @@ async def poll_completed_evaluations():
 @app.on_event("startup")
 async def startup():
     """Start background tasks"""
+    # Run initial health check immediately
+    await check_service_health_once()
+    
+    # Then start periodic checks
     asyncio.create_task(check_service_health())
     asyncio.create_task(poll_completed_evaluations())
     
@@ -186,7 +229,6 @@ async def shutdown():
     """Cleanup on shutdown"""
     await client.aclose()
     await redis_client.close()
-    storage.close()
 
 @app.get("/")
 async def root():
@@ -198,10 +240,12 @@ async def root():
         "version": "2.0.0",
         "endpoints": {
             "evaluate": "/api/eval",
+            "evaluate_batch": "/api/eval-batch",
             "status": "/api/eval-status/{eval_id}",
             "evaluations": "/api/evaluations",
             "queue": "/api/queue-status",
             "platform": "/api/status",
+            "statistics": "/api/statistics",
             "health": "/health",
             "docs": "/docs"
         }
@@ -258,6 +302,13 @@ async def evaluate(request: EvaluationRequest):
         )
         response.raise_for_status()
         
+        # Set a pending key in Redis with 60s TTL
+        try:
+            await redis_client.setex(f"pending:{eval_id}", 60, "queued")
+            logger.info(f"Set pending key for {eval_id}")
+        except Exception as e:
+            logger.error(f"Failed to set pending key for {eval_id}: {e}")
+        
         # Get queue status for position
         queue_status = await client.get(f"{QUEUE_SERVICE_URL}/status")
         queue_data = queue_status.json() if queue_status.status_code == 200 else {}
@@ -278,48 +329,214 @@ async def evaluate(request: EvaluationRequest):
         })
         raise HTTPException(status_code=502, detail="Failed to queue evaluation")
 
-@app.get("/api/eval-status/{eval_id}", response_model=EvaluationStatusResponse)
-async def get_evaluation_status(eval_id: str):
-    """Get evaluation status from storage"""
+@app.post("/api/eval-batch", response_model=BatchEvaluationResponse)
+async def evaluate_batch(request: BatchEvaluationRequest):
+    """Submit multiple evaluations as a batch"""
+    if not service_health["queue"]:
+        raise HTTPException(status_code=503, detail="Queue service unavailable")
+    
+    results = []
+    queued_count = 0
+    failed_count = 0
+    
+    # Get current queue status for position calculation
     try:
-        evaluation = storage.get_evaluation(eval_id)
-        if evaluation:
-            # Return typed response
-            return EvaluationStatusResponse(
-                eval_id=evaluation.get('id', eval_id),
-                status=evaluation.get('status', 'unknown'),
-                created_at=evaluation.get('created_at'),
-                completed_at=evaluation.get('completed_at'),
-                output=evaluation.get('output', ''),
-                error=evaluation.get('error', ''),
-                success=evaluation.get('status') == 'completed'
+        queue_status = await client.get(f"{QUEUE_SERVICE_URL}/status")
+        queue_data = queue_status.json() if queue_status.status_code == 200 else {}
+        current_queue_size = queue_data.get("queued", 0)
+    except:
+        current_queue_size = 0
+    
+    # Process each evaluation
+    for idx, eval_request in enumerate(request.evaluations):
+        eval_id = f"eval_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        
+        try:
+            # Publish event for storage worker
+            await publish_evaluation_event("evaluation:queued", {
+                "eval_id": eval_id,
+                "code": eval_request.code,
+                "language": eval_request.language,
+                "engine": eval_request.engine,
+                "metadata": {
+                    "submitted_at": datetime.utcnow().isoformat(),
+                    "timeout": eval_request.timeout,
+                    "batch": True,
+                    "batch_index": idx
+                }
+            })
+            
+            # Forward to queue service
+            response = await client.post(
+                f"{QUEUE_SERVICE_URL}/tasks",
+                json={
+                    "eval_id": eval_id,
+                    "code": eval_request.code,
+                    "language": eval_request.language,
+                    "engine": eval_request.engine,
+                    "timeout": eval_request.timeout,
+                    "priority": 1
+                }
             )
-        else:
+            response.raise_for_status()
+            
+            # Set a pending key in Redis with 60s TTL
+            await redis_client.setex(f"pending:{eval_id}", 60, "queued")
+            
+            results.append(EvaluationResponse(
+                eval_id=eval_id,
+                status="queued",
+                message="Evaluation queued successfully",
+                queue_position=current_queue_size + queued_count + 1
+            ))
+            queued_count += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to queue evaluation {idx}: {e}")
+            results.append(EvaluationResponse(
+                eval_id=eval_id,
+                status="failed",
+                message=f"Failed to queue: {str(e)}",
+                queue_position=None
+            ))
+            failed_count += 1
+            
+            # Publish failure event
+            await publish_evaluation_event("evaluation:failed", {
+                "eval_id": eval_id,
+                "error": str(e),
+                "batch": True,
+                "batch_index": idx
+            })
+    
+    return BatchEvaluationResponse(
+        evaluations=results,
+        total=len(request.evaluations),
+        queued=queued_count,
+        failed=failed_count
+    )
+
+@app.get(
+    "/api/eval-status/{eval_id}", 
+    response_model=EvaluationStatusResponse,
+    responses={
+        200: {
+            "model": EvaluationStatusResponse,
+            "description": "Evaluation found with complete status"
+        },
+        202: {
+            "model": EvaluationStatusResponse,
+            "description": "Evaluation is pending/in-progress"
+        },
+        404: {
+            "description": "Evaluation not found"
+        },
+        503: {
+            "description": "Storage service unavailable"
+        }
+    }
+)
+async def get_evaluation_status(eval_id: str, response: Response):
+    """Get evaluation status from storage service"""
+    if not service_health["storage"]:
+        raise HTTPException(status_code=503, detail="Storage service unavailable")
+    
+    try:
+        # Proxy to storage service
+        storage_response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+        
+        if storage_response.status_code == 404:
+            # Check Redis to see if this evaluation is pending
+            try:
+                pending_status = await redis_client.get(f"pending:{eval_id}")
+                logger.info(f"Redis check for {eval_id}: {pending_status}")
+                if pending_status:
+                    # Return 202 Accepted for pending evaluations
+                    response.status_code = 202
+                    logger.info(f"Setting status code to 202 for {eval_id}")
+                    return EvaluationStatusResponse(
+                        eval_id=eval_id,
+                        status="pending",
+                        created_at=None,
+                        completed_at=None,
+                        output="",
+                        error="",
+                        success=False
+                    )
+            except Exception as e:
+                logger.error(f"Failed to check Redis for {eval_id}: {e}")
+            
+            # Otherwise, it truly doesn't exist
             raise HTTPException(status_code=404, detail="Evaluation not found")
+        elif not storage_response.status_code == 200:
+            raise HTTPException(status_code=storage_response.status_code, detail="Storage service error")
+        
+        evaluation = storage_response.json()
+        
+        # Return typed response
+        return EvaluationStatusResponse(
+            eval_id=evaluation.get('id', eval_id),
+            status=evaluation.get('status', 'unknown'),
+            created_at=evaluation.get('created_at'),
+            completed_at=evaluation.get('completed_at'),
+            output=evaluation.get('output', ''),
+            error=evaluation.get('error', ''),
+            success=evaluation.get('status') == 'completed'
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error retrieving evaluation {eval_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve evaluation")
 
 @app.get("/api/evaluations")
-async def get_evaluations(limit: int = 100, offset: int = 0):
-    """Get evaluation history"""
-    try:
-        evaluations = storage.list_evaluations(limit=limit, offset=offset)
+async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[str] = None):
+    """Get evaluation history from storage service"""
+    if not service_health["storage"]:
         return {
-            "evaluations": [
-                {
-                    "eval_id": e.get('id', 'unknown'),
-                    "status": e.get('status', 'unknown'),
-                    "created_at": e.get('created_at'),
-                    "code_preview": e.get('code', '')[:100] + "..." if len(e.get('code', '')) > 100 else e.get('code', ''),
-                    "success": e.get('status') == 'completed'
-                }
-                for e in evaluations
-            ],
-            "count": len(evaluations),
-            "limit": limit,
-            "offset": offset
+            "evaluations": [],
+            "count": 0,
+            "error": "Storage service unavailable"
         }
+    
+    try:
+        # Build query parameters
+        params = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        
+        # Proxy to storage service
+        response = await client.get(
+            f"{STORAGE_SERVICE_URL}/evaluations",
+            params=params
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Transform response to match our API format
+            return {
+                "evaluations": [
+                    {
+                        "eval_id": e.get('id', 'unknown'),
+                        "status": e.get('status', 'unknown'),
+                        "created_at": e.get('created_at'),
+                        "code_preview": e.get('code', '')[:100] + "..." if len(e.get('code', '')) > 100 else e.get('code', ''),
+                        "success": e.get('status') == 'completed'
+                    }
+                    for e in data.get('evaluations', [])
+                ],
+                "count": data.get('total', 0),
+                "limit": limit,
+                "offset": offset,
+                "has_more": data.get('has_more', False)
+            }
+        else:
+            logger.error(f"Storage service returned {response.status_code}")
+            return {
+                "evaluations": [],
+                "count": 0,
+                "error": f"Storage service error: {response.status_code}"
+            }
     except Exception as e:
         logger.error(f"Error listing evaluations: {e}")
         return {
@@ -351,8 +568,20 @@ async def platform_status():
     """Overall platform status"""
     queue_status = await get_queue_status()
     
-    # Get storage stats
-    storage_stats = storage.get_statistics() if hasattr(storage, 'get_statistics') else {}
+    # Get storage stats from storage service
+    storage_stats = {}
+    if service_health["storage"]:
+        try:
+            response = await client.get(f"{STORAGE_SERVICE_URL}/statistics")
+            if response.status_code == 200:
+                stats_data = response.json()
+                storage_stats = {
+                    "total_evaluations": stats_data.get("total_evaluations", 0),
+                    "by_status": stats_data.get("by_status", {}),
+                    "storage_info": stats_data.get("storage_info", {})
+                }
+        except Exception as e:
+            logger.error(f"Failed to get storage statistics: {e}")
     
     services = ServiceHealthInfo(
         gateway="healthy",
@@ -385,6 +614,25 @@ async def health_check():
         timestamp=datetime.utcnow().isoformat(),
         services=services
     )
+
+# Statistics endpoint (proxy to storage service)
+@app.get("/api/statistics")
+async def get_statistics():
+    """Get aggregated statistics from storage service"""
+    if not service_health["storage"]:
+        raise HTTPException(status_code=503, detail="Storage service unavailable")
+    
+    try:
+        response = await client.get(f"{STORAGE_SERVICE_URL}/statistics")
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise HTTPException(status_code=response.status_code, detail="Failed to get statistics")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting statistics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get statistics")
 
 # WebSocket for real-time updates (simplified for now)
 @app.websocket("/ws")

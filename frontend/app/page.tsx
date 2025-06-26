@@ -236,7 +236,7 @@ export default function Home() {
     const poll = async () => {
       try {
         const response = await fetch(`${apiUrl}/api/eval-status/${evalId}`)
-        if (!response.ok) {
+        if (!response.ok && response.status !== 202) {
           throw new Error('Failed to fetch status')
         }
         
@@ -330,17 +330,6 @@ export default function Home() {
     
     return initialResult
   }, [addEvent, pollEvaluationStatus])
-
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'completed': return 'text-green-600'
-      case 'failed':
-      case 'error': return 'text-red-600'
-      case 'running': return 'text-blue-600'
-      case 'queued': return 'text-yellow-600'
-      default: return 'text-gray-600'
-    }
-  }
 
   const getStatusBgColor = (status: string): string => {
     switch (status) {
