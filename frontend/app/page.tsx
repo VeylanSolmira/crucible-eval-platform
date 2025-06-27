@@ -391,10 +391,10 @@ export default function ResearcherUI() {
             </div>
             <div className="flex items-center gap-4">
               <a
-                href="/"
-                className="text-sm text-gray-600 hover:text-gray-900"
+                href="/storage"
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
               >
-                Classic View
+                Storage Explorer
               </a>
               <div className="text-sm text-gray-500">
                 v2.0.0

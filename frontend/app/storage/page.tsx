@@ -114,13 +114,25 @@ export default function StoragePage() {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Storage Explorer</h1>
-            <button
-              onClick={() => router.push('/')}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-            >
-              Back to Platform
-            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                ⚡ Crucible Research Platform
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Storage Explorer - View where your evaluation data lives
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Back to Platform
+              </button>
+              <div className="text-sm text-gray-500">
+                v2.0.0
+              </div>
+            </div>
           </div>
         </div>
       </header>
