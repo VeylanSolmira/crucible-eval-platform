@@ -8,9 +8,13 @@ WORKDIR /app
 COPY storage-service/requirements.txt /app/storage-service/requirements.txt
 RUN pip install --no-cache-dir -r /app/storage-service/requirements.txt
 
-# Copy storage service code
+# Copy storage service code and shared contracts
 COPY storage-service/ /app/storage-service/
 COPY storage/ /app/storage/
+COPY shared/ /app/shared/
+
+# Set Python path to include app directory
+ENV PYTHONPATH=/app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \

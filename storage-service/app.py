@@ -3,14 +3,9 @@ Storage Service - RESTful API for data access
 Provides read/write access to evaluation data through a clean API
 """
 import os
-import sys
 import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from pathlib import Path
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +16,7 @@ import yaml
 
 from storage import FlexibleStorageManager
 from storage.config import StorageConfig
+from shared.generated.python import EvaluationStatus
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -74,7 +70,7 @@ class EvaluationCreate(BaseModel):
     id: str = Field(..., description="Evaluation ID")
     code: str = Field(..., description="Code to be evaluated")
     language: str = Field(default="python", description="Programming language")
-    status: str = Field(default="queued", description="Initial status")
+    status: str = Field(default=EvaluationStatus.QUEUED.value, description="Initial status")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 class EvaluationUpdate(BaseModel):
@@ -307,7 +303,6 @@ async def delete_evaluation(eval_id: str):
     # Mark as deleted instead of hard delete
     success = storage.update_evaluation(
         eval_id,
-        status="deleted",
         deleted_at=datetime.utcnow().isoformat()
     )
     
@@ -399,8 +394,8 @@ async def get_statistics(
         avg_runtime = sum(runtimes) / len(runtimes) if runtimes else None
         
         # Success rate
-        completed = by_status.get('completed', 0)
-        failed = by_status.get('failed', 0)
+        completed = by_status.get(EvaluationStatus.COMPLETED.value, 0)
+        failed = by_status.get(EvaluationStatus.FAILED.value, 0)
         success_rate = completed / (completed + failed) if (completed + failed) > 0 else 0.0
         
         # Last 24h count

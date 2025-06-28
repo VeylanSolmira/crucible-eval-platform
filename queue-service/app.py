@@ -14,6 +14,9 @@ from fastapi import FastAPI, HTTPException, Header, Response
 from pydantic import BaseModel
 import redis.asyncio as redis
 
+# Import shared types
+from shared.generated.python import EvaluationStatus
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -139,7 +142,7 @@ async def enqueue_task(
     # Add to queue and registry
     task_queue.append(request.eval_id)
     task_registry[request.eval_id] = {
-        "status": "queued",
+        "status": EvaluationStatus.QUEUED,
         "code": request.code,
         "language": request.language,
         "engine": request.engine,
@@ -152,7 +155,7 @@ async def enqueue_task(
     
     return {
         "eval_id": request.eval_id,
-        "status": "queued",
+        "status": EvaluationStatus.QUEUED.value,
         "position": len(task_queue)
     }
 
@@ -167,7 +170,7 @@ async def get_next_task() -> Optional[Dict]:
     
     if eval_id in task_registry:
         task = task_registry[eval_id]
-        task["status"] = "processing"
+        task["status"] = EvaluationStatus.RUNNING
         
         # Update positions for remaining queued tasks
         for idx, queued_id in enumerate(task_queue):
@@ -194,7 +197,7 @@ async def mark_task_complete(eval_id: str, body: Dict) -> Dict:
     task = task_registry.pop(eval_id)
     
     logger.info(f"Task {eval_id} completed")
-    return {"status": "completed"}
+    return {"status": EvaluationStatus.COMPLETED.value}
 
 @app.post("/tasks/{eval_id}/fail")
 async def mark_task_failed(eval_id: str, body: Dict) -> Dict:
@@ -208,7 +211,7 @@ async def mark_task_failed(eval_id: str, body: Dict) -> Dict:
     task = task_registry.pop(eval_id)
     
     logger.info(f"Task {eval_id} failed: {body.get('error', 'Unknown error')}")
-    return {"status": "failed"}
+    return {"status": EvaluationStatus.FAILED.value}
 
 @app.get("/tasks/{eval_id}")
 async def get_task_status(eval_id: str) -> TaskStatusResponse:
@@ -220,7 +223,7 @@ async def get_task_status(eval_id: str) -> TaskStatusResponse:
     
     return TaskStatusResponse(
         eval_id=eval_id,
-        status=task["status"],
+        status=task["status"].value if isinstance(task["status"], EvaluationStatus) else task["status"],
         position=task.get("position"),
         queued_at=task.get("queued_at")
     )
@@ -228,8 +231,8 @@ async def get_task_status(eval_id: str) -> TaskStatusResponse:
 @app.get("/status")
 async def get_queue_status() -> Dict:
     """Get overall queue status"""
-    queued = sum(1 for t in task_registry.values() if t["status"] == "queued")
-    processing = sum(1 for t in task_registry.values() if t["status"] == "processing")
+    queued = sum(1 for t in task_registry.values() if t["status"] == EvaluationStatus.QUEUED)
+    processing = sum(1 for t in task_registry.values() if t["status"] == EvaluationStatus.RUNNING)
     
     return {
         "queued": queued,

@@ -63,11 +63,13 @@ Focus on status enum first (highest impact):
 - [x] Verify status transitions work
 - [x] Confirm execution time is back to ~3 seconds
 
-### Step 5: Expand to Other Services
+### Step 5: Expand to Other Services ✅ COMPLETED
 Once working in API/Frontend:
-- [ ] Apply pattern to queue-service
-- [ ] Apply pattern to storage-service  
-- [ ] Apply pattern to executor-service
+- [x] Apply pattern to queue-service
+- [x] Apply pattern to storage-service
+- [x] Apply pattern to executor-service (returns execution results, not evaluation statuses)
+- [x] Apply pattern to storage-worker
+- [x] Apply pattern to queue-worker (routes executor results, doesn't use evaluation statuses)
 
 ## Phase 1: Discovery & Inventory
 

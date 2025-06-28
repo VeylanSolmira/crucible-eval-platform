@@ -12,6 +12,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # docker build -f storage-worker/Dockerfile .
 COPY storage-worker/app.py /app/
 COPY storage/ /app/storage/
+COPY shared/ /app/shared/
+
+# Set Python path to include app directory
+ENV PYTHONPATH=/app
 
 # Update health check for storage worker port
 RUN sed -i 's/localhost:8080/localhost:8085/g' /healthcheck.py

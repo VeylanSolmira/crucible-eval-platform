@@ -3,8 +3,12 @@ FROM crucible-base AS queue-service
 
 WORKDIR /app
 
-# Copy only the queue service code
+# Copy queue service code and shared contracts
 COPY queue-service/app.py /app/
+COPY shared/ /app/shared/
+
+# Set Python path to include app directory
+ENV PYTHONPATH=/app
 
 # Update health check for queue service port
 RUN sed -i 's/localhost:8080/localhost:8081/g' /healthcheck.py

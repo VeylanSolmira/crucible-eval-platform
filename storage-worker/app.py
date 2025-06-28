@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import redis.asyncio as redis
 import httpx
 import structlog
+from shared.generated.python import EvaluationStatus
 
 # Configure standard logging for libraries (redis, etc)
 logging.basicConfig(
@@ -117,7 +118,7 @@ class StorageWorker:
                     "id": eval_id,
                     "code": code,
                     "language": data.get('language', 'python'),
-                    "status": 'queued',
+                    "status": EvaluationStatus.QUEUED.value,
                     "metadata": data.get('metadata', {})
                 }
             )
@@ -149,7 +150,7 @@ class StorageWorker:
             response = await self.client.put(
                 f"{self.storage_url}/evaluations/{eval_id}",
                 json={
-                    "status": 'completed',
+                    "status": EvaluationStatus.COMPLETED.value,
                     "output": result.get('output'),
                     "error": result.get('error'),
                     "metadata": result.get('metadata', {})
@@ -163,7 +164,7 @@ class StorageWorker:
                     "storage:evaluation:updated",
                     json.dumps({
                         "eval_id": eval_id,
-                        "status": "completed",
+                        "status": EvaluationStatus.COMPLETED.value,
                         "timestamp": datetime.utcnow().isoformat()
                     })
                 )
@@ -187,7 +188,7 @@ class StorageWorker:
             response = await self.client.put(
                 f"{self.storage_url}/evaluations/{eval_id}",
                 json={
-                    "status": 'failed',
+                    "status": EvaluationStatus.FAILED.value,
                     "error": error
                 }
             )
@@ -199,7 +200,7 @@ class StorageWorker:
                     "storage:evaluation:updated",
                     json.dumps({
                         "eval_id": eval_id,
-                        "status": "failed",
+                        "status": EvaluationStatus.FAILED.value,
                         "timestamp": datetime.utcnow().isoformat()
                     })
                 )
