@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r /app/api/requirements.txt
 # docker build -f api/Dockerfile .
 COPY api/ /app/api/
 COPY storage/ /app/storage/
+COPY shared/ /app/shared/
 
 # Create data directory with proper ownership for file storage
 RUN mkdir -p /app/data && chown -R appuser:appuser /app/data

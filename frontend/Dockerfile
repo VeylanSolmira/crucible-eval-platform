@@ -30,6 +30,10 @@ COPY frontend/ .
 # Copy generated types from type-generator stage
 COPY --from=type-generator /app/types/generated ./types/generated
 
+# Ensure lib/templates directory is included
+# (This is already copied by COPY frontend/ . but let's be explicit)
+RUN ls -la lib/templates || echo "Templates directory missing!"
+
 ENV NEXT_TELEMETRY_DISABLED 1
 ARG API_URL
 ENV API_URL=${API_URL}
@@ -48,6 +52,9 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy lib/templates for runtime access
+COPY --from=builder --chown=nextjs:nodejs /app/lib/templates ./lib/templates
 
 USER nextjs
 EXPOSE 3000

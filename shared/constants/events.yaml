@@ -1,0 +1,12 @@
+# Redis pub/sub channel names for inter-service communication
+# All services MUST use these exact channel names
+channels:
+  # Evaluation lifecycle events
+  evaluation_queued: "evaluation:queued"
+  evaluation_started: "evaluation:started"  
+  evaluation_completed: "evaluation:completed"
+  evaluation_failed: "evaluation:failed"
+  
+  # System events
+  executor_health: "executor:health"
+  queue_stats: "queue:stats"

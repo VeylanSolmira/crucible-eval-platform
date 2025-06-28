@@ -121,7 +121,7 @@
     "/api/eval-status/{eval_id}": {
       "get": {
         "summary": "Get Evaluation Status",
-        "description": "Get evaluation status from storage",
+        "description": "Get evaluation status from storage service",
         "operationId": "get_evaluation_status_api_eval_status__eval_id__get",
         "parameters": [
           {
@@ -136,7 +136,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Evaluation found with complete status",
             "content": {
               "application/json": {
                 "schema": {
@@ -144,6 +144,22 @@
                 }
               }
             }
+          },
+          "202": {
+            "description": "Evaluation is pending/in-progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Evaluation not found"
+          },
+          "503": {
+            "description": "Storage service unavailable"
           },
           "422": {
             "description": "Validation Error",
@@ -161,7 +177,7 @@
     "/api/evaluations": {
       "get": {
         "summary": "Get Evaluations",
-        "description": "Get evaluation history",
+        "description": "Get evaluation history from storage service",
         "operationId": "get_evaluations_api_evaluations_get",
         "parameters": [
           {
@@ -182,6 +198,22 @@
               "type": "integer",
               "default": 0,
               "title": "Offset"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
             }
           }
         ],
@@ -258,6 +290,23 @@
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/statistics": {
+      "get": {
+        "summary": "Get Statistics",
+        "description": "Get aggregated statistics from storage service",
+        "operationId": "get_statistics_api_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -366,8 +415,7 @@
             "title": "Eval Id"
           },
           "status": {
-            "type": "string",
-            "title": "Status",
+            "$ref": "#/components/schemas/EvaluationStatus",
             "default": "queued"
           },
           "message": {
@@ -393,6 +441,17 @@
         ],
         "title": "EvaluationResponse"
       },
+      "EvaluationStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed"
+        ],
+        "title": "EvaluationStatus",
+        "description": "The status of an evaluation throughout its lifecycle\n\nGenerated from: shared/types/evaluation-status.yaml"
+      },
       "EvaluationStatusResponse": {
         "properties": {
           "eval_id": {
@@ -400,8 +459,7 @@
             "title": "Eval Id"
           },
           "status": {
-            "type": "string",
-            "title": "Status"
+            "$ref": "#/components/schemas/EvaluationStatus"
           },
           "created_at": {
             "anyOf": [

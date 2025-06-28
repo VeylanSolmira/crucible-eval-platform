@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface EvaluationComplete {
@@ -53,7 +53,8 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
 }
 
-export default function EvaluationDetailPage({ params }: { params: { id: string } }) {
+export default function EvaluationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const [evaluation, setEvaluation] = useState<EvaluationComplete | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -62,11 +63,11 @@ export default function EvaluationDetailPage({ params }: { params: { id: string 
 
   useEffect(() => {
     fetchEvaluationDetails()
-  }, [params.id])
+  }, [id])
 
   const fetchEvaluationDetails = async () => {
     try {
-      const response = await fetch(`http://localhost:8082/evaluations/${params.id}/complete`)
+      const response = await fetch(`http://localhost:8082/evaluations/${id}/complete`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }

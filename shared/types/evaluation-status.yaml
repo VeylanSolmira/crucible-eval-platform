@@ -1,0 +1,16 @@
+# Core evaluation status enum used across all services
+# This is the single source of truth for evaluation states
+openapi: 3.1.0
+info:
+  title: Shared Evaluation Status
+  version: 1.0.0
+components:
+  schemas:
+    EvaluationStatus:
+      type: string
+      description: The status of an evaluation throughout its lifecycle
+      enum:
+        - queued    # Evaluation has been submitted and is waiting to be processed
+        - running   # Evaluation is currently being executed
+        - completed # Evaluation finished successfully
+        - failed    # Evaluation failed due to error or timeout

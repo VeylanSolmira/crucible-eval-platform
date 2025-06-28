@@ -1,0 +1,238 @@
+{
+  "title": "Crucible Platform: The Complete Journey",
+  "description": "From Extreme MVP to Production-Ready AI Safety Infrastructure",
+  "author": "Human-AI Collaboration",
+  "date": "2025-01-27",
+  "theme": "black",
+  "slides": [
+    {
+      "id": "01-title-vision",
+      "title": "Title & Vision",
+      "file": "01-title-vision.md",
+      "duration": 2,
+      "tags": ["intro", "vision"]
+    },
+    {
+      "id": "02-journey-overview",
+      "title": "Journey Overview",
+      "file": "02-journey-overview.md",
+      "duration": 3,
+      "tags": ["overview", "timeline"]
+    },
+    {
+      "id": "03-extreme-mvp",
+      "title": "Chapter 1: The Extreme MVP",
+      "file": "03-extreme-mvp.md",
+      "duration": 2,
+      "tags": ["mvp", "beginning"]
+    },
+    {
+      "id": "04-containerization",
+      "title": "Chapter 2: Adding Isolation",
+      "file": "04-containerization.md",
+      "duration": 2,
+      "tags": ["docker", "security"]
+    },
+    {
+      "id": "05-modularization",
+      "title": "Chapter 3: Modularization",
+      "file": "05-modularization.md",
+      "duration": 2,
+      "tags": ["architecture", "components"]
+    },
+    {
+      "id": "06-security-hardening",
+      "title": "Chapter 4: Security Hardening",
+      "file": "06-security-hardening.md",
+      "duration": 3,
+      "tags": ["security", "gvisor"]
+    },
+    {
+      "id": "07-production-structure",
+      "title": "Chapter 5: Production Structure",
+      "file": "07-production-structure.md",
+      "duration": 2,
+      "tags": ["organization", "structure"]
+    },
+    {
+      "id": "08-infrastructure-as-code",
+      "title": "Chapter 6: Infrastructure as Code",
+      "file": "08-infrastructure-as-code.md",
+      "duration": 2,
+      "tags": ["terraform", "automation"]
+    },
+    {
+      "id": "09-ssh-tunneling",
+      "title": "Chapter 7: SSH Tunneling & Security",
+      "file": "09-ssh-tunneling.md",
+      "duration": 2,
+      "tags": ["security", "deployment"]
+    },
+    {
+      "id": "10-containerization-next",
+      "title": "Chapter 8: Next Step - Containerization",
+      "file": "10-containerization-next.md",
+      "duration": 2,
+      "tags": ["docker", "future"]
+    },
+    {
+      "id": "11-achievements-timeline",
+      "title": "Technical Achievements Timeline",
+      "file": "11-achievements-timeline.md",
+      "duration": 2,
+      "tags": ["timeline", "summary"]
+    },
+    {
+      "id": "12-human-ai-collaboration",
+      "title": "The Human-AI Collaboration Story",
+      "file": "12-human-ai-collaboration.md",
+      "duration": 3,
+      "tags": ["collaboration", "ai"]
+    },
+    {
+      "id": "13-performance-scale",
+      "title": "Performance & Scale",
+      "file": "13-performance-scale.md",
+      "duration": 2,
+      "tags": ["performance", "benchmarks"]
+    },
+    {
+      "id": "14-security-results",
+      "title": "Security Test Results",
+      "file": "14-security-results.md",
+      "duration": 2,
+      "tags": ["security", "testing"]
+    },
+    {
+      "id": "15-architecture-deep-dive",
+      "title": "Architecture Deep Dive",
+      "file": "15-architecture-deep-dive.md",
+      "duration": 3,
+      "tags": ["architecture", "technical"]
+    },
+    {
+      "id": "16-philosophical-insights",
+      "title": "Philosophical Insights",
+      "file": "16-philosophical-insights.md",
+      "duration": 2,
+      "tags": ["philosophy", "insights"]
+    },
+    {
+      "id": "17-deployment-journey",
+      "title": "The Deployment Journey",
+      "file": "17-deployment-journey.md",
+      "duration": 3,
+      "tags": ["deployment", "systemd"]
+    },
+    {
+      "id": "18-pain-to-automation",
+      "title": "From Pain to Automation",
+      "file": "18-pain-to-automation.md",
+      "duration": 2,
+      "tags": ["automation", "ci-cd"]
+    },
+    {
+      "id": "19-production-roadmap",
+      "title": "Production Roadmap",
+      "file": "19-production-roadmap.md",
+      "duration": 2,
+      "tags": ["roadmap", "future"]
+    },
+    {
+      "id": "20-microservices-revolution",
+      "title": "Chapter 12: The Microservices Revolution",
+      "file": "20-microservices-revolution.md",
+      "duration": 3,
+      "tags": ["microservices", "architecture"]
+    },
+    {
+      "id": "21-docker-socket-proxy",
+      "title": "The Docker Socket Proxy Game-Changer",
+      "file": "21-docker-socket-proxy.md",
+      "duration": 2,
+      "tags": ["security", "docker"]
+    },
+    {
+      "id": "22-typescript-revolution",
+      "title": "Chapter 13: The TypeScript Revolution",
+      "file": "22-typescript-revolution.md",
+      "duration": 3,
+      "tags": ["typescript", "type-safety"]
+    },
+    {
+      "id": "23-current-architecture",
+      "title": "The Current Production Architecture",
+      "file": "23-current-architecture.md",
+      "duration": 3,
+      "tags": ["architecture", "production"]
+    },
+    {
+      "id": "24-production-features",
+      "title": "Production Features Achieved",
+      "file": "24-production-features.md",
+      "duration": 2,
+      "tags": ["features", "achievements"]
+    },
+    {
+      "id": "25-researcher-ui",
+      "title": "Chapter 15: The Researcher-First UI Revolution",
+      "file": "25-researcher-ui.md",
+      "duration": 3,
+      "tags": ["ui", "researcher"]
+    },
+    {
+      "id": "26-lessons-learned",
+      "title": "Lessons for the Industry",
+      "file": "26-lessons-learned.md",
+      "duration": 3,
+      "tags": ["lessons", "insights"]
+    },
+    {
+      "id": "27-code-that-started",
+      "title": "The Code That Started It All",
+      "file": "27-code-that-started.md",
+      "duration": 2,
+      "tags": ["history", "beginning"]
+    },
+    {
+      "id": "28-contact-next-steps",
+      "title": "Contact & Next Steps",
+      "file": "28-contact-next-steps.md",
+      "duration": 2,
+      "tags": ["contact", "future"]
+    },
+    {
+      "id": "29-distributed-contracts",
+      "title": "From Monolith to Microservices: The Hidden Contract Problem",
+      "file": "29-distributed-contracts.md",
+      "duration": 3,
+      "tags": ["microservices", "distributed-systems", "type-safety"]
+    }
+  ],
+  "totalDuration": 70,
+  "config": {
+    "transition": "slide",
+    "transitionSpeed": "default",
+    "controls": true,
+    "progress": true,
+    "history": true,
+    "center": true,
+    "touch": true,
+    "loop": false,
+    "rtl": false,
+    "shuffle": false,
+    "fragments": true,
+    "fragmentInURL": true,
+    "embedded": false,
+    "help": true,
+    "showNotes": false,
+    "autoSlide": 0,
+    "autoSlideStoppable": true,
+    "mouseWheel": false,
+    "hideAddressBar": true,
+    "previewLinks": false,
+    "transition": "slide",
+    "transitionSpeed": "default",
+    "backgroundTransition": "fade"
+  }
+}

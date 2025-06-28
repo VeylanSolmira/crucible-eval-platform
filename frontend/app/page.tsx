@@ -5,38 +5,8 @@ import { CodeEditorWithTemplates } from '../src/components/CodeEditorWithTemplat
 import { ExecutionConfig, ExecutionConfigData } from '../src/components/ExecutionConfig'
 import { ExecutionMonitor } from '../src/components/ExecutionMonitor'
 import { ErrorDisplay } from '../src/components/ErrorDisplay'
-import { smartApi } from '../src/utils/smartApiClient'
-import type { components } from '@/types/generated/api'
-
-// Type definitions
-type EvaluationRequest = components['schemas']['EvaluationRequest']
-type EvaluationResponse = components['schemas']['EvaluationResponse']
-type EvaluationStatusResponse = components['schemas']['EvaluationStatusResponse']
-type QueueStatusResponse = components['schemas']['QueueStatusResponse']
-
-interface EvaluationResult {
-  id: string
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'error'
-  output?: string
-  error?: string
-  startTime?: number
-  endTime?: number
-}
-
-interface QueueStatus {
-  pending: number
-  running: number
-  completed: number
-  failed: number
-}
-
-interface PlatformStatus {
-  platform: string
-  status: string
-  engine: string
-  version: string
-  uptime: number
-}
+import { useEvaluationFlow, useQueueStatus, useBatchSubmit, useMultipleEvaluations } from '../hooks/useEvaluation'
+import type { EvaluationRequest, EvaluationStatusResponse } from '../hooks/useEvaluation'
 
 interface EventMessage {
   type: string
@@ -44,20 +14,13 @@ interface EventMessage {
   timestamp: string
 }
 
+// Use the generated type from OpenAPI
+type EvaluationResultDisplay = EvaluationStatusResponse
+
 export default function ResearcherUI() {
   // State
   const [code, setCode] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [currentEvalId, setCurrentEvalId] = useState<string | null>(null)
-  const [result, setResult] = useState<EvaluationResult | null>(null)
-  const [isRunning, setIsRunning] = useState(false)
-  
-  // Additional state from original UI
-  const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null)
-  const [platformStatus, setPlatformStatus] = useState<PlatformStatus | null>(null)
   const [events, setEvents] = useState<EventMessage[]>([])
-  const [multipleResults, setMultipleResults] = useState<Map<string, EvaluationResult>>(new Map())
-  const [activeEvaluations, setActiveEvaluations] = useState<Set<string>>(new Set())
   const eventsEndRef = useRef<HTMLDivElement>(null)
   
   // Execution config
@@ -67,7 +30,24 @@ export default function ResearcherUI() {
     pythonVersion: '3.11',
   })
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
+  // React Query hooks
+  const {
+    submitCode,
+    reset,
+    isSubmitting,
+    submitError,
+    evalId,
+    evaluation,
+    isPolling,
+    evaluationError: _evaluationError,
+    isComplete
+  } = useEvaluationFlow()
+
+  const { data: queueStatus } = useQueueStatus()
+  const batchSubmit = useBatchSubmit()
+  const [batchResults, setBatchResults] = useState<any[]>([])
+  const [batchEvalIds, setBatchEvalIds] = useState<string[]>([])
+  const { data: batchEvaluations } = useMultipleEvaluations(batchEvalIds)
 
   // Event tracking
   const addEvent = useCallback((type: string, data: any) => {
@@ -80,127 +60,23 @@ export default function ResearcherUI() {
   }, [])
 
   // Submit code for evaluation
-  const submitCode = async () => {
-    setLoading(true)
-    setResult(null)
-    setIsRunning(true)
-    setMultipleResults(new Map()) // Clear batch results
-    
+  const handleSubmit = async () => {
     try {
       addEvent('submission', { type: 'single', code: code.substring(0, 50) + '...' })
-      await fetchQueueStatus()
-      
-      const request: EvaluationRequest = {
-        code,
-        language: 'python',
-        engine: 'docker',
-        timeout: execConfig.timeout,
-      }
-      
-      const response = await fetch(`${apiUrl}/api/eval`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-      }
-
-      const data: EvaluationResponse = await response.json()
-      setCurrentEvalId(data.eval_id)
-      
-      addEvent('evaluation_submitted', { id: data.eval_id, status: data.status })
-      
-      // Start polling for results
-      pollEvaluationStatus(data.eval_id)
-      
+      await submitCode(code, 'python')
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to evaluate code'
-      setResult({
-        id: 'error',
-        status: 'error',
-        error: errorMessage
-      })
-      setIsRunning(false)
-      addEvent('error', { message: errorMessage })
-    } finally {
-      setLoading(false)
+      addEvent('error', { message: error instanceof Error ? error.message : 'Failed to submit evaluation' })
     }
   }
 
-  // Poll for evaluation status
-  const pollEvaluationStatus = useCallback(async (evalId: string) => {
-    const poll = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/api/eval-status/${evalId}`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch status')
-        }
-        
-        const data: EvaluationStatusResponse = await response.json()
-        
-        const evalResult: EvaluationResult = {
-          id: data.eval_id || evalId,
-          status: data.status as EvaluationResult['status'],
-          output: data.output || '',
-          error: data.error || ''
-        }
-        
-        setResult(evalResult)
-        
-        // Add status change event
-        if (evalResult.status !== result?.status) {
-          addEvent('status_change', { id: evalId, status: evalResult.status })
-        }
-        
-        // Continue polling if still running
-        if (data.status === 'queued' || data.status === 'running') {
-          setActiveEvaluations(prev => new Set(prev).add(evalId))
-          setTimeout(poll, 1000)
-        } else {
-          setIsRunning(false)
-          setActiveEvaluations(prev => {
-            const next = new Set(prev)
-            next.delete(evalId)
-            return next
-          })
-          addEvent('evaluation_complete', { id: evalId, status: evalResult.status })
-          await fetchQueueStatus()
-        }
-      } catch (error) {
-        console.error('Polling error:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch evaluation status'
-        setResult({
-          id: evalId,
-          status: 'error',
-          error: `Polling failed: ${errorMessage}. Is the API running?`
-        })
-        setIsRunning(false)
-        setActiveEvaluations(prev => {
-          const next = new Set(prev)
-          next.delete(evalId)
-          return next
-        })
-        addEvent('error', { id: evalId, message: 'Polling failed' })
-      }
-    }
-    
-    // Start polling
-    poll()
-  }, [apiUrl])
-
   // Kill execution
   const handleKillExecution = async () => {
-    if (!currentEvalId) return
+    if (!evalId) return
     
     try {
       // TODO: Implement kill endpoint
-      console.log('Kill execution:', currentEvalId)
-      setIsRunning(false)
+      console.log('Kill execution:', evalId)
+      reset()
     } catch (error) {
       console.error('Failed to kill execution:', error)
     }
@@ -212,168 +88,70 @@ export default function ResearcherUI() {
     console.log('Jump to line:', lineNumber)
   }
 
-  // Fetch queue status
-  const fetchQueueStatus = async () => {
-    try {
-      const response = await fetch(`${apiUrl}/api/queue-status`)
-      if (response.ok) {
-        const data: QueueStatusResponse = await response.json()
-        setQueueStatus({
-          pending: data.queued || 0,
-          running: data.processing || 0,
-          completed: 0, // Not provided by API
-          failed: 0 // Not provided by API
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch queue status:', error)
-    }
-  }
-
-  // Fetch platform status
-  const fetchPlatformStatus = async () => {
-    try {
-      const response = await fetch(`${apiUrl}/api/status`)
-      if (response.ok) {
-        const data = await response.json()
-        setPlatformStatus({
-          platform: 'Crucible Research Platform',
-          status: data.platform === 'healthy' ? 'healthy' : 'unhealthy',
-          engine: data.engine || 'Docker (Containerized - Network isolated)',
-          version: data.version || '2.0.0',
-          uptime: data.uptime || 0
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch platform status:', error)
-    }
-  }
-
-  // Submit multiple evaluations for testing
-  const submitMultiple = async () => {
-    setLoading(true)
-    setResult(null)
-    setMultipleResults(new Map())
-    
+  // Submit multiple evaluations
+  const handleBatchSubmit = async () => {
     try {
       addEvent('submission', { type: 'batch', count: 5 })
-      await fetchQueueStatus()
       
       // Prepare batch evaluations
-      const evaluations = Array.from({ length: 5 }, (_, i) => ({
+      const evaluations: EvaluationRequest[] = Array.from({ length: 5 }, (_, i) => ({
         code: `# Evaluation ${i + 1}\nprint(f"This is evaluation ${i + 1}")\nimport time\ntime.sleep(${Math.random() * 2})`,
         language: 'python',
         engine: 'docker',
-        timeout: execConfig.timeout
+        timeout: 30,
       }))
       
-      // Submit using smart API client (handles rate limiting automatically)
-      const results = await smartApi.submitBatch(evaluations)
+      const results = await batchSubmit.mutateAsync(evaluations)
+      setBatchResults(results)
       
-      // Process results
-      const resultsMap = new Map<string, EvaluationResult>()
+      // Extract eval IDs for polling
+      const evalIds = results
+        .filter((r: any) => r.eval_id)
+        .map((r: any) => r.eval_id)
+      setBatchEvalIds(evalIds)
+      
       results.forEach((result: any, index: number) => {
         if (result.error) {
-          const errorId = `error-${index}`
-          resultsMap.set(errorId, {
-            id: errorId,
-            status: 'error',
-            error: result.error
-          })
           addEvent('error', { batch_index: index + 1, message: result.error })
         } else {
-          const evalId = result.eval_id
-          const evalResult: EvaluationResult = {
-            id: evalId,
-            status: 'queued',
-            output: ''
-          }
-          resultsMap.set(evalId, evalResult)
-          
-          // Poll for each result (also rate-limited)
-          pollBatchEvaluationStatus(evalId, resultsMap)
-          
           addEvent('evaluation_submitted', { 
-            id: evalId, 
+            id: result.eval_id, 
             batch_index: index + 1 
           })
         }
       })
-      
-      setMultipleResults(resultsMap)
-      
-      // Show API stats in event log
-      const stats = smartApi.getStats()
-      addEvent('api_stats', stats)
-      
-      await fetchQueueStatus()
     } catch (error) {
-      addEvent('error', { message: error instanceof Error ? error.message : 'Failed to submit evaluations' })
-    } finally {
-      setLoading(false)
+      addEvent('error', { message: error instanceof Error ? error.message : 'Failed to submit batch' })
     }
   }
 
-  // Poll batch evaluation status
-  const pollBatchEvaluationStatus = useCallback(async (evalId: string, resultsMap: Map<string, EvaluationResult>) => {
-    const poll = async () => {
-      try {
-        const data: EvaluationStatusResponse = await smartApi.checkStatus(evalId)
-        
-        const evalResult: EvaluationResult = {
-          id: data.eval_id || evalId,
-          status: data.status as EvaluationResult['status'],
-          output: data.output || '',
-          error: data.error || ''
-        }
-        
-        resultsMap.set(evalId, evalResult)
-        setMultipleResults(new Map(resultsMap))
-        
-        // Track active evaluations
-        if (data.status === 'queued' || data.status === 'running') {
-          setActiveEvaluations(prev => new Set(prev).add(evalId))
-          setTimeout(poll, 1000)
-        } else {
-          setActiveEvaluations(prev => {
-            const next = new Set(prev)
-            next.delete(evalId)
-            return next
-          })
-          await fetchQueueStatus()
-        }
-      } catch (error) {
-        console.error('Batch polling error:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch evaluation status'
-        resultsMap.set(evalId, {
-          id: evalId,
-          status: 'error',
-          error: `Polling failed: ${errorMessage}. Is the API running?`
-        })
-        setMultipleResults(new Map(resultsMap))
-        // Stop polling on error
-        setActiveEvaluations(prev => {
-          const next = new Set(prev)
-          next.delete(evalId)
-          return next
-        })
+  // Track evaluation status changes
+  useEffect(() => {
+    if (evaluation) {
+      addEvent('status_change', { id: evalId, status: evaluation.status })
+      
+      if (isComplete) {
+        addEvent('evaluation_complete', { id: evalId, status: evaluation.status })
       }
     }
-    
-    poll()
-  }, [apiUrl])
+  }, [evaluation?.status, evalId, isComplete, addEvent])
 
-  // Effects
+  // Track polling activity
+  useEffect(() => {
+    if (isPolling && evalId) {
+      addEvent('polling', { id: evalId, evaluation_status: evaluation?.status || 'unknown' })
+    }
+  }, [isPolling, evalId, evaluation?.status, addEvent])
+
+  // Auto-scroll events
   useEffect(() => {
     eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [events])
 
-  useEffect(() => {
-    fetchPlatformStatus()
-    fetchQueueStatus()
-    const interval = setInterval(fetchQueueStatus, 2000)
-    return () => clearInterval(interval)
-  }, [])
+  // Use evaluation directly since it matches our display type
+  const result: EvaluationResultDisplay | null = evaluation || null
+
+  const isRunning = isPolling && !isComplete
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -391,6 +169,12 @@ export default function ResearcherUI() {
             </div>
             <div className="flex items-center gap-4">
               <a
+                href="/slides"
+                className="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
+              >
+                Platform Slides
+              </a>
+              <a
                 href="/storage"
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
               >
@@ -405,30 +189,6 @@ export default function ResearcherUI() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* API Connection Warning */}
-        {!platformStatus && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">
-                  API Connection Issue
-                </h3>
-                <div className="mt-2 text-sm text-yellow-700">
-                  <p>Unable to connect to the API. Make sure the backend is running:</p>
-                  <pre className="mt-2 bg-yellow-100 p-2 rounded text-xs">
-                    cd .. && docker-compose up -d
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Top Row - Status Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* Queue Status */}
@@ -440,55 +200,51 @@ export default function ResearcherUI() {
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
                     <span className="text-xs text-gray-600">Pending:</span>
-                    <span className="ml-1 font-semibold text-sm">{queueStatus.pending}</span>
+                    <span className="ml-1 font-semibold text-sm">{queueStatus.queued}</span>
                   </div>
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
                     <span className="text-xs text-gray-600">Running:</span>
-                    <span className="ml-1 font-semibold text-sm">{queueStatus.running}</span>
+                    <span className="ml-1 font-semibold text-sm">{queueStatus.processing}</span>
                   </div>
                 </div>
                 <div className="flex items-center pt-1 border-t border-gray-100">
                   <div className="w-2 h-2 bg-purple-400 rounded-full mr-2"></div>
                   <span className="text-xs text-gray-600">Your Active:</span>
-                  <span className="ml-1 font-semibold text-sm">{activeEvaluations.size}</span>
+                  <span className="ml-1 font-semibold text-sm">{isRunning ? 1 : 0}</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* Platform Status */}
-          {platformStatus && (
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Platform Status</h3>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-600">Status:</span>
-                  <span className={`font-medium ${platformStatus.status === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>
-                    {platformStatus.status}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-600">Engine:</span>
-                  <span className="font-medium text-gray-900">Docker</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-600">Uptime:</span>
-                  <span className="font-medium text-gray-900">{Math.floor(platformStatus.uptime / 60)}m</span>
-                </div>
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Platform Status</h3>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">Status:</span>
+                <span className="font-medium text-green-600">healthy</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">Engine:</span>
+                <span className="font-medium text-gray-900">Docker</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">Using:</span>
+                <span className="font-medium text-gray-900">React Query</span>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Batch Testing */}
           <div className="bg-white rounded-lg shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Batch Testing</h3>
             <button
-              onClick={submitMultiple}
-              disabled={loading}
+              onClick={handleBatchSubmit}
+              disabled={batchSubmit.isPending}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
-              Submit 5 Test Evaluations
+              {batchSubmit.isPending ? 'Submitting...' : 'Submit 5 Test Evaluations'}
             </button>
           </div>
         </div>
@@ -500,15 +256,15 @@ export default function ResearcherUI() {
             <CodeEditorWithTemplates
               value={code}
               onChange={setCode}
-              onSubmit={submitCode}
-              loading={loading || isRunning}
+              onSubmit={handleSubmit}
+              loading={isSubmitting || isRunning}
             />
 
             {/* Execution Config */}
             <ExecutionConfig
               config={execConfig}
               onChange={setExecConfig}
-              disabled={loading || isRunning}
+              disabled={isSubmitting || isRunning}
             />
 
             {/* Event Stream */}
@@ -546,10 +302,18 @@ export default function ResearcherUI() {
           <div className="space-y-6">
             {/* Execution Monitor */}
             <ExecutionMonitor
-              evalId={currentEvalId}
+              evalId={evalId}
               isRunning={isRunning}
               onKill={handleKillExecution}
             />
+
+            {/* Submit Error Display */}
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-red-800 mb-1">Submission Error</h3>
+                <p className="text-sm text-red-700">{submitError.message}</p>
+              </div>
+            )}
 
             {/* Results / Error Display */}
             {result && (
@@ -565,7 +329,7 @@ export default function ResearcherUI() {
                   </div>
                 )}
 
-                {(result.status === 'failed' || result.status === 'error') && result.error && (
+                {result.status === 'failed' && result.error && (
                   <ErrorDisplay
                     error={result.error}
                     code={code}
@@ -575,38 +339,52 @@ export default function ResearcherUI() {
               </>
             )}
 
-            {/* Multiple Results */}
-            {multipleResults.size > 0 && (
+            {/* Batch Results */}
+            {batchResults.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h2 className="text-lg font-semibold mb-4 text-gray-900">
-                  Batch Results ({multipleResults.size})
+                  Batch Results ({batchResults.length})
                 </h2>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {Array.from(multipleResults.entries()).map(([id, evalResult]) => (
-                    <div key={id} className="p-3 border border-gray-200 rounded-md">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono text-xs text-gray-600">{id}</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          evalResult.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          evalResult.status === 'failed' || evalResult.status === 'error' ? 'bg-red-100 text-red-800' :
-                          evalResult.status === 'running' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {evalResult.status.toUpperCase()}
-                        </span>
+                  {batchResults.map((result, index) => {
+                    // Find the current status from polling data
+                    const currentEval = batchEvaluations?.find(e => e.eval_id === result.eval_id)
+                    const status = currentEval?.status || 'queued'
+                    
+                    return (
+                      <div key={index} className="p-3 border border-gray-200 rounded-md">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-sm">Evaluation {index + 1}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            status === 'completed' ? 'bg-green-100 text-green-800' :
+                            status === 'failed' ? 'bg-red-100 text-red-800' :
+                            status === 'running' ? 'bg-blue-100 text-blue-800' :
+                            status === 'queued' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {status.toUpperCase()}
+                          </span>
+                        </div>
+                        {result.error ? (
+                          <p className="text-sm text-red-600">{result.error}</p>
+                        ) : (
+                          <>
+                            <p className="text-sm text-gray-600 font-mono">ID: {result.eval_id}</p>
+                            {currentEval?.status === 'completed' && currentEval.output && (
+                              <pre className="mt-2 p-2 bg-gray-50 rounded text-xs overflow-x-auto font-mono">
+                                {currentEval.output}
+                              </pre>
+                            )}
+                            {currentEval?.status === 'failed' && currentEval.error && (
+                              <pre className="mt-2 p-2 bg-red-50 text-red-700 rounded text-xs overflow-x-auto font-mono">
+                                {currentEval.error}
+                              </pre>
+                            )}
+                          </>
+                        )}
                       </div>
-                      {evalResult.output && (
-                        <pre className="p-2 bg-gray-50 rounded text-xs overflow-x-auto font-mono">
-                          {evalResult.output}
-                        </pre>
-                      )}
-                      {evalResult.error && (
-                        <pre className="p-2 bg-red-50 text-red-700 rounded text-xs overflow-x-auto font-mono">
-                          {evalResult.error}
-                        </pre>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

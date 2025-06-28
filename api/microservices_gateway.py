@@ -11,9 +11,13 @@ from datetime import datetime
 import httpx
 import asyncio
 from pathlib import Path
+from enum import Enum
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Import shared types
+from shared.generated.python import EvaluationStatus
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -59,6 +63,9 @@ redis_client = redis.from_url(REDIS_URL)
 logger.info(f"Connected to Redis for event publishing")
 logger.info(f"Storage service URL: {STORAGE_SERVICE_URL}")
 
+# Status enum now imported from shared contracts
+# See: shared/types/evaluation-status.yaml
+
 # Request models
 class EvaluationRequest(BaseModel):
     code: str
@@ -68,7 +75,7 @@ class EvaluationRequest(BaseModel):
 
 class EvaluationResponse(BaseModel):
     eval_id: str
-    status: str = "queued"
+    status: EvaluationStatus = EvaluationStatus.QUEUED
     message: str = "Evaluation queued for processing"
     queue_position: Optional[int] = None
 
@@ -83,7 +90,7 @@ class BatchEvaluationResponse(BaseModel):
 
 class EvaluationStatusResponse(BaseModel):
     eval_id: str
-    status: str
+    status: EvaluationStatus
     created_at: Optional[str] = None
     completed_at: Optional[str] = None
     output: str = ""
@@ -326,7 +333,7 @@ async def evaluate(request: EvaluationRequest):
         
         return EvaluationResponse(
             eval_id=eval_id,
-            status="queued",
+            status=EvaluationStatus.QUEUED,
             message="Evaluation queued successfully",
             queue_position=queue_data.get("queued", 0)
         )
@@ -396,7 +403,7 @@ async def evaluate_batch(request: BatchEvaluationRequest):
             
             results.append(EvaluationResponse(
                 eval_id=eval_id,
-                status="queued",
+                status=EvaluationStatus.QUEUED,
                 message="Evaluation queued successfully",
                 queue_position=current_queue_size + queued_count + 1
             ))
@@ -406,7 +413,7 @@ async def evaluate_batch(request: BatchEvaluationRequest):
             logger.error(f"Failed to queue evaluation {idx}: {e}")
             results.append(EvaluationResponse(
                 eval_id=eval_id,
-                status="failed",
+                status=EvaluationStatus.FAILED,
                 message=f"Failed to queue: {str(e)}",
                 queue_position=None
             ))
@@ -478,7 +485,7 @@ async def get_evaluation_status(eval_id: str, response: Response):
                     logger.info(f"Setting status code to 202 for {eval_id}")
                     return EvaluationStatusResponse(
                         eval_id=eval_id,
-                        status="pending",
+                        status=EvaluationStatus.QUEUED,
                         created_at=None,
                         completed_at=None,
                         output="",
@@ -503,7 +510,7 @@ async def get_evaluation_status(eval_id: str, response: Response):
             completed_at=evaluation.get('completed_at'),
             output=evaluation.get('output') or '',
             error=evaluation.get('error') or '',
-            success=evaluation.get('status') == 'completed'
+            success=evaluation.get('status') == EvaluationStatus.COMPLETED.value
         )
     except HTTPException:
         raise
@@ -543,7 +550,7 @@ async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[st
                         "status": e.get('status', 'unknown'),
                         "created_at": e.get('created_at'),
                         "code_preview": e.get('code', '')[:100] + "..." if len(e.get('code', '')) > 100 else e.get('code', ''),
-                        "success": e.get('status') == 'completed'
+                        "success": e.get('status') == EvaluationStatus.COMPLETED.value
                     }
                     for e in data.get('evaluations', [])
                 ],

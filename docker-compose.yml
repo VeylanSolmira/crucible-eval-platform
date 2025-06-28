@@ -5,7 +5,7 @@ services:
     image: crucible-base
     build:
       context: .
-      dockerfile: base.Dockerfile
+      dockerfile: shared/docker/base.Dockerfile
     command: echo "Base image built successfully"
 
   # Docker Socket Proxy - Secure access to Docker API

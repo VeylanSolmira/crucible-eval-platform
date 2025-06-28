@@ -1,0 +1,17 @@
+# Security-critical resource limits
+# These MUST be enforced by all services to prevent abuse
+execution:
+  max_timeout_seconds: 300        # 5 minutes max execution time
+  max_memory_mb: 512             # 512MB memory limit
+  max_output_size_bytes: 1048576 # 1MB output limit
+  max_cpu_cores: 0.5             # Half a CPU core
+  
+# Service limits
+api:
+  max_request_size_bytes: 1048576  # 1MB max request size
+  rate_limit_per_minute: 60        # 60 requests per minute per IP
+  
+# Queue limits  
+queue:
+  max_queue_size: 1000            # Maximum evaluations in queue
+  max_evaluations_per_user: 10    # Max concurrent evaluations per user

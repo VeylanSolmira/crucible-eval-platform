@@ -62,7 +62,7 @@ export function useEvaluationStatus(evalId: string | null, pollInterval = 1000) 
       setStatus(data || null)
       setIsLoading(false)
 
-      // Stop polling if evaluation is completed or failed
+      // Stop polling if evaluation is complete
       if (data?.status === 'completed' || data?.status === 'failed') {
         clearInterval(intervalId)
       }

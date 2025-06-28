@@ -34,3 +34,5 @@ next-env.d.ts
 
 # generated types from OpenAPI
 /types/generated/
+# Generated files
+/shared/generated/

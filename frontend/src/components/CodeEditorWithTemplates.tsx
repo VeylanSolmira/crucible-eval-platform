@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CodeEditor } from './CodeEditor';
-import { codeTemplates, getTemplatesByCategory } from '../../src/data/codeTemplates';
+import { useCodeTemplates } from '@/hooks/useCodeTemplates';
 
 interface CodeEditorWithTemplatesProps {
   value: string;
@@ -19,6 +19,7 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
 }) => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [recentCodes, setRecentCodes] = useState<Array<{ code: string; timestamp: string }>>([]);
+  const { templates, templatesByCategory, loading: templatesLoading } = useCodeTemplates();
 
   useEffect(() => {
     // Load recent codes from localStorage
@@ -39,7 +40,7 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
   }, []);
 
   const handleTemplateSelect = (templateId: string) => {
-    const template = codeTemplates.find(t => t.id === templateId);
+    const template = templates.find(t => t.id === templateId);
     if (template) {
       onChange(template.code);
       setShowTemplates(false);
@@ -63,7 +64,6 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
     setShowTemplates(false);
   };
 
-  const templateCategories = getTemplatesByCategory();
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -96,11 +96,14 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
         <div className="mb-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
           <h3 className="font-medium text-gray-900 mb-3">Code Templates</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Array.from(templateCategories.entries()).map(([category, templates]) => (
+            {templatesLoading ? (
+              <div className="col-span-2 text-center py-4 text-gray-500">Loading templates...</div>
+            ) : (
+              Object.entries(templatesByCategory).map(([category, categoryTemplates]) => (
               <div key={category}>
                 <h4 className="text-sm font-medium text-gray-700 mb-2">{category}</h4>
                 <div className="space-y-1">
-                  {templates.map(template => (
+                  {categoryTemplates.map(template => (
                     <button
                       key={template.id}
                       onClick={() => handleTemplateSelect(template.id)}
@@ -112,7 +115,8 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
                   ))}
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
           {/* Recent Submissions */}

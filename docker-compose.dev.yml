@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  crucible-frontend:
+    # Minimal override for development with hot reload
+    environment:
+      - NODE_ENV=development
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend:/app
+      # Prevent node_modules from being overwritten by host
+      - /app/node_modules
+      # Mount .next for build cache
+      - /app/.next
+    # Override command to use dev server
+    command: npm run dev
+    # Must disable read-only for Next.js to write to .next directory
+    read_only: false
+    
+    # Keep production-like settings:
+    # - security_opt (still active from base)
+    # - tmpfs (still active from base)
+    # - healthcheck (still active from base)
+    
+  # Commented out - uncomment if you want Python hot reload too
+  # api-service:
+  #   volumes:
+  #     - ./api:/app
+  #   command: uvicorn api.microservice_api:app --host 0.0.0.0 --port 8080 --reload

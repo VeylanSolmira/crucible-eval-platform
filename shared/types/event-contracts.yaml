@@ -1,0 +1,72 @@
+# Event contracts for inter-service communication
+# These define the structure of events published to Redis
+openapi: 3.1.0
+info:
+  title: Shared Event Contracts
+  version: 1.0.0
+components:
+  schemas:
+    BaseEvent:
+      type: object
+      required:
+        - event_id
+        - timestamp
+        - eval_id
+      properties:
+        event_id:
+          type: string
+          description: Unique identifier for this event
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+        eval_id:
+          type: string
+          description: The evaluation this event relates to
+          
+    EvaluationQueuedEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          properties:
+            queue_position:
+              type: integer
+              description: Position in the queue
+              
+    EvaluationStartedEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          properties:
+            executor_id:
+              type: string
+              description: Which executor is running this evaluation
+              
+    EvaluationCompletedEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - output
+          properties:
+            output:
+              type: string
+              description: The output from the evaluation
+            exit_code:
+              type: integer
+              description: Process exit code
+              
+    EvaluationFailedEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - error
+          properties:
+            error:
+              type: string
+              description: Error message explaining the failure
+            error_type:
+              type: string
+              enum: [timeout, execution_error, system_error]
+              description: Category of failure

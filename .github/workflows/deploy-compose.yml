@@ -61,7 +61,7 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         # Build base image first (used by other services)
-        docker build -t crucible-base -f base.Dockerfile .
+        docker build -t crucible-base -f shared/docker/base.Dockerfile .
         echo "✅ Built base image"
     
     - name: Build and push all service images

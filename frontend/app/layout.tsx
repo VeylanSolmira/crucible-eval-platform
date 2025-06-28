@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { appConfig } from '@/lib/config'
+import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: `${appConfig.name} - AI Evaluation`,
@@ -18,7 +19,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   )
 }
