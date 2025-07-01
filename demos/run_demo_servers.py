@@ -87,11 +87,11 @@ def main():
     try:
         engine = GVisorEngine()
         print("🛡️  Using gVisor")
-    except:
+    except Exception:
         try:
             engine = DockerEngine()
             print("🐳 Using Docker")
-        except:
+        except Exception:
             engine = SubprocessEngine()
             print("⚠️  Using subprocess")
     

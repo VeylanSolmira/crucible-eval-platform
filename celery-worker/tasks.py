@@ -191,8 +191,8 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python") -> Di
                         "final_failure": self.request.retries >= self.max_retries
                     }
                 )
-        except:
-            pass  # Best effort
+        except Exception:
+            pass  # Best effort storage update
         
         # Re-raise to let Celery handle retry logic
         raise

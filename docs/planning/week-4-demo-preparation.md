@@ -105,6 +105,7 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - [x] Load testing with multiple concurrent evaluations (test_load.py)
 - [x] Test service restart resilience (test_resilience.py)
 - [x] Document test results and performance metrics (docs/testing/performance-metrics.md)
+- [ ] Validate fill in all numbers in docs/testing/performance-metrics.md
 - [x] Create automated test script for demo (run_demo_tests.py)
 - [ ] Verify the above testing protocols perform and cover as expected/desired
 

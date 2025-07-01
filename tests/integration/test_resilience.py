@@ -10,7 +10,7 @@ import subprocess
 import time
 import requests
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 API_BASE_URL = "http://localhost:8000/api"
 
@@ -83,7 +83,7 @@ print("Evaluation complete!")
                         if status_data["status"] in ["completed", "failed"]:
                             final_status = status_data
                             break
-                except:
+                except (requests.RequestException, ConnectionError):
                     pass  # Service might be temporarily unavailable
                 
                 time.sleep(1)
@@ -293,8 +293,8 @@ def run_resilience_tests():
         if response.status_code != 200:
             print("ERROR: Services not healthy. Please ensure all services are running.")
             return
-    except:
-        print("ERROR: Cannot connect to API. Please ensure services are running.")
+    except (requests.RequestException, ConnectionError) as e:
+        print(f"ERROR: Cannot connect to API: {e}. Please ensure services are running.")
         return
     
     tests = [
@@ -359,7 +359,7 @@ def run_resilience_tests():
             ]
         }, f, indent=2)
     
-    print(f"\nDetailed results saved to resilience_test_results.json")
+    print("\nDetailed results saved to resilience_test_results.json")
 
 
 if __name__ == "__main__":

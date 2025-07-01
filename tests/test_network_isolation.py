@@ -73,7 +73,6 @@ def test_network_access():
     # Test 6: Check network interfaces
     print("6. Checking network interfaces...")
     try:
-        import subprocess
         result = subprocess.run(["ip", "addr"], capture_output=True, text=True)
         if result.returncode == 0:
             # With --network none, should only have loopback
@@ -81,7 +80,7 @@ def test_network_access():
                 results.append("❌ FAIL: Network interfaces found")
             else:
                 results.append("✅ PASS: Only loopback interface")
-    except:
+    except (FileNotFoundError, OSError):
         results.append("✓ SKIP: ip command not available")
     
     # Test 7: Try to create a listening socket

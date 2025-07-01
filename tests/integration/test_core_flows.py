@@ -8,7 +8,6 @@ Tests the complete flow from submission to completion:
 3. Error handling paths
 """
 
-import asyncio
 import json
 import time
 import requests
@@ -360,7 +359,7 @@ def run_all_tests():
         }
         json.dump(test_data, f, indent=2)
     
-    print(f"\nDetailed results written to integration_test_results.json")
+    print("\nDetailed results written to integration_test_results.json")
     
     # Exit with appropriate code
     exit(0 if failed == 0 else 1)

@@ -140,7 +140,7 @@ class QueuedEvaluationPlatform(TestableEvaluationPlatform):
     
     def __init__(self, engine: 'ExecutionEngine', monitor: 'MonitoringService', 
                  queue: Optional['TaskQueue'] = None, max_workers: int = 3, 
-                 run_tests: bool = False, event_bus: Optional['EventBus'] = None,
+                 run_tests: bool = False, event_bus=None,
                  storage=None):
         # Initialize base platform (skip tests by default)
         super().__init__(engine, monitor, run_tests=run_tests)

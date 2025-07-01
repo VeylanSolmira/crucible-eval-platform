@@ -9,7 +9,6 @@ capabilities during demos.
 import subprocess
 import time
 import sys
-import os
 import requests
 from typing import List, Tuple
 
@@ -130,7 +129,7 @@ def run_demo_sequence():
                 elif summary_start and "=" in line:
                     break
         else:
-            print(f"❌ Test failed!")
+            print("❌ Test failed!")
             if test["critical"]:
                 print("\n⚠️  Critical test failed. Stopping demo tests.")
                 print(f"\nError output:\n{output[-500:]}")  # Last 500 chars

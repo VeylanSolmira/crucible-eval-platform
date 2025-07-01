@@ -148,8 +148,8 @@ class QueueComparison:
                 print("\nLegacy Queue Status:")
                 print(f"  Queued: {queue_status.get('queued', 'N/A')}")
                 print(f"  Running: {queue_status.get('running', 'N/A')}")
-        except:
-            print("\nLegacy Queue Status: Unable to fetch")
+        except Exception as e:
+            print(f"\nLegacy Queue Status: Unable to fetch - {e}")
         
         # Check Celery (would need to query Flower API)
         print("\nCelery Status:")

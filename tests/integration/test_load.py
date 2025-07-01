@@ -6,13 +6,12 @@ Tests the platform's ability to handle multiple concurrent evaluations
 and measures performance metrics.
 """
 
-import asyncio
 import json
 import time
 import requests
 import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any
+from typing import List
 
 API_BASE_URL = "http://localhost:8000/api"
 
@@ -175,13 +174,13 @@ def run_load_test(concurrent_count: int, total_evaluations: int):
     print(f"Throughput: {metrics['throughput']:.2f} evals/second")
     
     if successful:
-        print(f"\nSubmission Times:")
+        print("\nSubmission Times:")
         print(f"  Min: {metrics['submit_time']['min']:.3f}s")
         print(f"  Max: {metrics['submit_time']['max']:.3f}s")
         print(f"  Avg: {metrics['submit_time']['avg']:.3f}s")
         print(f"  Median: {metrics['submit_time']['median']:.3f}s")
         
-        print(f"\nCompletion Times:")
+        print("\nCompletion Times:")
         print(f"  Min: {metrics['complete_time']['min']:.3f}s")
         print(f"  Max: {metrics['complete_time']['max']:.3f}s")
         print(f"  Avg: {metrics['complete_time']['avg']:.3f}s")
