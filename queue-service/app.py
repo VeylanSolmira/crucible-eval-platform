@@ -194,7 +194,7 @@ async def mark_task_complete(eval_id: str, body: Dict) -> Dict:
         raise HTTPException(status_code=404, detail="Task not found")
     
     # Remove from registry (it's done)
-    task = task_registry.pop(eval_id)
+    task_registry.pop(eval_id, None)
     
     logger.info(f"Task {eval_id} completed")
     return {"status": EvaluationStatus.COMPLETED.value}
@@ -208,7 +208,7 @@ async def mark_task_failed(eval_id: str, body: Dict) -> Dict:
         return {"status": "not_found"}
     
     # Remove from registry
-    task = task_registry.pop(eval_id)
+    task_registry.pop(eval_id, None)
     
     logger.info(f"Task {eval_id} failed: {body.get('error', 'Unknown error')}")
     return {"status": EvaluationStatus.FAILED.value}

@@ -9,7 +9,7 @@ import asyncio
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -17,6 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import redis.asyncio as redis
 import httpx
 import structlog
+from fastapi import FastAPI
+import uvicorn
 from shared.generated.python import EvaluationStatus
 
 # Configure standard logging for libraries (redis, etc)
@@ -417,9 +419,6 @@ class StorageWorker:
 # 2. Docker HEALTHCHECK with exit codes
 # 3. Simple asyncio HTTP server (~5MB)
 # We use FastAPI for consistency and future extensibility (metrics, ready vs live)
-from fastapi import FastAPI
-import uvicorn
-import structlog
 
 # Configure structured logging
 structlog.configure(

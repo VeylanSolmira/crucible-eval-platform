@@ -28,7 +28,7 @@ import uvicorn
 import redis.asyncio as redis
 
 # Import Celery client for dual-write
-from api.app.celery_client import submit_evaluation_to_celery, get_celery_status
+from api.app.celery_client import submit_evaluation_to_celery
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

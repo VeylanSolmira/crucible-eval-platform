@@ -75,6 +75,9 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - [ ] Remove deprecated code
   - [ ] Remove old queue-service references after Celery works
   - [ ] Clean up legacy API files
+- [ ] Consider renaming microservices_gateway.py → app.py
+  - [ ] Note: Would require updates to Dockerfile, imports, docs
+  - [ ] Decision: Defer to avoid breaking changes during demo prep
 - [ ] Update all service READMEs
   - [ ] api-service README
   - [ ] frontend README

@@ -1,17 +1,20 @@
 # Celery Worker Service
 
-This service provides distributed task processing for code evaluations using Celery with Redis as the message broker.
+This service provides distributed task processing for code evaluations using Celery with Redis as the message broker. It includes production-ready features like retry logic, task cancellation, and dead letter queue handling.
 
 ## Quick Start
 
-### 1. Start Celery Services
+### 1. Start Celery Worker
 ```bash
-# From project root
-docker-compose -f docker-compose.yml -f docker-compose.celery.yml up -d
+# From project root - Celery is now integrated into main docker-compose.yml
+docker-compose up -d celery-worker
+
+# Or start everything including 50/50 traffic split
+docker-compose up -d
 ```
 
 ### 2. View Flower Dashboard
-Open http://localhost:5555 (login: admin/crucible)
+Open http://localhost:5555 to monitor tasks in real-time
 
 ### 3. Test Celery
 ```bash
@@ -34,19 +37,24 @@ API Service → Redis Queue → Celery Worker → Executor Service
 ## Key Features
 
 - **Distributed Processing**: Scale by adding more workers
-- **Priority Queues**: High priority for premium users
-- **Retry Logic**: Automatic retry with exponential backoff
-- **Monitoring**: Real-time visibility via Flower
+- **Priority Queues**: Three levels - high, default, low with strict ordering
+- **Retry Logic**: Configurable exponential backoff with jitter
+- **Task Cancellation**: Cancel queued or terminate running tasks
+- **Dead Letter Queue**: Capture and analyze permanently failed tasks
+- **Monitoring**: Real-time visibility via Flower dashboard
 - **Non-blocking**: API returns immediately, processing happens async
+- **Traffic Splitting**: Gradual migration from legacy queue system
 
 ## Configuration
 
 Key environment variables:
-- `CELERY_BROKER_URL`: Redis connection for task queue
-- `CELERY_RESULT_BACKEND`: Redis connection for results
-- `CELERY_CONCURRENCY`: Number of worker processes (default: 4)
-- `EXECUTOR_SERVICE_URL`: URL of executor service
+- `CELERY_BROKER_URL`: Redis connection for task queue (default: redis://redis:6379/0)
+- `CELERY_RESULT_BACKEND`: Redis connection for results 
+- `CELERY_CONCURRENCY`: Number of worker processes (default: 2)
+- `EXECUTOR_SERVICE_URL`: Comma-separated executor URLs for round-robin distribution
 - `STORAGE_SERVICE_URL`: URL of storage service
+- `REDIS_URL`: Redis connection for general use
+- `LOG_LEVEL`: Logging level (INFO, DEBUG, etc.)
 
 ## Tasks
 
@@ -69,6 +77,99 @@ Scheduled task that runs hourly to cleanup old data.
 ### health_check
 Simple task for monitoring worker health.
 
+## Retry Logic
+
+The worker implements sophisticated retry logic with exponential backoff:
+
+```python
+# Configuration in retry_config.py
+RETRY_POLICIES = {
+    'default': {
+        'max_retries': 3,
+        'base_delay': 5,      # 5 seconds
+        'exponential_base': 2,
+        'max_delay': 300,     # 5 minutes
+        'jitter': True
+    },
+    'network_error': {
+        'max_retries': 5,
+        'base_delay': 10,
+        'exponential_base': 1.5,
+        'max_delay': 600
+    }
+}
+```
+
+Retry delays: 5s → 10s → 20s (with jitter to prevent thundering herd)
+
+## Task Cancellation
+
+Cancel tasks via the API:
+
+```bash
+# Cancel a queued task
+curl -X POST http://localhost:8080/api/eval/{eval_id}/cancel
+
+# Force terminate a running task
+curl -X POST http://localhost:8080/api/eval/{eval_id}/cancel?terminate=true
+```
+
+States that can be cancelled:
+- `PENDING`: Task removed from queue
+- `STARTED`: Task terminated (requires terminate=true)
+- `RETRY`: Retry chain stopped
+
+## Dead Letter Queue (DLQ)
+
+Failed tasks after all retries are moved to the DLQ for analysis:
+
+```python
+# Access DLQ stats
+dlq = DeadLetterQueue()
+failed_count = dlq.get_queue_size()
+failed_tasks = dlq.get_all_tasks()
+
+# Retry a specific failed task
+dlq.retry_task(task_id)
+
+# Clear old entries
+dlq.clear_old_tasks(days=30)
+```
+
+DLQ entries include:
+- Original task arguments
+- Exception details
+- Full traceback
+- Retry count
+- Failure timestamp
+
+## Priority Queues
+
+Three queue levels with strict priority ordering:
+
+1. **High Priority** (priority=10)
+   - Premium users
+   - Time-sensitive evaluations
+   - Admin tasks
+
+2. **Default Priority** (priority=5)
+   - Standard evaluations
+   - Normal user submissions
+
+3. **Low Priority** (priority=1)
+   - Batch operations
+   - Background tasks
+   - Non-urgent evaluations
+
+Configure in API request:
+```json
+{
+  "code": "print('Hello')",
+  "language": "python",
+  "priority": true  // Sets high priority
+}
+```
+
 ## Monitoring
 
 ### Flower Dashboard
@@ -87,18 +188,25 @@ docker logs crucible-celery-worker -f
 
 ### Add More Workers
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.celery.yml \
-  scale celery-worker=3
+# Scale horizontally
+docker-compose up -d --scale celery-worker=3
 ```
 
 ### Specialized Workers
-```yaml
-# High-priority worker
-celery -A tasks worker -Q high_priority -c 2
+```bash
+# High-priority only worker
+docker run -e CELERY_QUEUES=high_priority crucible-celery-worker
 
-# Batch processing worker  
-celery -A tasks worker -Q batch -c 1
+# Configure dedicated workers per queue
+celery -A tasks worker -Q high_priority -n high-worker@%h
+celery -A tasks worker -Q default -n default-worker@%h  
+celery -A tasks worker -Q low_priority -n low-worker@%h
 ```
+
+### Executor Assignment
+Workers use round-robin to distribute tasks across available executors:
+- Legacy queue → executor-1
+- Celery workers → executor-2, executor-3 (round-robin)
 
 ## Development
 

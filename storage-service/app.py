@@ -908,7 +908,6 @@ async def append_evaluation_logs(eval_id: str, request: Dict[str, Any]):
     """Append logs to an evaluation"""
     content = request.get('content', '')
     append = request.get('append', True)
-    timestamp = request.get('timestamp')
     
     # Get existing evaluation
     existing = storage.get_evaluation(eval_id)
