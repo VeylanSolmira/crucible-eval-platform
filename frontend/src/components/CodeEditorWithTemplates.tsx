@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CodeEditor } from './CodeEditor';
 import { useCodeTemplates } from '@/hooks/useCodeTemplates';
+import { log } from '@/src/utils/logger';
 
 interface CodeEditorWithTemplatesProps {
   value: string;
@@ -26,9 +27,10 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
     const savedRecent = localStorage.getItem('crucible-recent-codes');
     if (savedRecent) {
       try {
-        setRecentCodes(JSON.parse(savedRecent));
+        const parsed = JSON.parse(savedRecent) as Array<{ code: string; timestamp: string }>;
+        setRecentCodes(parsed);
       } catch (e) {
-        console.error('Failed to parse recent codes:', e);
+        log.error('Failed to parse recent codes:', e);
       }
     }
 

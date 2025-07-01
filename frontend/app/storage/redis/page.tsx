@@ -2,16 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-
-interface RedisDetails {
-  backend: string
-  status: string
-  info: {
-    keys: string[]
-    memory: Record<string, any>
-    stats: Record<string, any>
-  }
-}
+import type { RedisDetails } from '@/types/storage'
 
 export default function RedisPage() {
   const [details, setDetails] = useState<RedisDetails | null>(null)
@@ -29,7 +20,7 @@ export default function RedisPage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json()
+      const data = await response.json() as RedisDetails
       setDetails(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch Redis details')

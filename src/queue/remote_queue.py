@@ -5,7 +5,7 @@ This allows gradual migration from in-process to networked queue
 import os
 import httpx  # Already included in base image with FastAPI
 from typing import Dict, Any, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 
 class RemoteTaskQueue:
     """
@@ -45,7 +45,7 @@ class RemoteTaskQueue:
         # Track submission
         self.submitted_tasks[eval_id] = {
             'status': 'queued',
-            'submitted_at': datetime.utcnow()
+            'submitted_at': datetime.now(timezone.utc)
         }
     
     def get_status(self) -> Dict[str, Any]:

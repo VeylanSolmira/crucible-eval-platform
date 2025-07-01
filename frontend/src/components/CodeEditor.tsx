@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import Editor, { Monaco } from '@monaco-editor/react';
+import Editor, { type Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 
 interface CodeEditorProps {

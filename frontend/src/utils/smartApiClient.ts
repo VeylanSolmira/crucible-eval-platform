@@ -1,5 +1,20 @@
+import { log } from '@/src/utils/logger'
+import type { BatchSubmissionResult, EvaluationResult } from '@/types/api'
+import type { components } from '@/types/generated/api'
+
+type EvaluationRequest = components['schemas']['EvaluationRequest']
+
 /**
  * Smart API client that combines proactive rate limiting with reactive backoff
+ * 
+ * When to use this vs React Query:
+ * - Use React Query for: Single requests, real-time polling, standard CRUD operations
+ * - Use SmartApiClient for: Batch operations, high-volume requests, operations that might hit rate limits
+ * 
+ * Key features NOT available in React Query:
+ * 1. Proactive rate limiting (token bucket algorithm)
+ * 2. Dynamic rate adjustment based on server responses
+ * 3. Request queuing to prevent overwhelming the server
  * 
  * Strategy:
  * 1. Proactively limit requests to stay under server limits
@@ -10,7 +25,7 @@
 interface QueuedRequest<T> {
   execute: () => Promise<Response>;
   resolve: (value: T) => void;
-  reject: (error: any) => void;
+  reject: (error: unknown) => void;
   retries: number;
 }
 
@@ -50,7 +65,7 @@ export class SmartApiClient {
       };
 
       this.queue.push(request);
-      this.processQueue();
+      void this.processQueue();
     });
   }
 
@@ -96,7 +111,7 @@ export class SmartApiClient {
           if (!response.ok) {
             request.reject(new Error(`HTTP ${response.status}: ${response.statusText}`));
           } else {
-            const data = await response.json();
+            const data = await response.json() as unknown;
             request.resolve(data);
           }
         }
@@ -127,7 +142,7 @@ export class SmartApiClient {
       ? parseInt(retryAfter) * 1000 
       : Math.min(Math.pow(2, this.consecutiveRateLimits) * 1000, 30000);
 
-    console.warn(`Rate limited! Backing off for ${backoffMs}ms. Reducing rate limit.`);
+    log.warn(`Rate limited! Backing off for ${backoffMs}ms. Reducing rate limit.`);
 
     // Reduce our rate limit
     this.currentRateLimit = Math.max(
@@ -179,9 +194,53 @@ export class SmartApiClient {
   }
 
   /**
+   * Generic HTTP methods
+   */
+  async get<T = unknown>(url: string, options?: RequestInit): Promise<T> {
+    const response = await this.fetch<Response>(url, {
+      method: 'GET',
+      ...options
+    })
+    
+    if (response instanceof Response) {
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(error || `HTTP ${response.status}`)
+      }
+      return response.json() as Promise<T>
+    }
+    
+    return response as T
+  }
+
+  async post<T = unknown>(url: string, data?: unknown, options?: RequestInit): Promise<T> {
+    const body = data ? JSON.stringify(data) : null
+    
+    const response = await this.fetch<Response>(url, {
+      ...options,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+      },
+      body
+    })
+    
+    if (response instanceof Response) {
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(error || `HTTP ${response.status}`)
+      }
+      return response.json() as Promise<T>
+    }
+    
+    return response as T
+  }
+
+  /**
    * Convenience methods for common operations
    */
-  async submitEvaluation(code: string, options?: any): Promise<any> {
+  async submitEvaluation(code: string, options?: Partial<EvaluationRequest>): Promise<BatchSubmissionResult> {
     return this.fetch('/api/eval', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -195,10 +254,10 @@ export class SmartApiClient {
     });
   }
 
-  async submitBatch(evaluations: Array<{ code: string; language?: string; engine?: string; timeout?: number }>): Promise<any> {
+  async submitBatch(evaluations: EvaluationRequest[]): Promise<BatchSubmissionResult[]> {
     // Try batch endpoint first
     try {
-      const response = await this.fetch<any>('/api/eval-batch', {
+      const response = await this.fetch<{ evaluations: BatchSubmissionResult[] }>('/api/eval-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ evaluations })
@@ -207,9 +266,9 @@ export class SmartApiClient {
       return response.evaluations || [];
     } catch (error) {
       // Fallback to individual submissions
-      console.log('Batch endpoint not available, submitting individually');
+      log.info('Batch endpoint not available, submitting individually');
       
-      const results = [];
+      const results: BatchSubmissionResult[] = [];
       for (const evaluation of evaluations) {
         try {
           const result = await this.submitEvaluation(evaluation.code, {
@@ -226,7 +285,7 @@ export class SmartApiClient {
     }
   }
 
-  async checkStatus(evalId: string): Promise<any> {
+  async checkStatus(evalId: string): Promise<EvaluationResult> {
     return this.fetch(`/api/eval-status/${evalId}`);
   }
 

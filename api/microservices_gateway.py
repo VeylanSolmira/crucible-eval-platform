@@ -7,7 +7,7 @@ import sys
 import json
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import httpx
 import asyncio
 from pathlib import Path
@@ -27,6 +27,9 @@ import uvicorn
 
 # Import Redis for event publishing
 import redis.asyncio as redis
+
+# Import Celery client for dual-write
+from api.app.celery_client import submit_evaluation_to_celery, get_celery_status
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,6 +75,7 @@ class EvaluationRequest(BaseModel):
     language: str = "python"
     engine: str = "docker"
     timeout: int = 30
+    priority: bool = False  # High priority flag for queue jumping
 
 class EvaluationResponse(BaseModel):
     eval_id: str
@@ -159,18 +163,18 @@ async def check_service_health():
             logger.error(f"Redis health check failed: {e}")
             service_health["redis"] = False
         
-        service_health["last_check"] = datetime.utcnow().isoformat()
+        service_health["last_check"] = datetime.now(timezone.utc).isoformat()
         
         # More frequent checks during startup (first 2 minutes)
         startup_time = 120  # seconds
         if hasattr(check_service_health, 'start_time'):
-            elapsed = (datetime.utcnow() - check_service_health.start_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - check_service_health.start_time).total_seconds()
             if elapsed < startup_time:
                 await asyncio.sleep(5)  # Check every 5 seconds during startup
             else:
                 await asyncio.sleep(30)  # Normal 30 second interval
         else:
-            check_service_health.start_time = datetime.utcnow()
+            check_service_health.start_time = datetime.now(timezone.utc)
             await asyncio.sleep(5)
 
 async def check_service_health_once():
@@ -199,7 +203,7 @@ async def check_service_health_once():
         logger.error(f"Redis health check failed: {e}")
         service_health["redis"] = False
     
-    service_health["last_check"] = datetime.utcnow().isoformat()
+    service_health["last_check"] = datetime.now(timezone.utc).isoformat()
     logger.info(f"Initial health check complete: {service_health}")
 
 # Event publishing functions
@@ -281,7 +285,7 @@ async def health():
     return {
         "status": "healthy" if all_healthy else "degraded",
         "services": service_health,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @app.post("/api/eval", response_model=EvaluationResponse)
@@ -291,7 +295,7 @@ async def evaluate(request: EvaluationRequest):
         raise HTTPException(status_code=503, detail="Queue service unavailable")
     
     # Generate eval ID
-    eval_id = f"eval_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+    eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
     
     try:
         # Publish event for storage worker to handle
@@ -301,7 +305,7 @@ async def evaluate(request: EvaluationRequest):
             "language": request.language,
             "engine": request.engine,
             "metadata": {
-                "submitted_at": datetime.utcnow().isoformat(),
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
                 "timeout": request.timeout
             }
         })
@@ -315,10 +319,20 @@ async def evaluate(request: EvaluationRequest):
                 "language": request.language,
                 "engine": request.engine,
                 "timeout": request.timeout,
-                "priority": 1
+                "priority": 10 if request.priority else 1  # Higher number = higher priority
             }
         )
         response.raise_for_status()
+        
+        # Dual-write to Celery (if enabled)
+        celery_task_id = submit_evaluation_to_celery(
+            eval_id=eval_id,
+            code=request.code,
+            language=request.language,
+            priority=request.priority
+        )
+        if celery_task_id:
+            logger.info(f"Also submitted evaluation {eval_id} to Celery: {celery_task_id}")
         
         # Set a pending key in Redis with 60s TTL
         try:
@@ -367,7 +381,7 @@ async def evaluate_batch(request: BatchEvaluationRequest):
     
     # Process each evaluation
     for idx, eval_request in enumerate(request.evaluations):
-        eval_id = f"eval_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
         
         try:
             # Publish event for storage worker
@@ -377,7 +391,7 @@ async def evaluate_batch(request: BatchEvaluationRequest):
                 "language": eval_request.language,
                 "engine": eval_request.engine,
                 "metadata": {
-                    "submitted_at": datetime.utcnow().isoformat(),
+                    "submitted_at": datetime.now(timezone.utc).isoformat(),
                     "timeout": eval_request.timeout,
                     "batch": True,
                     "batch_index": idx
@@ -460,7 +474,7 @@ async def get_evaluation_status(eval_id: str, response: Response):
     if not service_health["storage"]:
         # Check if we're in startup period (first 2 minutes)
         if hasattr(check_service_health, 'start_time'):
-            elapsed = (datetime.utcnow() - check_service_health.start_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - check_service_health.start_time).total_seconds()
             if elapsed < 120:
                 # Do a quick health check and retry
                 logger.info("Storage appears unavailable during startup, doing quick health check")
@@ -518,6 +532,183 @@ async def get_evaluation_status(eval_id: str, response: Response):
         logger.error(f"Error retrieving evaluation {eval_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve evaluation")
 
+@app.patch("/api/eval/{eval_id}/status")
+async def update_evaluation_status(eval_id: str, status: str, reason: Optional[str] = None):
+    """Admin endpoint to manually update evaluation status"""
+    if status not in ["failed", "completed", "cancelled"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Status must be one of: failed, completed, cancelled"
+        )
+    
+    try:
+        # Update in storage service (uses PUT, not PATCH)
+        response = await client.put(
+            f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
+            json={
+                "status": status,
+                "metadata": {
+                    "admin_update": True,
+                    "admin_updated_at": datetime.now(timezone.utc).isoformat(),
+                    "admin_reason": reason or f"Manually set to {status}",
+                    "admin_update_type": "status_change"
+                }
+            }
+        )
+        
+        if response.status_code == 200:
+            # Publish event for other services
+            await publish_evaluation_event(f"evaluation:{status}", {
+                "eval_id": eval_id,
+                "status": status,
+                "manual_update": True,
+                "reason": reason
+            })
+            
+            return {"success": True, "eval_id": eval_id, "new_status": status}
+        else:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Storage service error: {response.text}"
+            )
+    except Exception as e:
+        logger.error(f"Error updating evaluation status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/eval/{eval_id}/logs")
+async def get_evaluation_logs(eval_id: str):
+    """Get logs for any evaluation - routes through storage service"""
+    async with httpx.AsyncClient() as client:
+        try:
+            # Route to storage service which handles Redis cache and DB fallback
+            response = await client.get(
+                f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}/logs"
+            )
+            
+            if response.status_code == 404:
+                return JSONResponse(
+                    content={"error": "Evaluation not found"},
+                    status_code=404
+                )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Storage service returned {response.status_code} for logs")
+                return JSONResponse(
+                    content={"error": "Failed to get evaluation logs"},
+                    status_code=response.status_code
+                )
+                
+        except Exception as e:
+            logger.error(f"Failed to get evaluation logs for {eval_id}: {e}")
+            return JSONResponse(
+                content={"error": "Failed to get evaluation logs"},
+                status_code=500
+            )
+
+@app.post("/api/eval/{eval_id}/kill")
+async def kill_evaluation(eval_id: str):
+    """Kill a running evaluation"""
+    # Step 1: Get executor assignment from storage service
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}/running"
+            )
+            if response.status_code == 404:
+                return JSONResponse(
+                    content={"error": "Evaluation not running"},
+                    status_code=404
+                )
+            running_info = response.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return JSONResponse(
+                    content={"error": "Evaluation not running"}, 
+                    status_code=404
+                )
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get running info for {eval_id}: {e}")
+            return JSONResponse(
+                content={"error": "Failed to get evaluation status"},
+                status_code=500
+            )
+    
+    # Step 2: Kill container on assigned executor
+    executor_id = running_info.get("executor_id")
+    if not executor_id:
+        return JSONResponse(
+            content={"error": "Invalid running information"},
+            status_code=500
+        )
+    
+    executor_url = f"http://{executor_id}:8083"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            kill_response = await client.post(f"{executor_url}/kill/{eval_id}")
+            return kill_response.json()
+        except Exception as e:
+            logger.error(f"Failed to kill container on {executor_id}: {e}")
+            return JSONResponse(
+                content={"error": f"Failed to kill evaluation: {str(e)}"}, 
+                status_code=500
+            )
+
+@app.post("/api/eval/{eval_id}/cancel")
+async def cancel_evaluation(eval_id: str, terminate: bool = False):
+    """
+    Cancel a queued or running evaluation task.
+    
+    This cancels the Celery task, preventing it from running if queued,
+    or optionally terminating it if already running.
+    
+    Different from /kill which stops the Docker container execution.
+    """
+    # First check if Celery is enabled
+    from app.celery_client import CELERY_ENABLED, cancel_celery_task
+    
+    if not CELERY_ENABLED:
+        return JSONResponse(
+            content={"error": "Celery not enabled - using legacy queue system"},
+            status_code=503
+        )
+    
+    # Cancel the Celery task
+    result = cancel_celery_task(eval_id, terminate=terminate)
+    
+    if result.get("cancelled"):
+        # Update storage to reflect cancellation
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.put(
+                    f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
+                    json={
+                        "status": "cancelled",
+                        "error": "Task cancelled by user"
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to update storage after cancellation: {e}")
+        
+        return {
+            "eval_id": eval_id,
+            "status": "cancelled",
+            "message": result.get("message", "Task cancelled successfully")
+        }
+    else:
+        # Cancellation failed or not applicable
+        status_code = 400 if "already" in result.get("message", "") else 500
+        return JSONResponse(
+            content={
+                "error": result.get("message", "Failed to cancel task"),
+                "details": result
+            },
+            status_code=status_code
+        )
+
 @app.get("/api/evaluations")
 async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[str] = None):
     """Get evaluation history from storage service"""
@@ -549,7 +740,7 @@ async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[st
                         "eval_id": e.get('id', 'unknown'),
                         "status": e.get('status', 'unknown'),
                         "created_at": e.get('created_at'),
-                        "code_preview": e.get('code', '')[:100] + "..." if len(e.get('code', '')) > 100 else e.get('code', ''),
+                        "code_preview": (e.get('code') or '')[:100] + "..." if e.get('code') and len(e.get('code')) > 100 else (e.get('code') or ''),
                         "success": e.get('status') == EvaluationStatus.COMPLETED.value
                     }
                     for e in data.get('evaluations', [])
@@ -592,6 +783,60 @@ async def get_queue_status():
             total_tasks=0
         )
 
+@app.get("/api/celery-status")
+async def get_celery_status():
+    """Get Celery cluster status including workers, queues, and tasks."""
+    from app.celery_client import get_celery_status, CELERY_ENABLED, celery_app
+    
+    if not CELERY_ENABLED:
+        return {
+            "enabled": False,
+            "message": "Celery is not enabled. Set CELERY_ENABLED=true to use Celery."
+        }
+    
+    try:
+        # Get basic status
+        status = get_celery_status()
+        
+        # Get more detailed info if connected
+        if status.get("connected"):
+            inspect = celery_app.control.inspect()
+            
+            # Get active tasks
+            active_tasks = inspect.active()
+            active_count = sum(len(tasks) for tasks in (active_tasks or {}).values())
+            
+            # Get scheduled tasks
+            scheduled_tasks = inspect.scheduled()
+            scheduled_count = sum(len(tasks) for tasks in (scheduled_tasks or {}).values())
+            
+            # Get registered tasks
+            registered = inspect.registered()
+            
+            # Get stats
+            stats = inspect.stats()
+            
+            status.update({
+                "active_tasks": active_count,
+                "scheduled_tasks": scheduled_count,
+                "registered_tasks": list(registered.values())[0] if registered else [],
+                "worker_stats": stats,
+                "queue_details": {
+                    "active": active_tasks,
+                    "scheduled": scheduled_tasks
+                }
+            })
+        
+        return status
+        
+    except Exception as e:
+        logger.error(f"Failed to get Celery status: {e}")
+        return {
+            "enabled": True,
+            "connected": False,
+            "error": str(e)
+        }
+
 @app.get("/api/status", response_model=StatusResponse)
 async def platform_status():
     """Overall platform status"""
@@ -611,6 +856,16 @@ async def platform_status():
                 }
         except Exception as e:
             logger.error(f"Failed to get storage statistics: {e}")
+    
+    # Get Celery status
+    celery_info = {}
+    try:
+        from app.celery_client import get_celery_status, CELERY_ENABLED
+        if CELERY_ENABLED:
+            celery_info = get_celery_status()
+    except Exception as e:
+        logger.error(f"Failed to get Celery status: {e}")
+        celery_info = {"enabled": False, "error": str(e)}
     
     services = ServiceHealthInfo(
         gateway="healthy",
@@ -640,7 +895,7 @@ async def health_check():
     
     return HealthResponse(
         status="ok" if all([service_health["queue"], service_health["storage"]]) else "degraded",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         services=services
     )
 
@@ -673,7 +928,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # Send periodic status updates
             status = {
                 "type": "status",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "services": service_health
             }
             await websocket.send_json(status)

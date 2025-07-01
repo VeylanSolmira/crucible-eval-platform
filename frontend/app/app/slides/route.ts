@@ -1,17 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { saveSlide, deleteSlide, createSlide } from '@/lib/slides/server-actions'
-import { Slide } from '@/lib/slides/loader'
+import type { Slide } from '@/lib/slides/loader'
+
+interface CreateSlideBody {
+  action: 'create'
+  title: string
+  tags: string[]
+}
+
+interface SaveSlideBody {
+  action: 'save'
+  slide: Slide
+}
+
+type SlideRequestBody = CreateSlideBody | SaveSlideBody
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await request.json() as SlideRequestBody
     
     if (body.action === 'create') {
       const { title, tags } = body
       const newSlide = await createSlide(title, tags)
       return NextResponse.json(newSlide)
     } else if (body.action === 'save') {
-      const slide: Slide = body.slide
+      const { slide } = body
       await saveSlide(slide)
       return NextResponse.json({ success: true })
     } else {

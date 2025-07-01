@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Slide } from '@/lib/slides/loader'
+import type { Slide } from '@/lib/slides/loader'
 
 // Dynamically import SlidesContainer to avoid SSR issues with reveal.js
 const SlidesContainer = dynamic(() => import('./SlidesContainer'), {

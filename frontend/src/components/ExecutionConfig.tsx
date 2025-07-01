@@ -6,6 +6,7 @@ export interface ExecutionConfigData {
   timeout: number;
   memoryLimit: number;
   pythonVersion: string;
+  priority: boolean;
 }
 
 interface ExecutionConfigProps {
@@ -40,7 +41,7 @@ export const ExecutionConfig: React.FC<ExecutionConfigProps> = ({
   onChange,
   disabled = false,
 }) => {
-  const handleChange = (field: keyof ExecutionConfigData, value: any) => {
+  const handleChange = (field: keyof ExecutionConfigData, value: string | number | boolean) => {
     onChange({
       ...config,
       [field]: value,
@@ -128,12 +129,50 @@ export const ExecutionConfig: React.FC<ExecutionConfigProps> = ({
         </div>
       )}
 
+      {/* Priority Queue Toggle */}
+      <div className="mt-4 p-4 bg-blue-50 rounded-md">
+        <div className="flex items-center justify-between">
+          <div>
+            <label htmlFor="priority" className="text-sm font-medium text-gray-900">
+              High Priority Queue
+            </label>
+            <p className="text-xs text-gray-600 mt-1">
+              Skip ahead of normal evaluations (limited availability)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleChange('priority', !config.priority)}
+            disabled={disabled}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              config.priority ? 'bg-blue-600' : 'bg-gray-200'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            role="switch"
+            aria-checked={config.priority}
+            aria-labelledby="priority"
+          >
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                config.priority ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+        {config.priority && (
+          <div className="mt-2 text-xs text-blue-700">
+            ⚡ This evaluation will be processed with high priority
+          </div>
+        )}
+      </div>
+
       {/* Configuration Summary */}
       <div className="mt-4 p-3 bg-gray-50 rounded-md">
         <p className="text-sm text-gray-600">
           Your code will run for up to <span className="font-medium">{config.timeout}s</span> with{' '}
           <span className="font-medium">{config.memoryLimit}MB</span> of memory using{' '}
           <span className="font-medium">Python {config.pythonVersion}</span>
+          {config.priority && <span className="text-blue-600 font-medium"> with high priority</span>}
         </p>
       </div>
     </div>

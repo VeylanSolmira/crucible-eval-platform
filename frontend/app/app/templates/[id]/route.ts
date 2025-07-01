@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { loadTemplate } from '@/lib/templates/loader'
 
 export async function GET(

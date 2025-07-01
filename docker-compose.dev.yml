@@ -1,10 +1,15 @@
-version: '3.8'
+# version: '3.8'
 
 services:
   crucible-frontend:
+    # Use development Dockerfile
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     # Minimal override for development with hot reload
     environment:
       - NODE_ENV=development
+      - WATCHPACK_POLLING=true
     volumes:
       # Mount source code for hot reload
       - ./frontend:/app
@@ -13,7 +18,7 @@ services:
       # Mount .next for build cache
       - /app/.next
     # Override command to use dev server
-    command: npm run dev
+    command: npm run dev -- -H 0.0.0.0
     # Must disable read-only for Next.js to write to .next directory
     read_only: false
     

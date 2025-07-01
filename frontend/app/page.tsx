@@ -1,39 +1,37 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import Link from 'next/link'
 import { CodeEditorWithTemplates } from '../src/components/CodeEditorWithTemplates'
-import { ExecutionConfig, ExecutionConfigData } from '../src/components/ExecutionConfig'
-import { ExecutionMonitor } from '../src/components/ExecutionMonitor'
-import { ErrorDisplay } from '../src/components/ErrorDisplay'
-import { useEvaluationFlow, useQueueStatus, useBatchSubmit, useMultipleEvaluations } from '../hooks/useEvaluation'
-import type { EvaluationRequest, EvaluationStatusResponse } from '../hooks/useEvaluation'
+import { ExecutionConfig, type ExecutionConfigData } from '../src/components/ExecutionConfig'
+import { Executions } from '../src/components/RunningEvaluations'
+import { useEvaluationFlow, useQueueStatus, useBatchSubmit } from '../hooks/useEvaluation'
+import type { EvaluationRequest } from '../hooks/useEvaluation'
+import type { BatchSubmissionResult } from '../types/api'
 
 interface EventMessage {
   type: string
-  data: any
+  data: Record<string, unknown>
   timestamp: string
 }
-
-// Use the generated type from OpenAPI
-type EvaluationResultDisplay = EvaluationStatusResponse
 
 export default function ResearcherUI() {
   // State
   const [code, setCode] = useState('')
   const [events, setEvents] = useState<EventMessage[]>([])
-  const eventsEndRef = useRef<HTMLDivElement>(null)
+  // Removed selectedRunningEvalId - now handled inside Executions component
   
   // Execution config
   const [execConfig, setExecConfig] = useState<ExecutionConfigData>({
     timeout: 30,
     memoryLimit: 512,
     pythonVersion: '3.11',
+    priority: false,
   })
 
   // React Query hooks
   const {
     submitCode,
-    reset,
     isSubmitting,
     submitError,
     evalId,
@@ -45,12 +43,12 @@ export default function ResearcherUI() {
 
   const { data: queueStatus } = useQueueStatus()
   const batchSubmit = useBatchSubmit()
-  const [batchResults, setBatchResults] = useState<any[]>([])
-  const [batchEvalIds, setBatchEvalIds] = useState<string[]>([])
-  const { data: batchEvaluations } = useMultipleEvaluations(batchEvalIds)
+  
+  // Track recently submitted evaluation IDs for UI feedback
+  const [recentEvalIds, setRecentEvalIds] = useState<string[]>([])
 
   // Event tracking
-  const addEvent = useCallback((type: string, data: any) => {
+  const addEvent = useCallback((type: string, data: Record<string, unknown>) => {
     const event: EventMessage = {
       type,
       data,
@@ -63,30 +61,18 @@ export default function ResearcherUI() {
   const handleSubmit = async () => {
     try {
       addEvent('submission', { type: 'single', code: code.substring(0, 50) + '...' })
-      await submitCode(code, 'python')
+      const newEvalId = await submitCode(code, 'python', execConfig.priority)
+      // Track the new evaluation ID
+      if (newEvalId) {
+        setRecentEvalIds(prev => [...prev, newEvalId])
+        addEvent('evaluation_submitted', { id: newEvalId })
+      }
     } catch (error) {
       addEvent('error', { message: error instanceof Error ? error.message : 'Failed to submit evaluation' })
     }
   }
 
-  // Kill execution
-  const handleKillExecution = async () => {
-    if (!evalId) return
-    
-    try {
-      // TODO: Implement kill endpoint
-      console.log('Kill execution:', evalId)
-      reset()
-    } catch (error) {
-      console.error('Failed to kill execution:', error)
-    }
-  }
-
-  // Jump to line in editor
-  const handleLineClick = (lineNumber: number) => {
-    // TODO: Implement line jumping in Monaco editor
-    console.log('Jump to line:', lineNumber)
-  }
+  // Kill execution is now handled inside Executions component
 
   // Submit multiple evaluations
   const handleBatchSubmit = async () => {
@@ -99,21 +85,21 @@ export default function ResearcherUI() {
         language: 'python',
         engine: 'docker',
         timeout: 30,
+        priority: false,
       }))
       
-      const results = await batchSubmit.mutateAsync(evaluations)
-      setBatchResults(results)
+      const results = await batchSubmit.mutateAsync(evaluations) as BatchSubmissionResult[]
       
-      // Extract eval IDs for polling
+      // Extract eval IDs and add to recent submissions
       const evalIds = results
-        .filter((r: any) => r.eval_id)
-        .map((r: any) => r.eval_id)
-      setBatchEvalIds(evalIds)
+        .filter((r) => r.eval_id)
+        .map((r) => r.eval_id as string)
+      setRecentEvalIds(prev => [...prev, ...evalIds])
       
-      results.forEach((result: any, index: number) => {
+      results.forEach((result, index) => {
         if (result.error) {
           addEvent('error', { batch_index: index + 1, message: result.error })
-        } else {
+        } else if (result.eval_id) {
           addEvent('evaluation_submitted', { 
             id: result.eval_id, 
             batch_index: index + 1 
@@ -143,13 +129,7 @@ export default function ResearcherUI() {
     }
   }, [isPolling, evalId, evaluation?.status, addEvent])
 
-  // Auto-scroll events
-  useEffect(() => {
-    eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [events])
-
-  // Use evaluation directly since it matches our display type
-  const result: EvaluationResultDisplay | null = evaluation || null
+  // Removed auto-scroll to prevent focus stealing
 
   const isRunning = isPolling && !isComplete
 
@@ -168,6 +148,12 @@ export default function ResearcherUI() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <Link
+                href="/docs"
+                className="px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+              >
+                📚 Documentation
+              </Link>
               <a
                 href="/slides"
                 className="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
@@ -179,6 +165,14 @@ export default function ResearcherUI() {
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
               >
                 Storage Explorer
+              </a>
+              <a
+                href="/flower/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700"
+              >
+                🌻 Flower Dashboard
               </a>
               <div className="text-sm text-gray-500">
                 v2.0.0
@@ -250,7 +244,7 @@ export default function ResearcherUI() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Code Editor & Config */}
+          {/* Left Column - Code Editor Only */}
           <div className="space-y-6">
             {/* Code Editor */}
             <CodeEditorWithTemplates
@@ -259,6 +253,17 @@ export default function ResearcherUI() {
               onSubmit={handleSubmit}
               loading={isSubmitting || isRunning}
             />
+          </div>
+
+          {/* Right Column - Config & Events */}
+          <div className="space-y-6">
+            {/* Submit Error Display */}
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-red-800 mb-1">Submission Error</h3>
+                <p className="text-sm text-red-700">{submitError.message}</p>
+              </div>
+            )}
 
             {/* Execution Config */}
             <ExecutionConfig
@@ -291,104 +296,19 @@ export default function ResearcherUI() {
                         </span>
                       </div>
                     ))}
-                    <div ref={eventsEndRef} />
                   </div>
                 )}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right Column - Monitoring & Results */}
-          <div className="space-y-6">
-            {/* Execution Monitor */}
-            <ExecutionMonitor
-              evalId={evalId}
-              isRunning={isRunning}
-              onKill={handleKillExecution}
-            />
-
-            {/* Submit Error Display */}
-            {submitError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-red-800 mb-1">Submission Error</h3>
-                <p className="text-sm text-red-700">{submitError.message}</p>
-              </div>
-            )}
-
-            {/* Results / Error Display */}
-            {result && (
-              <>
-                {result.status === 'completed' && result.output && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-900">
-                      Execution Results
-                    </h2>
-                    <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm overflow-auto">
-                      {result.output}
-                    </pre>
-                  </div>
-                )}
-
-                {result.status === 'failed' && result.error && (
-                  <ErrorDisplay
-                    error={result.error}
-                    code={code}
-                    onLineClick={handleLineClick}
-                  />
-                )}
-              </>
-            )}
-
-            {/* Batch Results */}
-            {batchResults.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-semibold mb-4 text-gray-900">
-                  Batch Results ({batchResults.length})
-                </h2>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {batchResults.map((result, index) => {
-                    // Find the current status from polling data
-                    const currentEval = batchEvaluations?.find(e => e.eval_id === result.eval_id)
-                    const status = currentEval?.status || 'queued'
-                    
-                    return (
-                      <div key={index} className="p-3 border border-gray-200 rounded-md">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-sm">Evaluation {index + 1}</span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            status === 'completed' ? 'bg-green-100 text-green-800' :
-                            status === 'failed' ? 'bg-red-100 text-red-800' :
-                            status === 'running' ? 'bg-blue-100 text-blue-800' :
-                            status === 'queued' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {status.toUpperCase()}
-                          </span>
-                        </div>
-                        {result.error ? (
-                          <p className="text-sm text-red-600">{result.error}</p>
-                        ) : (
-                          <>
-                            <p className="text-sm text-gray-600 font-mono">ID: {result.eval_id}</p>
-                            {currentEval?.status === 'completed' && currentEval.output && (
-                              <pre className="mt-2 p-2 bg-gray-50 rounded text-xs overflow-x-auto font-mono">
-                                {currentEval.output}
-                              </pre>
-                            )}
-                            {currentEval?.status === 'failed' && currentEval.error && (
-                              <pre className="mt-2 p-2 bg-red-50 text-red-700 rounded text-xs overflow-x-auto font-mono">
-                                {currentEval.error}
-                              </pre>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Unified Executions View */}
+        <div className="mt-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Executions</h2>
+          <Executions 
+            recentEvalIds={recentEvalIds}
+          />
         </div>
       </div>
     </div>

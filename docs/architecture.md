@@ -1,11 +1,13 @@
 # Platform Architecture
 
+[[Crucible]] is the codename for this evaluation platform.
+
 ## Executive Summary
 
-This document details the architecture of the METR Model Evaluation Platform, a system designed to safely and efficiently evaluate AI models for potentially dangerous capabilities. The architecture prioritizes **security**, **scalability**, and **observability** while maintaining developer ergonomics.
+This document details the architecture of the [[METR]] Model Evaluation Platform, a system designed to safely and efficiently evaluate AI models for potentially dangerous capabilities. The architecture prioritizes **security**, **scalability**, and **observability** while maintaining developer ergonomics.
 
 ### Key Design Principles
-1. **Defense in Depth**: Multiple layers of security to prevent model escape
+1. **Defense in Depth**: Multiple layers of security to prevent model escape (see [[Container Isolation]])
 2. **Fail-Safe Defaults**: System fails closed, not open
 3. **Observability First**: Every action is logged and monitored
 4. **Horizontal Scalability**: Can handle 10 to 10,000 concurrent evaluations
@@ -21,14 +23,16 @@ Defense in Depth would be most critical. A model attempting network access could
 
 ## System Design
 
+The platform uses a [[Microservices]] architecture pattern for modularity and scalability. For deployment details, see [[Deployment/EC2]].
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     METR Evaluation Platform                │
+│                     [[METR]] Evaluation Platform                │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────┐    ┌──────────────-┐    ┌───────────────┐  │
 │  │   Frontend  │────│   API Service │────│  Auth Service │  │
-│  │  TypeScript │    │    (FastAPI)  │    │    (OAuth2)   │  │
+│  │  [[TypeScript]] │    │    ([[FastAPI]])  │    │    (OAuth2)   │  │
 │  └─────────────┘    └───────┬───────┘    └───────────────┘  │
 │                             │                               │
 │  ┌──────────────────────────┴─────────────────────────--┐   │
@@ -40,10 +44,11 @@ Defense in Depth would be most critical. A model attempting network access could
 │  └─────────────────────┬─────────────────────────────---┘   │
 │                        │                                    │
 │  ┌─────────────────────┴──────────────────────────────--┐   │
-│  │            Kubernetes Cluster (EKS/GKE)              │   │
+│  │            [[Kubernetes]] Cluster ([[AWS]] EKS/GKE)              │   │
 │  │  ┌────────────┐  ┌────────────┐  ┌──────────────┐    │   │
 │  │  │ Eval Pods  │  │ Monitoring │  │   Storage    │    │   │
 │  │  │ (Isolated) │  │ Prometheus │  │   (S3/GCS)   │    │   │
+│  │  │ [[Docker]] │  │            │  │              │    │   │
 │  │  └────────────┘  └────────────┘  └──────────────┘    │   │
 │  └────────────────────────────────────────────────────-─┘   │
 │                                                             │
@@ -57,11 +62,11 @@ Defense in Depth would be most critical. A model attempting network access could
 ### 1. Frontend Dashboard
 
 #### What We're Building
-A real-time monitoring dashboard that provides visibility into ongoing AI model evaluations, resource usage, and safety alerts. This is the primary interface for researchers and safety engineers to track evaluation progress.
+A real-time monitoring dashboard that provides visibility into ongoing AI model evaluations, resource usage, and safety alerts. This is the primary interface for researchers and safety engineers to track evaluation progress. For local development setup, see [[Development/Local Setup]].
 
 **Technology Stack**:
 - **React 18**: Latest React for concurrent features and suspense
-- **TypeScript 4.9+**: Type safety and better IDE support
+- **[[TypeScript]] 4.9+**: Type safety and better IDE support
 - **Material-UI v5**: Consistent, accessible component library
 - **Redux Toolkit**: State management with RTK Query for API calls
 - **Socket.io Client**: WebSocket connection for real-time updates
@@ -90,6 +95,8 @@ A real-time monitoring dashboard that provides visibility into ongoing AI model 
 
 #### Why This Approach
 
+For more details on our security approach, see [[Security/Threat Model]].
+
 **Business Requirements Addressed**:
 - **Visibility**: Researchers need to monitor long-running evaluations
 - **Safety**: Immediate alerts for dangerous model behavior
@@ -97,7 +104,7 @@ A real-time monitoring dashboard that provides visibility into ongoing AI model 
 - **Planning**: Historical data for resource allocation
 
 **Technical Benefits**:
-1. **React + TypeScript**: Industry standard, large talent pool, excellent tooling
+1. **React + [[TypeScript]]**: Industry standard, large talent pool, excellent tooling
 2. **Material-UI**: Reduces development time, ensures accessibility
 3. **WebSockets**: Low-latency updates critical for safety monitoring
 4. **Redux Toolkit**: Simplified state management with caching

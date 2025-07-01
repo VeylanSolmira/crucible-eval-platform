@@ -216,7 +216,7 @@ services:
       - QUEUE_SERVICE_URL=http://queue:8081
       - QUEUE_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
       - REDIS_URL=redis://redis:6379
-      - EXECUTOR_COUNT=1  # Reduced for t2.micro constraints
+      - EXECUTOR_COUNT=2  # Using executor-1 and executor-2 only
       - EXECUTOR_BASE_URL=http://executor
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
@@ -251,11 +251,15 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
       - DOCKER_HOST=tcp://docker-proxy:2375
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       base:
         condition: service_completed_successfully
       docker-proxy:
         condition: service_started
+      redis:
+        condition: service_healthy
     networks:
       - default
       - docker-api
@@ -277,13 +281,13 @@ services:
 
   # Additional executors commented out for t2.micro resource constraints
   # Uncomment for larger instances or production
-  # executor-2:
-  #   extends: executor-1
-  #   container_name: executor-2
-  #
-  # executor-3:
-  #   extends: executor-1
-  #   container_name: executor-3
+  executor-2:
+    extends: executor-1
+    container_name: executor-2
+  
+  executor-3:
+    extends: executor-1
+    container_name: executor-3
 
   # Storage Worker - Handles all database writes via events
   storage-worker:
@@ -357,7 +361,7 @@ services:
     tmpfs:
       - /tmp:size=100M,noexec
 
-  # Redis for Event Bus and Future Celery
+  # Redis for Event Bus
   redis:
     image: redis:7-alpine
     container_name: crucible-redis
@@ -365,13 +369,23 @@ services:
       - "6379:6379"  # For development access
     volumes:
       - redis-data:/data
+    # Event broker configuration - balanced for pub/sub with some persistence
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy volatile-lru
+      --save "900 1"
+      --save "300 10"
+      --save "60 10000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    mem_limit: 100m  # Redis is memory efficient
+    mem_limit: 100m  # Increased for event broker usage
 
   # Nginx Reverse Proxy
   nginx:

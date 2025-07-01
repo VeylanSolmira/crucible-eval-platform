@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Slide } from '@/lib/slides/loader'
+import type { Slide } from '@/lib/slides/loader'
 
 interface SlideListProps {
   slides: Slide[]

@@ -14,3 +14,4 @@ components:
         - running   # Evaluation is currently being executed
         - completed # Evaluation finished successfully
         - failed    # Evaluation failed due to error or timeout
+        - cancelled # Evaluation was cancelled by user request

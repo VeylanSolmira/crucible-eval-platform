@@ -8,7 +8,7 @@ import json
 import asyncio
 import logging
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 # Add parent directory to path
@@ -60,15 +60,25 @@ class StorageWorker:
         
         self.running = True
         self.events_processed = 0
+        
+        # Log batching
+        self.log_buffers: Dict[str, List[Dict]] = {}  # eval_id -> log entries
+        self.log_buffer_timers: Dict[str, asyncio.Task] = {}  # eval_id -> flush timer
+        self.log_batch_size = 100  # Flush after 100 log entries
+        self.log_batch_timeout = 5.0  # Flush after 5 seconds
     
     async def start(self):
         """Start listening for events"""
         # Subscribe to relevant channels
         await self.pubsub.subscribe(
             "evaluation:queued",
+            "evaluation:running",
             "evaluation:completed",
             "evaluation:failed"
         )
+        
+        # Subscribe to log channels using pattern
+        await self.pubsub.psubscribe("evaluation:*:logs")
         
         logger.info("Storage worker started, listening for events...")
         
@@ -85,14 +95,21 @@ class StorageWorker:
         channel = message['channel'].decode('utf-8')
         try:
             data = json.loads(message['data'])
-            logger.info(f"Received event on {channel}: {data.get('eval_id', 'unknown')}")
             
-            if channel == "evaluation:queued":
-                await self.handle_evaluation_queued(data)
-            elif channel == "evaluation:completed":
-                await self.handle_evaluation_completed(data)
-            elif channel == "evaluation:failed":
-                await self.handle_evaluation_failed(data)
+            # Check if this is a log event
+            if ':logs' in channel:
+                await self.handle_log_event(channel, data)
+            else:
+                logger.info(f"Received event on {channel}: {data.get('eval_id', 'unknown')}")
+                
+                if channel == "evaluation:queued":
+                    await self.handle_evaluation_queued(data)
+                elif channel == "evaluation:running":
+                    await self.handle_evaluation_running(data)
+                elif channel == "evaluation:completed":
+                    await self.handle_evaluation_completed(data)
+                elif channel == "evaluation:failed":
+                    await self.handle_evaluation_failed(data)
                 
             self.events_processed += 1
             
@@ -100,6 +117,83 @@ class StorageWorker:
             logger.error(f"Invalid JSON in message: {e}")
         except Exception as e:
             logger.error(f"Error handling message on {channel}: {e}")
+    
+    async def handle_log_event(self, channel: str, data: Dict[str, Any]):
+        """Handle log events with batching"""
+        eval_id = data.get('eval_id')
+        if not eval_id:
+            return
+        
+        # Add to buffer
+        if eval_id not in self.log_buffers:
+            self.log_buffers[eval_id] = []
+        
+        self.log_buffers[eval_id].append(data)
+        
+        # Check if we should flush
+        should_flush = (
+            len(self.log_buffers[eval_id]) >= self.log_batch_size or
+            data.get('is_final', False)
+        )
+        
+        if should_flush:
+            # Cancel any existing timer
+            if eval_id in self.log_buffer_timers:
+                self.log_buffer_timers[eval_id].cancel()
+                del self.log_buffer_timers[eval_id]
+            
+            # Flush immediately
+            await self.flush_logs(eval_id)
+        else:
+            # Schedule a flush if not already scheduled
+            if eval_id not in self.log_buffer_timers:
+                timer = asyncio.create_task(self.delayed_flush(eval_id))
+                self.log_buffer_timers[eval_id] = timer
+    
+    async def delayed_flush(self, eval_id: str):
+        """Flush logs after timeout"""
+        await asyncio.sleep(self.log_batch_timeout)
+        await self.flush_logs(eval_id)
+        if eval_id in self.log_buffer_timers:
+            del self.log_buffer_timers[eval_id]
+    
+    async def flush_logs(self, eval_id: str):
+        """Flush buffered logs to storage"""
+        if eval_id not in self.log_buffers or not self.log_buffers[eval_id]:
+            return
+        
+        logs = self.log_buffers[eval_id]
+        self.log_buffers[eval_id] = []
+        
+        try:
+            # Combine all log content
+            combined_logs = "\n".join(log['content'] for log in logs)
+            
+            # Update storage service
+            response = await self.client.post(
+                f"{self.storage_url}/evaluations/{eval_id}/logs",
+                json={
+                    "content": combined_logs,
+                    "append": True,  # Append to existing logs
+                    "timestamp": logs[-1]['timestamp'],  # Use last timestamp
+                    "last_update": logs[-1]['timestamp']  # Update last activity time
+                }
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Flushed {len(logs)} log entries for {eval_id}")
+                
+                # Also update Redis cache
+                await self.redis.setex(
+                    f"logs:{eval_id}:latest",
+                    300,  # 5 minute TTL
+                    combined_logs
+                )
+            else:
+                logger.error(f"Failed to flush logs for {eval_id}: {response.status_code}")
+                
+        except Exception as e:
+            logger.error(f"Error flushing logs for {eval_id}: {e}")
     
     async def handle_evaluation_queued(self, data: Dict[str, Any]):
         """Handle evaluation queued event"""
@@ -128,7 +222,7 @@ class StorageWorker:
                 # Publish confirmation event (other services can listen)
                 await self.redis.publish(
                     "storage:evaluation:created",
-                    json.dumps({"eval_id": eval_id, "timestamp": datetime.utcnow().isoformat()})
+                    json.dumps({"eval_id": eval_id, "timestamp": datetime.now(timezone.utc).isoformat()})
                 )
             else:
                 logger.error(f"Failed to store queued evaluation {eval_id}: {response.status_code}")
@@ -136,10 +230,64 @@ class StorageWorker:
         except Exception as e:
             logger.error(f"Error storing queued evaluation {eval_id}: {e}")
     
+    async def handle_evaluation_running(self, data: Dict[str, Any]):
+        """Handle evaluation running event - store executor assignment in Redis"""
+        eval_id = data.get('eval_id')
+        executor_id = data.get('executor_id')
+        container_id = data.get('container_id')
+        
+        if not eval_id or not executor_id:
+            logger.error(f"Missing required fields in running event: {data}")
+            return
+        
+        try:
+            # Update PostgreSQL status to running
+            response = await self.client.put(
+                f"{self.storage_url}/evaluations/{eval_id}",
+                json={"status": EvaluationStatus.RUNNING.value}
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Failed to update status to running for {eval_id}: {response.status_code}")
+                return
+                
+            # Store transient executor info in Redis
+            running_info = {
+                "executor_id": executor_id,
+                "container_id": container_id,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "timeout": data.get('timeout', 30)
+            }
+            
+            # Set TTL to timeout + 60 second buffer
+            ttl = data.get('timeout', 30) + 60
+            await self.redis.setex(
+                f"eval:{eval_id}:running",
+                ttl,
+                json.dumps(running_info)
+            )
+            
+            # Add to running evaluations set
+            await self.redis.sadd("running_evaluations", eval_id)
+            
+            logger.info(f"Stored running info for {eval_id} on {executor_id}")
+            
+            # Publish confirmation event
+            await self.redis.publish(
+                "storage:evaluation:running",
+                json.dumps({
+                    "eval_id": eval_id,
+                    "executor_id": executor_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+            )
+            
+        except Exception as e:
+            logger.error(f"Error handling running evaluation {eval_id}: {e}")
+    
     async def handle_evaluation_completed(self, data: Dict[str, Any]):
         """Handle evaluation completed event"""
         eval_id = data.get('eval_id')
-        result = data.get('result', {})
         
         if not eval_id:
             logger.error(f"Missing eval_id in completed event: {data}")
@@ -151,21 +299,34 @@ class StorageWorker:
                 f"{self.storage_url}/evaluations/{eval_id}",
                 json={
                     "status": EvaluationStatus.COMPLETED.value,
-                    "output": result.get('output'),
-                    "error": result.get('error'),
-                    "metadata": result.get('metadata', {})
+                    "output": data.get('output', ''),
+                    "error": data.get('error', ''),
+                    "metadata": data.get('metadata', {})
                 }
             )
             
             if response.status_code == 200:
                 logger.info(f"Updated completed evaluation {eval_id}")
+                
+                # Clean up Redis running info
+                await self.redis.delete(f"eval:{eval_id}:running")
+                await self.redis.srem("running_evaluations", eval_id)
+                
+                # Flush any remaining logs
+                if eval_id in self.log_buffers:
+                    await self.flush_logs(eval_id)
+                    del self.log_buffers[eval_id]
+                if eval_id in self.log_buffer_timers:
+                    self.log_buffer_timers[eval_id].cancel()
+                    del self.log_buffer_timers[eval_id]
+                
                 # Publish confirmation event
                 await self.redis.publish(
                     "storage:evaluation:updated",
                     json.dumps({
                         "eval_id": eval_id,
                         "status": EvaluationStatus.COMPLETED.value,
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     })
                 )
             else:
@@ -195,13 +356,18 @@ class StorageWorker:
             
             if response.status_code == 200:
                 logger.info(f"Updated failed evaluation {eval_id}")
+                
+                # Clean up Redis running info
+                await self.redis.delete(f"eval:{eval_id}:running")
+                await self.redis.srem("running_evaluations", eval_id)
+                
                 # Publish confirmation event
                 await self.redis.publish(
                     "storage:evaluation:updated",
                     json.dumps({
                         "eval_id": eval_id,
                         "status": EvaluationStatus.FAILED.value,
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     })
                 )
             else:

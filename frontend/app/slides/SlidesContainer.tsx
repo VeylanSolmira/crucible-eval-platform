@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Slide } from '@/lib/slides/loader'
+import type { Slide } from '@/lib/slides/loader'
 import { SlideList } from '@/components/slides/SlideList'
 import { SlideViewer } from '@/components/slides/SlideViewer'
 import { SlideEditor } from '@/components/slides/SlideEditor'

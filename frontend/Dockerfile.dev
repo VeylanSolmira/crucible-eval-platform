@@ -1,0 +1,19 @@
+# Development Dockerfile for Next.js with hot reload
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install ALL dependencies (including devDependencies)
+RUN npm ci
+
+# The source code will be mounted as a volume
+# So we don't COPY it here
+
+# Expose the dev server port
+EXPOSE 3000
+
+# Default command (can be overridden)
+CMD ["npm", "run", "dev"]

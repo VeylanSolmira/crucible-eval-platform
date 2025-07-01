@@ -1,6 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { templateMetadata, TemplateMetadata } from './metadata'
+import { templateMetadata, type TemplateMetadata } from './metadata'
 
 export interface CodeTemplate extends TemplateMetadata {
   code: string

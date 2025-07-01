@@ -5,7 +5,7 @@ but using simple Python data structures.
 """
 import os
 from typing import Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from collections import deque
 import json
@@ -147,7 +147,7 @@ async def enqueue_task(
         "language": request.language,
         "engine": request.engine,
         "timeout": request.timeout,
-        "queued_at": datetime.utcnow(),
+        "queued_at": datetime.now(timezone.utc),
         "position": len(task_queue)  # Position in queue
     }
     

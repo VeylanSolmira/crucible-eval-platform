@@ -1,5 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { updateSlideContent, deleteSlide } from '@/lib/slides/server-actions'
+
+interface UpdateSlideBody {
+  content: string
+}
 
 export async function PUT(
   request: NextRequest,
@@ -7,7 +11,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const { content } = await request.json()
+    const body = await request.json() as UpdateSlideBody
+    const { content } = body
     
     if (!content) {
       return NextResponse.json(

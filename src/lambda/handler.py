@@ -4,7 +4,7 @@ Lambda handler for evaluation submission API
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import boto3
 
 sqs = boto3.client('sqs')
@@ -42,7 +42,7 @@ def submit_evaluation(event, context):
             'evaluation_id': evaluation_id,
             'script': script,
             'model_id': body.get('model_id', 'default'),
-            'submitted_at': datetime.utcnow().isoformat(),
+            'submitted_at': datetime.now(timezone.utc).isoformat(),
             'status': 'queued'
         }
         

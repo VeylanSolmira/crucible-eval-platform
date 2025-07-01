@@ -14,3 +14,4 @@ class EvaluationStatus(str, Enum):
     RUNNING = "running"  # Evaluation is currently being executed
     COMPLETED = "completed"  # Evaluation finished successfully
     FAILED = "failed"  # Evaluation failed due to error or timeout
+    CANCELLED = "cancelled"  # Evaluation was cancelled by user request

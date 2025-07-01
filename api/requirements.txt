@@ -9,6 +9,7 @@ pydantic==2.5.0
 # Service communication
 httpx==0.25.0
 redis==5.0.1
+celery==5.3.6  # For dual-write to Celery queue
 
 # Utilities
 structlog==23.2.0

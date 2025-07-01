@@ -8,7 +8,7 @@ import Notes from 'reveal.js/plugin/notes/notes'
 import 'reveal.js/dist/reveal.css'
 import 'reveal.js/dist/theme/black.css'
 import 'reveal.js/plugin/highlight/monokai.css'
-import { Slide } from '@/lib/slides/loader'
+import type { Slide } from '@/lib/slides/loader'
 
 interface SlideViewerProps {
   slides: Slide[]

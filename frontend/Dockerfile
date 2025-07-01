@@ -20,6 +20,19 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci --only=production
 
+# Stage 2.5: Docs Preprocessor
+FROM node:20-alpine AS docs-processor
+WORKDIR /app
+# Copy package files and install deps needed for markdown processing
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+# Copy scripts and docs
+COPY frontend/scripts ./scripts
+COPY docs/ ./docs/
+COPY infrastructure/**/*.md ./infrastructure/
+# Run preprocessing
+RUN npm install gray-matter && node scripts/preprocess-docs.js
+
 # Stage 3: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -27,14 +40,28 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 COPY frontend/ .
 
+# Copy documentation from root directory
+COPY docs/ ./docs/
+
+# Copy only markdown files from infrastructure, preserving paths
+COPY infrastructure/**/*.md ./infrastructure/
+
 # Copy generated types from type-generator stage
 COPY --from=type-generator /app/types/generated ./types/generated
+
+# Copy preprocessed docs cache from docs-processor stage
+COPY --from=docs-processor /app/.docs-cache ./.docs-cache
 
 # Ensure lib/templates directory is included
 # (This is already copied by COPY frontend/ . but let's be explicit)
 RUN ls -la lib/templates || echo "Templates directory missing!"
 
 ENV NEXT_TELEMETRY_DISABLED 1
+# Increase timeout and reduce parallelism for docs build
+ENV NEXT_STATIC_PAGE_GENERATION_TIMEOUT=240
+# Reduce concurrent builds to prevent resource exhaustion
+ENV NEXT_EXPERIMENTAL_WORKER_THREADS=false
+ENV NEXT_EXPERIMENTAL_CPUS=2
 ARG API_URL
 ENV API_URL=${API_URL}
 RUN npm run build
@@ -55,6 +82,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy lib/templates for runtime access
 COPY --from=builder --chown=nextjs:nodejs /app/lib/templates ./lib/templates
+
+# Copy docs for runtime access
+COPY --from=builder --chown=nextjs:nodejs /app/docs ./docs
+
+# Copy infrastructure markdown files for runtime access
+COPY --from=builder --chown=nextjs:nodejs /app/infrastructure ./infrastructure
 
 USER nextjs
 EXPOSE 3000

@@ -1,0 +1,99 @@
+# Celery services overlay for docker-compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.celery.yml up
+
+# version: '3.8'
+
+services:
+  # API service configuration for Celery
+  api-service:
+    environment:
+      - CELERY_ENABLED=true
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+    depends_on:
+      celery-redis:
+        condition: service_healthy
+
+  # Separate Redis for Celery (isolation from main queue)
+  celery-redis:
+    image: redis:7-alpine
+    container_name: crucible-celery-redis
+    ports:
+      - "6380:6379"  # Different port to avoid conflict
+    volumes:
+      - celery_redis_data:/data
+    # Celery queue configuration - optimized for task queueing
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save "900 1"
+      --save "300 10"
+      --save "60 10000"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - default
+    mem_limit: 300m  # Higher limit for task queuing
+
+  # Celery worker
+  celery-worker:
+    build: ./celery-worker
+    container_name: crucible-celery-worker
+    environment:
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://celery-redis:6379/1
+      - EXECUTOR_SERVICE_URL=http://executor-3:8083
+      - EXECUTOR_COUNT=1  # Override to prevent discovery
+      - EXECUTOR_BASE_URL=http://executor-3  # Point directly to executor-3
+      - STORAGE_SERVICE_URL=http://storage-service:8082
+      - CELERY_DEVELOPMENT=true
+    depends_on:
+      celery-redis:
+        condition: service_healthy
+    volumes:
+      - ./celery-worker:/app  # For development hot reload
+    command: celery -A tasks worker --loglevel=info --concurrency=2 -Q high_priority,evaluation,batch,maintenance
+    networks:
+      - default
+
+  # Flower monitoring dashboard
+  flower:
+    image: mher/flower:2.0
+    container_name: crucible-flower
+    environment:
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - FLOWER_PORT=5555
+      - FLOWER_BASIC_AUTH=admin:crucible  # Change in production!
+    ports:
+      - "5555:5555"
+    depends_on:
+      - celery-redis
+    networks:
+      - default
+    command: celery flower --broker=redis://celery-redis:6379/0 --port=5555
+
+  # Optional: Celery Beat for scheduled tasks
+  celery-beat:
+    build: ./celery-worker
+    container_name: crucible-celery-beat
+    environment:
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://celery-redis:6379/1
+    depends_on:
+      - celery-redis
+    volumes:
+      - ./celery-worker:/app
+    command: celery -A tasks beat --loglevel=info
+    networks:
+      - default
+
+volumes:
+  celery_redis_data:
+    driver: local
+
+# Networks are inherited from main docker-compose.yml when using -f

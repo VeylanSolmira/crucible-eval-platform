@@ -2,32 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-
-interface DatabaseDetails {
-  backend: string
-  connection: string
-  tables: {
-    evaluations: {
-      count: number
-      by_status: Record<string, number>
-      columns: string[]
-    }
-    evaluation_events: {
-      count: number
-      columns: string[]
-    }
-  }
-  recent_evaluations: Array<{
-    id: string
-    code: string
-    language: string
-    status: string
-    created_at?: string
-    completed_at?: string
-    output?: string
-    error?: string
-  }>
-}
+import type { DatabaseDetails } from '@/types/storage'
 
 function formatTimestamp(timestamp?: string): string {
   if (!timestamp) return 'N/A'
@@ -41,7 +16,7 @@ export default function DatabasePage() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchDatabaseDetails()
+    void fetchDatabaseDetails()
   }, [])
 
   const fetchDatabaseDetails = async () => {
@@ -50,7 +25,7 @@ export default function DatabasePage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json()
+      const data = await response.json() as DatabaseDetails
       setDetails(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch database details')

@@ -6,67 +6,99 @@ info:
   version: 1.0.0
 components:
   schemas:
-    BaseEvent:
+    # Note: These schemas match the actual implementation in executor-service/app.py
+    # and storage-worker/app.py. Any changes here require updating those services.
+    
+    # Evaluation queued - Published by API when evaluation is submitted
+    EvaluationQueuedEvent:
       type: object
       required:
-        - event_id
-        - timestamp
         - eval_id
+        - code
       properties:
-        event_id:
-          type: string
-          description: Unique identifier for this event
-        timestamp:
-          type: string
-          format: date-time
-          description: When the event occurred
         eval_id:
           type: string
-          description: The evaluation this event relates to
+          description: The evaluation identifier
+        code:
+          type: string
+          description: Python code to execute
+        language:
+          type: string
+          default: python
+          description: Programming language (currently only python supported)
+        metadata:
+          type: object
+          description: Additional metadata for the evaluation
           
-    EvaluationQueuedEvent:
-      allOf:
-        - $ref: '#/components/schemas/BaseEvent'
-        - type: object
-          properties:
-            queue_position:
-              type: integer
-              description: Position in the queue
+    # Evaluation running - Published by queue-worker when executor starts
+    EvaluationRunningEvent:
+      type: object
+      required:
+        - eval_id
+        - executor_id
+        - container_id
+      properties:
+        eval_id:
+          type: string
+          description: The evaluation identifier
+        executor_id:
+          type: string
+          description: ID of the executor service handling this evaluation
+        container_id:
+          type: string
+          description: Docker container ID where code is running
+        timeout:
+          type: integer
+          default: 30
+          description: Execution timeout in seconds
               
-    EvaluationStartedEvent:
-      allOf:
-        - $ref: '#/components/schemas/BaseEvent'
-        - type: object
-          properties:
-            executor_id:
-              type: string
-              description: Which executor is running this evaluation
-              
+    # Evaluation completed - Published by executor when container exits
     EvaluationCompletedEvent:
-      allOf:
-        - $ref: '#/components/schemas/BaseEvent'
-        - type: object
-          required:
-            - output
-          properties:
-            output:
-              type: string
-              description: The output from the evaluation
-            exit_code:
-              type: integer
-              description: Process exit code
+      type: object
+      required:
+        - eval_id
+        - status
+        - exit_code
+        - executor_id
+        - completed_at
+      properties:
+        eval_id:
+          type: string
+          description: The evaluation identifier
+        status:
+          type: string
+          enum: [completed, failed, timeout]
+          description: Final status based on exit code
+        output:
+          type: string
+          description: Standard output from the evaluation
+        error:
+          type: string
+          description: Standard error from the evaluation
+        exit_code:
+          type: integer
+          description: Process exit code (0=success, 124=timeout, other=error)
+        executor_id:
+          type: string
+          description: ID of the executor that ran this
+        completed_at:
+          type: string
+          format: date-time
+          description: ISO timestamp of completion
               
+    # Evaluation failed - Published by queue-worker if executor rejects/fails
     EvaluationFailedEvent:
-      allOf:
-        - $ref: '#/components/schemas/BaseEvent'
-        - type: object
-          required:
-            - error
-          properties:
-            error:
-              type: string
-              description: Error message explaining the failure
-            error_type:
-              type: string
-              enum: [timeout, execution_error, system_error]
-              description: Category of failure
+      type: object
+      required:
+        - eval_id
+        - error
+      properties:
+        eval_id:
+          type: string
+          description: The evaluation identifier
+        error:
+          type: string
+          description: Error message explaining the failure
+        executor_id:
+          type: string
+          description: ID of executor if failure occurred during execution

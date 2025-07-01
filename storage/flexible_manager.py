@@ -220,6 +220,13 @@ class FlexibleStorageManager:
                 # TODO: Store full error to S3/filesystem and set error_location
         
         # Update any additional fields
+        # Special handling for metadata - merge instead of replace
+        if 'metadata' in kwargs:
+            existing_metadata = current.get('metadata', {})
+            new_metadata = kwargs.pop('metadata')
+            current['metadata'] = {**existing_metadata, **new_metadata}
+        
+        # Update other fields normally
         current.update(kwargs)
         
         # Update cache
@@ -355,6 +362,32 @@ class FlexibleStorageManager:
                 except Exception:
                     pass
         return []
+    
+    def count_evaluations(self, status: Optional[str] = None) -> int:
+        """Count total evaluations, optionally filtered by status."""
+        # Try to get count from primary backend
+        if hasattr(self.primary, 'count_evaluations'):
+            try:
+                return self.primary.count_evaluations(status)
+            except Exception as e:
+                print(f"Failed to count evaluations: {e}")
+        
+        # Fallback to counting via list (inefficient but works)
+        try:
+            all_items = self.primary.list_evaluations(limit=100000, offset=0)
+            if status:
+                # Need to fetch each evaluation to check status
+                count = 0
+                for eval_id in all_items:
+                    eval_data = self.get_evaluation(eval_id)
+                    if eval_data and eval_data.get('status') == status:
+                        count += 1
+                return count
+            else:
+                return len(all_items)
+        except Exception as e:
+            print(f"Failed to count evaluations via list: {e}")
+            return 0
     
     def delete_evaluation(self, eval_id: str) -> bool:
         """Delete an evaluation and all associated data."""

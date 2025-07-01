@@ -5,7 +5,8 @@ Provides read/write access to evaluation data through a clean API
 import os
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
+import json
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +14,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 import uvicorn
 import yaml
+import redis.asyncio as redis
 
 from storage import FlexibleStorageManager
 from storage.config import StorageConfig
@@ -43,6 +45,23 @@ app.add_middleware(
 storage_config = StorageConfig.from_environment()
 storage = FlexibleStorageManager.from_config(storage_config)
 
+# Initialize Redis for transient running info
+redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+redis_client = None  # Will be initialized in startup event
+
+@app.on_event("startup")
+async def startup_event():
+    global redis_client
+    redis_client = await redis.from_url(redis_url)
+    logger.info("Connected to Redis")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global redis_client
+    if redis_client:
+        await redis_client.close()
+        logger.info("Disconnected from Redis")
+
 # Determine which backend is primary based on config
 primary_backend = "memory"  # default
 if storage_config.database_url and storage_config.prefer_database:
@@ -57,6 +76,7 @@ logger.info(f"  Database URL: {'configured' if storage_config.database_url else 
 logger.info(f"  File storage: {storage_config.file_storage_path or 'not configured'}")
 logger.info(f"  Cache enabled: {storage_config.enable_caching}")
 logger.info(f"  Large file threshold: {storage_config.large_file_threshold} bytes")
+logger.info(f"  Redis URL: {redis_url}")
 
 # The FlexibleStorageManager handles:
 # - Database for structured data and queries
@@ -149,7 +169,7 @@ async def health():
         "status": "healthy" if storage_healthy else "unhealthy",
         "service": "storage",
         "storage_backend": primary_backend,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 # Storage info endpoint
@@ -281,9 +301,12 @@ async def list_evaluations(
         # Convert to response models
         evaluation_responses = [EvaluationResponse(**e) for e in evaluations]
         
+        # Get the total count from storage using proper count method
+        total_count = storage.count_evaluations(status=status)
+        
         return EvaluationListResponse(
             evaluations=evaluation_responses,
-            total=len(evaluation_responses),
+            total=total_count,
             limit=limit,
             offset=offset,
             has_more=has_more
@@ -303,13 +326,58 @@ async def delete_evaluation(eval_id: str):
     # Mark as deleted instead of hard delete
     success = storage.update_evaluation(
         eval_id,
-        deleted_at=datetime.utcnow().isoformat()
+        deleted_at=datetime.now(timezone.utc).isoformat()
     )
     
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete evaluation")
     
     return {"message": "Evaluation deleted successfully"}
+
+@app.get("/evaluations/{eval_id}/running")
+async def get_running_info(eval_id: str):
+    """Get running container info from Redis for active evaluations"""
+    try:
+        # Check Redis for transient running info
+        running_data = await redis_client.get(f"eval:{eval_id}:running")
+        if not running_data:
+            raise HTTPException(status_code=404, detail="Evaluation not running")
+            
+        return json.loads(running_data)
+    except json.JSONDecodeError:
+        logger.error(f"Invalid JSON in Redis for {eval_id}")
+        raise HTTPException(status_code=500, detail="Invalid running data")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting running info for {eval_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/evaluations/running")
+async def list_running_evaluations():
+    """List all currently running evaluations"""
+    try:
+        # Get all running evaluation IDs from Redis set
+        running_ids = await redis_client.smembers("running_evaluations")
+        
+        running_evaluations = []
+        for eval_id_bytes in running_ids:
+            eval_id = eval_id_bytes.decode('utf-8')
+            
+            # Get running info for each
+            running_data = await redis_client.get(f"eval:{eval_id}:running")
+            if running_data:
+                info = json.loads(running_data)
+                info['eval_id'] = eval_id
+                running_evaluations.append(info)
+        
+        return {
+            "running_evaluations": running_evaluations,
+            "count": len(running_evaluations)
+        }
+    except Exception as e:
+        logger.error(f"Error listing running evaluations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Event endpoints
 @app.post("/evaluations/{eval_id}/events", response_model=EventResponse)
@@ -334,7 +402,7 @@ async def add_event(eval_id: str, event: EventCreate):
     # Return the event with timestamp
     return EventResponse(
         type=event.type,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         message=event.message,
         metadata=event.metadata
     )
@@ -399,7 +467,7 @@ async def get_statistics(
         success_rate = completed / (completed + failed) if (completed + failed) > 0 else 0.0
         
         # Last 24h count
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         last_24h = [
             e for e in evaluations
             if e.get('created_at') and
@@ -760,6 +828,88 @@ async def export_openapi_spec():
     except Exception as e:
         logger.error(f"Failed to export OpenAPI spec: {e}")
         # Don't fail startup if export fails
+
+# Logs endpoints
+@app.post("/evaluations/{eval_id}/logs")
+async def append_evaluation_logs(eval_id: str, request: Dict[str, Any]):
+    """Append logs to an evaluation"""
+    content = request.get('content', '')
+    append = request.get('append', True)
+    timestamp = request.get('timestamp')
+    
+    # Get existing evaluation
+    existing = storage.get_evaluation(eval_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Evaluation not found")
+    
+    # Handle log appending
+    if append:
+        current_output = existing.get('output', '')
+        new_output = current_output + content
+    else:
+        new_output = content
+    
+    # Prepare update data
+    update_data = {"output": new_output}
+    
+    # Update last activity timestamp if provided
+    if request.get('last_update'):
+        update_data['last_update'] = request.get('last_update')
+    
+    # Update evaluation with new logs
+    success = storage.update_evaluation(eval_id, **update_data)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update logs")
+    
+    return {"status": "success", "eval_id": eval_id}
+
+@app.get("/evaluations/{eval_id}/logs")
+async def get_evaluation_logs(eval_id: str):
+    """Get logs for an evaluation with Redis cache check"""
+    # Check Redis cache first for running evaluations
+    if redis_client:
+        try:
+            # Check if evaluation is running
+            running_info = await redis_client.get(f"eval:{eval_id}:running")
+            if running_info:
+                # Get latest logs from Redis
+                cached_logs = await redis_client.get(f"logs:{eval_id}:latest")
+                if cached_logs:
+                    running_data = json.loads(running_info)
+                    return {
+                        "eval_id": eval_id,
+                        "output": cached_logs,
+                        "error": "",
+                        "is_running": True,
+                        "exit_code": None,
+                        "source": "redis_cache",
+                        "last_update": running_data.get("started_at"),  # Will be updated by heartbeats
+                        "started_at": running_data.get("started_at"),
+                        "completed_at": None,  # Still running
+                        "status": "running",
+                        "runtime_ms": None
+                    }
+        except Exception as e:
+            logger.error(f"Redis error getting logs for {eval_id}: {e}")
+    
+    # Fall back to database
+    result = storage.get_evaluation(eval_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Evaluation not found")
+    
+    return {
+        "eval_id": eval_id,
+        "output": result.get("output", ""),
+        "error": result.get("error", ""),
+        "is_running": result.get("status") == "running",
+        "exit_code": result.get("exit_code"),
+        "source": "database",
+        "last_update": result.get("last_update", result.get("started_at")),
+        "started_at": result.get("started_at"),
+        "completed_at": result.get("completed_at"),
+        "status": result.get("status"),
+        "runtime_ms": result.get("runtime_ms")
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8082)

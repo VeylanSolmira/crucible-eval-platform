@@ -109,6 +109,131 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/eval/{eval_id}/status:
+    patch:
+      summary: Update Evaluation Status
+      description: Admin endpoint to manually update evaluation status
+      operationId: update_evaluation_status_api_eval__eval_id__status_patch
+      parameters:
+      - name: eval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Id
+      - name: status
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Status
+      - name: reason
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/eval/{eval_id}/logs:
+    get:
+      summary: Get Evaluation Logs
+      description: Get logs for any evaluation - routes through storage service
+      operationId: get_evaluation_logs_api_eval__eval_id__logs_get
+      parameters:
+      - name: eval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/eval/{eval_id}/kill:
+    post:
+      summary: Kill Evaluation
+      description: Kill a running evaluation
+      operationId: kill_evaluation_api_eval__eval_id__kill_post
+      parameters:
+      - name: eval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/eval/{eval_id}/cancel:
+    post:
+      summary: Cancel Evaluation
+      description: 'Cancel a queued or running evaluation task.
+
+
+        This cancels the Celery task, preventing it from running if queued,
+
+        or optionally terminating it if already running.
+
+
+        Different from /kill which stops the Docker container execution.'
+      operationId: cancel_evaluation_api_eval__eval_id__cancel_post
+      parameters:
+      - name: eval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Id
+      - name: terminate
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Terminate
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/evaluations:
     get:
       summary: Get Evaluations
@@ -260,6 +385,10 @@ components:
           type: integer
           title: Timeout
           default: 30
+        priority:
+          type: boolean
+          title: Priority
+          default: false
       type: object
       required:
       - code
@@ -270,7 +399,8 @@ components:
           type: string
           title: Eval Id
         status:
-          $ref: '#/components/schemas/EvaluationStatus'
+          allOf:
+          - $ref: '#/components/schemas/EvaluationStatus'
           default: queued
         message:
           type: string
@@ -292,6 +422,7 @@ components:
       - running
       - completed
       - failed
+      - cancelled
       title: EvaluationStatus
       description: 'The status of an evaluation throughout its lifecycle
 
@@ -416,7 +547,6 @@ components:
         queue:
           $ref: '#/components/schemas/QueueStatusResponse'
         storage:
-          additionalProperties: true
           type: object
           title: Storage
           default: {}

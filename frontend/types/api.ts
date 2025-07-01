@@ -1,9 +1,5 @@
-// API Request Types
-export interface EvaluationRequest {
-  code: string
-  engine?: 'direct' | 'docker' | 'gvisor'
-  timeout?: number
-}
+// NOTE: EvaluationRequest is now imported from generated types
+// See types/generated/api.ts
 
 // API Response Types
 export interface ApiResponse<T> {
@@ -51,4 +47,75 @@ export interface EvaluationEvent {
     output?: string
     error?: string
   }
+}
+
+// Running Evaluation Types
+export interface RunningEvaluation {
+  eval_id: string
+  executor_id: string
+  container_id: string
+  started_at: string
+  timeout: number
+}
+
+export interface RunningEvaluationsResponse {
+  evaluations: RunningEvaluation[]
+}
+
+export interface EvaluationLogs {
+  eval_id: string
+  output: string
+  error: string
+  is_running: boolean
+  exit_code: number | null
+  status?: string  // Added to match API response
+  created_at?: string  // When the evaluation was created
+  last_update?: string  // Last activity timestamp (including heartbeats)
+  started_at?: string  // When the evaluation started
+  completed_at?: string  // When the evaluation completed
+  runtime_ms?: number  // Total runtime in milliseconds
+  source?: string  // Whether from redis_cache or database
+  container_id?: string  // Docker container ID
+  executor_id?: string  // Which executor is running the evaluation
+}
+
+export interface KillEvaluationResponse {
+  eval_id: string
+  killed: boolean
+  message?: string
+}
+
+// API response types for evaluation list endpoint
+export interface EvaluationListItem {
+  eval_id: string
+  status: string  // API returns string, we'll validate/narrow at usage
+  created_at: string
+  code_preview?: string
+  success?: boolean
+  // Optional fields that might be in the response
+  started_at?: string
+  completed_at?: string
+  output?: string
+  error?: string
+  exit_code?: number
+}
+
+export interface EvaluationsApiResponse {
+  evaluations: EvaluationListItem[]
+  count: number
+  limit: number
+  offset: number
+  has_more: boolean
+  error?: string
+}
+
+// Batch submission types
+export interface BatchSubmissionResult {
+  eval_id?: string
+  error?: string
+  batch_index?: number
+}
+
+export interface BatchSubmissionResponse {
+  evaluations: BatchSubmissionResult[]
 }

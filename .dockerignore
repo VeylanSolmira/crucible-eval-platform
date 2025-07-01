@@ -25,6 +25,13 @@ coverage.xml
 # Virtual environments
 venv/
 ENV/
+venv311/
+
+# Node
+**/node_modules/
+**/.next/
+**/dist/
+**/.turbo/
 
 # IDEs
 .vscode/
@@ -39,8 +46,11 @@ Thumbs.db
 
 # Project specific
 /data/
+# Infrastructure - exclude everything except markdown files
 /infrastructure/
-/docs/
+!/infrastructure/**/*.md
+/docs/  # Commented out - needed for frontend documentation system
+!/docs/**/*.md
 /demos/
 /slides/
 *.md

@@ -277,6 +277,27 @@ class DatabaseStorage(StorageService):
             print(f"Database error listing evaluations: {e}")
             return []
     
+    def count_evaluations(self, status: Optional[str] = None) -> int:
+        """Count total evaluations, optionally filtered by status."""
+        try:
+            with self.get_session() as session:
+                from sqlalchemy import func
+                
+                # Build query
+                stmt = select(func.count(Evaluation.id))
+                
+                # Add status filter if provided
+                if status:
+                    stmt = stmt.where(Evaluation.status == status)
+                
+                # Execute and return count
+                result = session.execute(stmt).scalar()
+                return result or 0
+                
+        except SQLAlchemyError as e:
+            print(f"Database error counting evaluations: {e}")
+            return 0
+    
     def delete_evaluation(self, eval_id: str) -> bool:
         """Delete evaluation and all related data (cascades to events/metrics)."""
         try:

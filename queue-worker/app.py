@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 # Add src to path
@@ -40,9 +40,10 @@ class QueueWorker:
         self.queue_url = os.getenv("QUEUE_SERVICE_URL", "http://queue:8081")
         self.api_key = os.getenv("QUEUE_API_KEY")
         
-        # Redis for event publishing
+        # Redis for event publishing and subscribing
         redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
         self.redis_client = None  # Will be initialized in async context
+        self.redis_pubsub = None  # For subscribing to events
         self._redis_url = redis_url
         
         # Executor workers pool
@@ -105,12 +106,42 @@ class QueueWorker:
             except Exception as e:
                 logger.error(f"Failed to publish event to {channel}: {e}")
     
+    async def handle_completion_event(self, message):
+        """Handle completion events from executors"""
+        channel = message['channel'].decode('utf-8')
+        try:
+            data = json.loads(message['data'])
+            eval_id = data.get('eval_id')
+            
+            if not eval_id:
+                logger.error(f"Completion event missing eval_id: {data}")
+                return
+                
+            logger.info(f"[{datetime.now(timezone.utc).isoformat()}] Received {channel} event for {eval_id}")
+            
+            # Mark the queue task as complete
+            if channel == "evaluation:completed":
+                await self.client.post(
+                    f"{self.queue_url}/tasks/{eval_id}/complete",
+                    json={"output": data}
+                )
+                logger.info(f"Marked queue task {eval_id} as complete")
+            elif channel == "evaluation:failed":
+                await self.client.post(
+                    f"{self.queue_url}/tasks/{eval_id}/fail",
+                    json={"error": data.get("error", "Execution failed")}
+                )
+                logger.info(f"Marked queue task {eval_id} as failed")
+                
+        except Exception as e:
+            logger.error(f"Error handling completion event: {e}")
+    
     async def route_task(self, task: Dict):
         """Route a task to an available executor and handle results"""
         eval_id = task["eval_id"]
         code = task["code"]
         
-        logger.info(f"Processing task {eval_id}")
+        logger.info(f"[{datetime.now(timezone.utc).isoformat()}] Processing task {eval_id}")
         
         # Get healthy executor
         executor_url = await self.get_healthy_executor()
@@ -139,8 +170,19 @@ class QueueWorker:
                 result = response.json()
                 self.tasks_routed += 1
                 
-                # Report result back to queue
-                if result["status"] == "completed":
+                # Handle different statuses
+                if result["status"] == "running":
+                    # Container started successfully - DON'T mark queue task as complete yet
+                    # Just publish the running event for storage worker
+                    await self._publish_event("evaluation:running", {
+                        "eval_id": eval_id,
+                        "container_id": result.get("container_id"),
+                        "executor_id": result.get("executor_id"),
+                        "timeout": task.get("timeout", 30)
+                    })
+                    logger.info(f"[{datetime.now(timezone.utc).isoformat()}] Task {eval_id} started running on {executor_url}")
+                    # The queue task will be completed when the container finishes
+                elif result["status"] == "completed":
                     await self.client.post(
                         f"{self.queue_url}/tasks/{eval_id}/complete",
                         json={"output": result}
@@ -161,7 +203,7 @@ class QueueWorker:
                         "error": result.get("error", "Execution failed")
                     })
                 
-                logger.info(f"Task {eval_id} completed with status: {result['status']}")
+                logger.info(f"Task {eval_id} status: {result['status']}")
             else:
                 logger.error(f"Executor rejected task: {response.status_code}")
                 await self.client.post(
@@ -176,15 +218,22 @@ class QueueWorker:
                 json={"error": str(e)}
             )
     
-    async def run(self):
-        """Main loop - pull tasks and route to executors"""
-        # Initialize Redis client in async context
-        self.redis_client = redis.from_url(self._redis_url)
-        logger.info(f"Connected to Redis for event publishing")
+    async def listen_for_completion_events(self):
+        """Listen for completion events from executors"""
+        self.redis_pubsub = self.redis_client.pubsub()
+        await self.redis_pubsub.subscribe("evaluation:completed", "evaluation:failed")
         
-        logger.info(f"Queue worker started: {self.worker_id}")
-        logger.info(f"Managing {len(self.executor_urls)} executors")
+        logger.info("Listening for completion events from executors...")
         
+        async for message in self.redis_pubsub.listen():
+            if message['type'] == 'message':
+                await self.handle_completion_event(message)
+                
+            if not self.running:
+                break
+                
+    async def pull_and_route_tasks(self):
+        """Pull tasks from queue and route to executors"""
         consecutive_errors = 0
         
         while self.running:
@@ -212,11 +261,32 @@ class QueueWorker:
                 logger.error(f"Queue worker error: {str(e)}")
                 consecutive_errors += 1
                 await asyncio.sleep(min(5 * consecutive_errors, 30))
+    
+    async def run(self):
+        """Main loop - pull tasks and listen for events concurrently"""
+        # Initialize Redis client in async context
+        self.redis_client = redis.from_url(self._redis_url)
+        logger.info(f"Connected to Redis for event publishing and subscribing")
         
-        await self.client.aclose()
-        if self.redis_client:
-            await self.redis_client.close()
-        logger.info("Queue worker stopped")
+        logger.info(f"Queue worker started: {self.worker_id}")
+        logger.info(f"Managing {len(self.executor_urls)} executors")
+        
+        # Run both tasks concurrently
+        try:
+            await asyncio.gather(
+                self.pull_and_route_tasks(),
+                self.listen_for_completion_events()
+            )
+        except Exception as e:
+            logger.error(f"Queue worker error: {e}")
+        finally:
+            await self.client.aclose()
+            if self.redis_pubsub:
+                await self.redis_pubsub.unsubscribe()
+                await self.redis_pubsub.close()
+            if self.redis_client:
+                await self.redis_client.close()
+            logger.info("Queue worker stopped")
     
     async def get_status(self) -> Dict:
         """Get worker status"""

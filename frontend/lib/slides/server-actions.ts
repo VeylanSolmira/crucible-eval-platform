@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises'
 import path from 'path'
-import { Slide, SlideMetadata, SlidesIndex } from './loader'
+import type { Slide, SlideMetadata, SlidesIndex } from './loader'
 
 const SLIDES_DIR = path.join(process.cwd(), 'content', 'slides')
 

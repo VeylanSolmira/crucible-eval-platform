@@ -7,6 +7,13 @@ WORKDIR /app
 COPY executor-service/requirements.txt /app/
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
+# Copy shared modules
+COPY shared/generated /app/shared/generated
+COPY shared/constants /app/shared/constants
+
+# Set PYTHONPATH to include the app directory
+ENV PYTHONPATH=/app:$PYTHONPATH
+
 # Copy only the executor app
 COPY executor-service/app.py /app/
 

@@ -28,8 +28,8 @@ docker system df
 # Clean all unused build cache
 docker builder prune -f
 
-# Clean cache older than 24 hours
-docker builder prune -f --filter until=24h
+# Clean cache older than 12 hours
+docker builder prune -f --filter until=12h
 
 # Clean everything unused (aggressive)
 docker system prune -a -f --volumes

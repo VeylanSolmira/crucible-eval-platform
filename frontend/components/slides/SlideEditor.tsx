@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Slide } from '@/lib/slides/loader'
+import type { Slide } from '@/lib/slides/loader'
 import Editor from '@monaco-editor/react'
 
 interface SlideEditorProps {
@@ -36,8 +36,8 @@ ${editedSlide.content}`
       // Parse the content to extract frontmatter and markdown
       const lines = content.split('\n')
       let inFrontmatter = false
-      let frontmatterLines: string[] = []
-      let markdownLines: string[] = []
+      const frontmatterLines: string[] = []
+      const markdownLines: string[] = []
       let frontmatterCount = 0
       
       for (const line of lines) {
@@ -60,23 +60,35 @@ ${editedSlide.content}`
       }
       
       // Parse frontmatter
-      const frontmatter: any = {}
+      interface FrontmatterData {
+        title?: string
+        duration?: number
+        tags?: string[]
+        description?: string
+        [key: string]: string | number | string[] | undefined
+      }
+      
+      const frontmatter: FrontmatterData = {}
       frontmatterLines.forEach(line => {
         const match = line.match(/^(\w+):\s*(.+)$/)
         if (match) {
           const key = match[1]!
-          let value: any = match[2]!.trim()
+          const rawValue = match[2]!.trim()
+          let value: string | number | string[]
           
           // Parse different value types
-          if (value.startsWith('[') && value.endsWith(']')) {
+          if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
             // Array
-            value = value.slice(1, -1).split(',').map((v: string) => v.trim().replace(/^["']|["']$/g, ''))
-          } else if (value.startsWith('"') && value.endsWith('"')) {
+            value = rawValue.slice(1, -1).split(',').map((v: string) => v.trim().replace(/^["']|["']$/g, ''))
+          } else if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
             // String
-            value = value.slice(1, -1)
-          } else if (!isNaN(Number(value))) {
+            value = rawValue.slice(1, -1)
+          } else if (!isNaN(Number(rawValue))) {
             // Number
-            value = Number(value)
+            value = Number(rawValue)
+          } else {
+            // Default to string
+            value = rawValue
           }
           
           frontmatter[key] = value
@@ -91,7 +103,7 @@ ${editedSlide.content}`
         title: frontmatter.title || editedSlide.title,
         duration: frontmatter.duration || editedSlide.duration,
         tags: Array.isArray(frontmatter.tags) ? frontmatter.tags : editedSlide.tags,
-        description: frontmatter.description,
+        ...(frontmatter.description !== undefined && { description: frontmatter.description }),
         content: markdown,
         sections
       }
