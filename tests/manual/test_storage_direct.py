@@ -10,8 +10,6 @@ Usage: python test_storage_direct.py [--storage-type file|database]
 import sys
 import os
 import argparse
-import json
-from datetime import datetime
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
@@ -84,7 +82,7 @@ def analyze_evaluations(storage):
             print(f"  All fields: {sorted(eval_data.keys())}")
         
         # Summary statistics
-        print(f"\nSummary:")
+        print("\nSummary:")
         print(f"  Total evaluations: {len(evaluations)}")
         print(f"  Truncated outputs: {truncated_count}")
         print(f"  Total output size: {total_output_size:,} bytes")

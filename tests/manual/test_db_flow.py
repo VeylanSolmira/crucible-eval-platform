@@ -11,8 +11,6 @@ Usage: python test_db_flow.py [--api-url http://localhost:8001]
 
 import requests
 import time
-import json
-import sys
 import argparse
 
 def test_normal_evaluation(api_url):
@@ -67,7 +65,7 @@ def submit_and_check_evaluation(api_url, code, test_name):
                 print(f"Attempt {i+1}: Status = {result.get('status')}")
                 
                 if result.get("status") in ["completed", "failed", "error"]:
-                    print(f"\nFinal result:")
+                    print("\nFinal result:")
                     print(f"Status: {result.get('status')}")
                     
                     # Check output details

@@ -4,11 +4,9 @@ Tests for the flexible storage manager.
 
 import unittest
 import asyncio
-from datetime import datetime, timezone
 
 from ..flexible_manager import FlexibleStorageManager
 from ..backends.memory import InMemoryStorage
-from ..backends.file import FileStorage
 
 
 class TestFlexibleStorageManager(unittest.TestCase):

@@ -382,7 +382,8 @@ class StorageWorker:
             # Check Redis connection
             await self.redis.ping()
             redis_healthy = True
-        except:
+        except Exception as e:
+            logger.warning(f"Redis health check failed: {e}")
             redis_healthy = False
         
         # Check storage service health
@@ -390,7 +391,8 @@ class StorageWorker:
         try:
             response = await self.client.get(f"{self.storage_url}/health")
             storage_healthy = response.status_code == 200
-        except:
+        except Exception as e:
+            logger.warning(f"Storage health check failed: {e}")
             storage_healthy = False
         
         return {
@@ -417,7 +419,6 @@ class StorageWorker:
 # We use FastAPI for consistency and future extensibility (metrics, ready vs live)
 from fastapi import FastAPI
 import uvicorn
-from threading import Thread
 import structlog
 
 # Configure structured logging

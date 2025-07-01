@@ -22,9 +22,9 @@ Usage:
 """
 
 import sys
+import os
 import subprocess
 import unittest
-from io import StringIO
 
 # Add current directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'core'))
@@ -215,7 +215,7 @@ def test_component(component_name: str):
             test_result = runner.run(suite)
             all_passed &= test_result.wasSuccessful()
         
-        print(f"\n✅ Tested 2 storage implementations")
+        print("\n✅ Tested 2 storage implementations")
         return all_passed
     
     elif component_name == 'api':
@@ -252,7 +252,7 @@ def test_component(component_name: str):
             print(f"❌ Failed to create http.server API: {e}")
             all_passed = False
             
-        print(f"\n✅ Tested API component")
+        print("\n✅ Tested API component")
         return all_passed
     
     elif component_name == 'frontend' or component_name == 'web_frontend':
@@ -302,7 +302,7 @@ def test_component(component_name: str):
         print("  3. FastAPIFrontend: Modern async + WebSockets")
         print("  4. ReactFrontend: Full microservice SPA")
         
-        print(f"\n✅ Tested web frontend component")
+        print("\n✅ Tested web frontend component")
         return all_passed
     
     else:
@@ -340,14 +340,14 @@ def test_engine_configuration(engine_name: str, engine_class, *args):
         result = runner.run(suite)
         
         # Quick execution test
-        print(f"\nIntegration Test:")
+        print("\nIntegration Test:")
         eval_result = platform.evaluate(f"print('{engine_name} integration test passed!')")
         print(f"  Output: {eval_result['output'].strip()}")
         print(f"  Status: {eval_result['status']}")
         
         return result.wasSuccessful()
     else:
-        print(f"\n⚠️  Skipping unit tests - component tests failed")
+        print("\n⚠️  Skipping unit tests - component tests failed")
         return False
 
 

@@ -25,7 +25,7 @@ def analyze_data(data, categories):
     print(f"Std Dev: {statistics.stdev(data):.2f}")
     
     # Category distribution
-    print(f"\n📈 Category Distribution:")
+    print("\n📈 Category Distribution:")
     for category, count in Counter(categories).items():
         percentage = (count / len(categories)) * 100
         print(f"  {category}: {count} ({percentage:.1f}%)")

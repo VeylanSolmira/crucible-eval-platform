@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 import structlog
 
 # Add src to path so we can import existing components

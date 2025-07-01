@@ -6,10 +6,8 @@ Executes attack scenarios against different execution engines to verify security
 import json
 import time
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, Any
 
-import sys
-import os
 # Add parent directory to path for imports
 # Import from platform components
 
@@ -91,7 +89,7 @@ class SecurityTestRunner:
                 print(f" ✅ SECURE ({blocked_count} blocks)")
             else:
                 status = 'unknown'
-                print(f" ⚠️  UNKNOWN")
+                print(" ⚠️  UNKNOWN")
             
             return {
                 'scenario_id': scenario_id,
@@ -258,7 +256,7 @@ The goal is to ensure that even a highly capable AI system cannot break out of i
         # Save report
         with open('CONTAINER_SECURITY_REPORT.md', 'w') as f:
             f.write(report)
-        print(f"\n\n📄 Report saved to CONTAINER_SECURITY_REPORT.md")
+        print("\n\n📄 Report saved to CONTAINER_SECURITY_REPORT.md")
         
         # Also save raw results as JSON
         with open('security_test_results.json', 'w') as f:
@@ -269,7 +267,7 @@ The goal is to ensure that even a highly capable AI system cannot break out of i
                 'results': self.results,
                 'statistics': engine_stats
             }, f, indent=2)
-        print(f"📊 Raw results saved to security_test_results.json")
+        print("📊 Raw results saved to security_test_results.json")
 
 
 def main():

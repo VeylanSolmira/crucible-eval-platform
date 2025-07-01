@@ -18,7 +18,6 @@ import os
 import logging
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
-import threading
 import queue
 
 # Import our execution engines

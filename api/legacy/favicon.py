@@ -3,7 +3,6 @@ Simple favicon generator for Crucible Platform.
 Creates a minimal favicon programmatically.
 """
 
-import base64
 
 def get_favicon_base64() -> str:
     """

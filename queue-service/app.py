@@ -117,8 +117,8 @@ async def health_check():
         try:
             await redis_client.ping()
             redis_healthy = True
-        except:
-            pass
+        except Exception as e:
+            logger.warning(f"Redis health check failed: {e}")
     
     return {
         "status": "healthy",

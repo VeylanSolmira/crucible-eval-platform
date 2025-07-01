@@ -3,13 +3,9 @@ FastAPI server for Crucible Evaluation Platform.
 Demonstrates async capabilities and WebSocket support.
 """
 
-from fastapi import FastAPI, WebSocket, Request, HTTPException
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exception_handlers import (
-    http_exception_handler,
-    request_validation_exception_handler,
-)
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
@@ -18,7 +14,7 @@ import logging
 from typing import Dict, Any
 import json
 
-from api.api import APIRequest, APIResponse, HTTPMethod, create_api_service, create_api_handler
+from api.api import APIRequest, HTTPMethod, create_api_service, create_api_handler
 from api.favicon import get_favicon_bytes, get_svg_favicon
 from src.core.core import QueuedEvaluationPlatform
 from src.execution_engine.execution import DockerEngine, GVisorEngine

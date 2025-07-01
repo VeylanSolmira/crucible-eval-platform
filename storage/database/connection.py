@@ -5,7 +5,6 @@ Database connection and session management.
 import os
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
 
 # Get database URL from environment
 DATABASE_URL = os.environ.get(

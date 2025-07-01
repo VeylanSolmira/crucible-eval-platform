@@ -81,7 +81,8 @@ class QueueWorker:
         try:
             response = await self.client.get(f"{executor_url}/health", timeout=2.0)
             return response.status_code == 200
-        except:
+        except Exception as e:
+            logger.debug(f"Executor {executor_url} health check failed: {e}")
             return False
     
     async def get_healthy_executor(self) -> Optional[str]:
@@ -266,7 +267,7 @@ class QueueWorker:
         """Main loop - pull tasks and listen for events concurrently"""
         # Initialize Redis client in async context
         self.redis_client = redis.from_url(self._redis_url)
-        logger.info(f"Connected to Redis for event publishing and subscribing")
+        logger.info("Connected to Redis for event publishing and subscribing")
         
         logger.info(f"Queue worker started: {self.worker_id}")
         logger.info(f"Managing {len(self.executor_urls)} executors")

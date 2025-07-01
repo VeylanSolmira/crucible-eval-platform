@@ -16,8 +16,7 @@ from storage.schemas import (
     EvaluationListResponse,
     EvaluationSummary,
     QueueStatusResponse,
-    PlatformStatusResponse,
-    ErrorResponse
+    PlatformStatusResponse
 )
 from storage.database import get_db
 from storage.manager import StorageManager

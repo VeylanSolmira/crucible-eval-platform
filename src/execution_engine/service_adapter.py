@@ -15,7 +15,6 @@ without changing the core application logic.
 """
 
 import os
-from typing import Dict, Any
 import logging
 
 from .execution import DockerEngine, GVisorEngine, DisabledEngine

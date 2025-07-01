@@ -15,7 +15,6 @@ import subprocess
 import tempfile
 import os
 import platform
-import uuid
 from typing import Dict, Any
 import unittest
 
@@ -176,12 +175,12 @@ class DockerEngine(ExecutionEngine):
                                   capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"   Docker image '{image}' not found locally")
-                print(f"   Downloading image (this may take a minute on first run)...")
+                print("   Downloading image (this may take a minute on first run)...")
                 # Run docker pull without capturing output so user sees progress
                 pull_result = subprocess.run(['docker', 'pull', image])
                 if pull_result.returncode != 0:
                     raise RuntimeError(f"Failed to pull image {image}")
-                print(f"   ✓ Docker image ready!")
+                print("   ✓ Docker image ready!")
         except Exception as e:
             print(f"   Warning: Could not verify Docker image: {e}")
             

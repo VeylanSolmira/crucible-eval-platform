@@ -5,7 +5,7 @@ Ensures all API requests/responses conform to the OpenAPI specification.
 
 import json
 import yaml
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 try:

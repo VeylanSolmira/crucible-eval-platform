@@ -41,6 +41,7 @@ class TaskManager:
             response = {
                 "task_id": task_id,
                 "previous_state": task_state,
+                "task_info": task_info,
                 "cancelled": False,
                 "message": ""
             }

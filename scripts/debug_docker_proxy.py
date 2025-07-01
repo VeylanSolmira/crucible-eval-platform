@@ -32,7 +32,7 @@ def test_docker_proxy():
             # Try to inspect python:3.11-slim
             print("\nTesting image inspection...")
             img = client.images.get('python:3.11-slim')
-            print(f"✓ Can inspect image: python:3.11-slim exists")
+            print("✓ Can inspect image: python:3.11-slim exists")
         except docker.errors.ImageNotFound:
             print("✗ Image python:3.11-slim not found locally")
         except docker.errors.APIError as e:

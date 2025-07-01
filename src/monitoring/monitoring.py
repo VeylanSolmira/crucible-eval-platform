@@ -19,7 +19,7 @@ TODO: Consider modularizing when:
 import threading
 import queue
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from queue import Queue
 import unittest
 

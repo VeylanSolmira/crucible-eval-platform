@@ -6,7 +6,6 @@ Tests each component individually with proper timeouts.
 
 import sys
 import signal
-import time
 from contextlib import contextmanager
 
 # Add project to path

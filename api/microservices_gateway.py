@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 import httpx
 import asyncio
 from pathlib import Path
-from enum import Enum
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -21,7 +20,7 @@ from shared.generated.python import EvaluationStatus
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
 
@@ -63,7 +62,7 @@ client = httpx.AsyncClient(
 
 # Initialize Redis for event publishing
 redis_client = redis.from_url(REDIS_URL)
-logger.info(f"Connected to Redis for event publishing")
+logger.info("Connected to Redis for event publishing")
 logger.info(f"Storage service URL: {STORAGE_SERVICE_URL}")
 
 # Status enum now imported from shared contracts
@@ -120,6 +119,7 @@ class StatusResponse(BaseModel):
     services: ServiceHealthInfo
     queue: QueueStatusResponse
     storage: Dict[str, Any] = {}
+    celery: Optional[Dict[str, Any]] = None
     version: str = "2.0.0"
 
 class HealthResponse(BaseModel):
@@ -310,29 +310,53 @@ async def evaluate(request: EvaluationRequest):
             }
         })
         
-        # Forward to queue service
-        response = await client.post(
-            f"{QUEUE_SERVICE_URL}/tasks",
-            json={
-                "eval_id": eval_id,
-                "code": request.code,
-                "language": request.language,
-                "engine": request.engine,
-                "timeout": request.timeout,
-                "priority": 10 if request.priority else 1  # Higher number = higher priority
-            }
+        # Traffic split: 50% to Celery, 50% to legacy queue
+        import random
+        use_celery = (
+            os.getenv('CELERY_ENABLED', 'false').lower() == 'true' and 
+            random.random() < float(os.getenv('CELERY_PERCENTAGE', '0.5'))
         )
-        response.raise_for_status()
         
-        # Dual-write to Celery (if enabled)
-        celery_task_id = submit_evaluation_to_celery(
-            eval_id=eval_id,
-            code=request.code,
-            language=request.language,
-            priority=request.priority
-        )
-        if celery_task_id:
-            logger.info(f"Also submitted evaluation {eval_id} to Celery: {celery_task_id}")
+        if use_celery:
+            # Submit to Celery
+            celery_task_id = submit_evaluation_to_celery(
+                eval_id=eval_id,
+                code=request.code,
+                language=request.language,
+                priority=request.priority
+            )
+            if celery_task_id:
+                logger.info(f"Submitted evaluation {eval_id} to Celery: {celery_task_id}")
+            else:
+                # Fallback to legacy queue if Celery submission fails
+                logger.warning(f"Celery submission failed for {eval_id}, falling back to legacy queue")
+                response = await client.post(
+                    f"{QUEUE_SERVICE_URL}/tasks",
+                    json={
+                        "eval_id": eval_id,
+                        "code": request.code,
+                        "language": request.language,
+                        "engine": request.engine,
+                        "timeout": request.timeout,
+                        "priority": 10 if request.priority else 1
+                    }
+                )
+                response.raise_for_status()
+        else:
+            # Submit to legacy queue
+            response = await client.post(
+                f"{QUEUE_SERVICE_URL}/tasks",
+                json={
+                    "eval_id": eval_id,
+                    "code": request.code,
+                    "language": request.language,
+                    "engine": request.engine,
+                    "timeout": request.timeout,
+                    "priority": 10 if request.priority else 1
+                }
+            )
+            response.raise_for_status()
+            logger.info(f"Submitted evaluation {eval_id} to legacy queue")
         
         # Set a pending key in Redis with 60s TTL
         try:
@@ -376,7 +400,8 @@ async def evaluate_batch(request: BatchEvaluationRequest):
         queue_status = await client.get(f"{QUEUE_SERVICE_URL}/status")
         queue_data = queue_status.json() if queue_status.status_code == 200 else {}
         current_queue_size = queue_data.get("queued", 0)
-    except:
+    except Exception as e:
+        logger.warning(f"Failed to get queue status: {e}")
         current_queue_size = 0
     
     # Process each evaluation
@@ -784,7 +809,7 @@ async def get_queue_status():
         )
 
 @app.get("/api/celery-status")
-async def get_celery_status():
+async def get_celery_status_endpoint():
     """Get Celery cluster status including workers, queues, and tasks."""
     from app.celery_client import get_celery_status, CELERY_ENABLED, celery_app
     
@@ -880,6 +905,7 @@ async def platform_status():
         services=services,
         queue=queue_status,
         storage=storage_stats,
+        celery=celery_info if celery_info else None,
         version="2.0.0"
     )
 

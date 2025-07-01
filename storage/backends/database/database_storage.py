@@ -2,8 +2,7 @@
 Database storage implementation using SQLAlchemy.
 """
 
-import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, List, Any, Optional
 from contextlib import contextmanager
 
@@ -12,7 +11,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from ...base import StorageService
-from ...database.models import Evaluation, EvaluationEvent, EvaluationMetric
+from ...database.models import Evaluation, EvaluationEvent
 
 
 class DatabaseStorage(StorageService):

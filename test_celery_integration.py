@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Test Celery integration"""
-import os
 from celery import Celery
 
 # Create Celery app with same config as worker

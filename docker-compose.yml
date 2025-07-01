@@ -65,6 +65,10 @@ services:
       - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
       - ENABLE_CACHING=false  # Disable caching to avoid stale data in distributed setup
+      # Celery configuration - 50% traffic split
+      - CELERY_ENABLED=true
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_PERCENTAGE=0.5  # 50% of traffic to Celery
     depends_on:
       base:
         condition: service_completed_successfully
@@ -216,7 +220,7 @@ services:
       - QUEUE_SERVICE_URL=http://queue:8081
       - QUEUE_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
       - REDIS_URL=redis://redis:6379
-      - EXECUTOR_COUNT=2  # Using executor-1 and executor-2 only
+      - EXECUTOR_COUNT=1  # Only executor-1 for legacy queue
       - EXECUTOR_BASE_URL=http://executor
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
@@ -288,6 +292,45 @@ services:
   executor-3:
     extends: executor-1
     container_name: executor-3
+
+  # Celery Worker - Handles 50% of evaluation traffic
+  celery-worker:
+    build:
+      context: .
+      dockerfile: celery-worker/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${PROJECT_NAME:-crucible-platform}/celery-worker:local
+    container_name: celery-worker-1
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - STORAGE_SERVICE_URL=http://storage-service:8082
+      - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      # Use executor-2 and executor-3 for Celery tasks
+      - EXECUTOR_SERVICE_URL=http://executor-2:8083,http://executor-3:8083
+    depends_on:
+      base:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      executor-2:
+        condition: service_started
+      executor-3:
+        condition: service_started
+      storage-service:
+        condition: service_healthy
+    restart: unless-stopped
+    # Run 2 worker processes
+    command: ["celery", "-A", "tasks", "worker", "--loglevel=info", "--concurrency=2"]
+    healthcheck:
+      test: ["CMD", "celery", "-A", "tasks", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 256m
 
   # Storage Worker - Handles all database writes via events
   storage-worker:

@@ -4,8 +4,7 @@ Flexible storage manager that can work with any storage backend.
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List, Union
-from pathlib import Path
+from typing import Dict, Any, Optional, List
 
 from .base import StorageService
 from .backends.memory import InMemoryStorage

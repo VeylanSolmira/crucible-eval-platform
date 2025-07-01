@@ -11,7 +11,6 @@ Run with: python extreme_mvp_frontier_events.py [--unsafe] [--fastapi] [--test] 
 
 import sys
 import os
-import time
 import argparse
 from pathlib import Path
 

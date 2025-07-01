@@ -6,7 +6,7 @@ from __future__ import annotations  # Allows forward references
 
 import uuid
 import sys
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, TYPE_CHECKING
 import unittest
 
 from ..shared.base import TestableComponent

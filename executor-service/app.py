@@ -12,12 +12,12 @@ import threading
 import time
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import Response
 from pydantic import BaseModel
 import uvicorn
 import docker
-from docker.errors import ContainerError, ImageNotFound, APIError
+from docker.errors import ImageNotFound
 import redis.asyncio as redis
 
 # Import shared event types
@@ -392,8 +392,10 @@ async def get_container_logs(eval_id: str) -> Dict:
                 running_containers.pop(eval_id, None)
                 try:
                     container.remove(force=True)
-                except:
-                    pass  # Container might already be removed
+                except docker.errors.NotFound:
+                    pass  # Container already removed
+                except Exception as e:
+                    logger.warning(f"Failed to remove container: {e}")
             
         return {
             'eval_id': eval_id,
@@ -496,8 +498,11 @@ async def status():
                     'status': container.status,
                     'created': container.labels.get('created_at', 'unknown')
                 })
-            except:
-                pass
+            except docker.errors.NotFound:
+                # Container was removed
+                running_containers.pop(eval_id, None)
+            except Exception as e:
+                logger.warning(f"Failed to reload container {eval_id}: {e}")
         
         # List recent containers we created
         containers = docker_client.containers.list(
@@ -544,7 +549,7 @@ async def list_running():
                 'created': container.labels.get('created_at', 'unknown'),
                 'timeout': container.labels.get('timeout', 'unknown')
             })
-        except Exception as e:
+        except Exception:
             # Container might have been removed
             running_containers.pop(eval_id, None)
             

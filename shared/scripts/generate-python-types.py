@@ -5,7 +5,6 @@ This ensures all services use the same type definitions.
 """
 
 import yaml
-import os
 from pathlib import Path
 
 def generate_enum_from_yaml(yaml_file: Path, output_file: Path):

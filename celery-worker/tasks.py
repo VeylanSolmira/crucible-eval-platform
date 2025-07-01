@@ -6,14 +6,13 @@ It integrates with the executor service for code execution and the storage
 service for persistence.
 """
 import os
-import json
 import logging
 from celery import Celery
 import httpx
 from typing import Dict, Any
 import redis
 import traceback
-from retry_config import RetryStrategy, get_retry_message, calculate_retry_delay, RETRYABLE_HTTP_CODES
+from retry_config import get_retry_message, calculate_retry_delay, RETRYABLE_HTTP_CODES
 from dlq_config import DeadLetterQueue
 
 # Configure logging

@@ -8,8 +8,6 @@ import sys
 import time
 import threading
 import http.server
-import json
-from pathlib import Path
 
 from components import (
     SubprocessEngine,
@@ -26,8 +24,7 @@ from components import (
     create_frontend,
     FrontendConfig,
     FrontendType,
-    EventBus,
-    EventTypes
+    EventBus
 )
 
 

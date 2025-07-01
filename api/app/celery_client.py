@@ -5,7 +5,6 @@ This module provides a lightweight Celery client that can submit tasks
 without importing the full worker codebase.
 """
 import os
-import json
 import logging
 from typing import Optional
 from celery import Celery

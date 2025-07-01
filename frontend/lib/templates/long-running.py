@@ -47,7 +47,7 @@ def main():
     # Final summary
     total_time = time.time() - start_time
     print("\n" + "=" * 50)
-    print(f"Process completed successfully!")
+    print("Process completed successfully!")
     print(f"Total iterations: {total_iterations}")
     print(f"Total time: {total_time:.2f} seconds")
     print(f"Average time per iteration: {total_time/total_iterations:.2f} seconds")

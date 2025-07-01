@@ -2,7 +2,6 @@
 SQLAlchemy models for Crucible Platform.
 """
 
-from datetime import datetime
 from sqlalchemy import (
     Column, String, Text, Integer, BigInteger, Float, DateTime, 
     ForeignKey, Index, JSON, func, Boolean

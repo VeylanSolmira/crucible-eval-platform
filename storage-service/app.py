@@ -70,7 +70,7 @@ elif storage_config.file_storage_path:
     primary_backend = "file"
 
 # Log storage configuration
-logger.info(f"Storage service initialized:")
+logger.info("Storage service initialized:")
 logger.info(f"  Primary backend: {primary_backend}")
 logger.info(f"  Database URL: {'configured' if storage_config.database_url else 'not configured'}")
 logger.info(f"  File storage: {storage_config.file_storage_path or 'not configured'}")
@@ -98,6 +98,10 @@ class EvaluationUpdate(BaseModel):
     output: Optional[str] = Field(None, description="Execution output")
     error: Optional[str] = Field(None, description="Error message if failed")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata to merge")
+    # Celery-specific fields
+    celery_task_id: Optional[str] = Field(None, description="Celery task ID if using Celery")
+    retries: Optional[int] = Field(None, description="Number of retry attempts")
+    final_failure: Optional[bool] = Field(None, description="Whether task failed after all retries")
 
 class EvaluationResponse(BaseModel):
     id: str
@@ -351,6 +355,76 @@ async def get_running_info(eval_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting running info for {eval_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/evaluations/{eval_id}/celery-update")
+async def update_celery_task_status(eval_id: str, body: Dict[str, Any]):
+    """
+    Update evaluation status from Celery task.
+    
+    This endpoint is called by Celery tasks to update evaluation status
+    with Celery-specific information like task ID, retry count, etc.
+    """
+    try:
+        # Extract Celery-specific fields
+        celery_task_id = body.get('celery_task_id')
+        task_state = body.get('task_state')
+        retries = body.get('retries', 0)
+        
+        # Map Celery states to our evaluation status
+        status_mapping = {
+            'PENDING': EvaluationStatus.QUEUED.value,
+            'STARTED': EvaluationStatus.RUNNING.value,
+            'SUCCESS': EvaluationStatus.COMPLETED.value,
+            'FAILURE': EvaluationStatus.FAILED.value,
+            'RETRY': EvaluationStatus.RUNNING.value,
+            'REVOKED': EvaluationStatus.CANCELLED.value
+        }
+        
+        update_data = {
+            'metadata': {
+                'celery_task_id': celery_task_id,
+                'celery_state': task_state,
+                'retries': retries
+            }
+        }
+        
+        # Update status if mapped
+        if task_state in status_mapping:
+            update_data['status'] = status_mapping[task_state]
+        
+        # Add timing information
+        if task_state == 'STARTED' and 'started_at' not in update_data:
+            update_data['started_at'] = datetime.now(timezone.utc).isoformat()
+        elif task_state in ['SUCCESS', 'FAILURE']:
+            update_data['completed_at'] = datetime.now(timezone.utc).isoformat()
+        
+        # Add output/error if provided
+        if 'output' in body:
+            update_data['output'] = body['output']
+        if 'error' in body:
+            update_data['error'] = body['error']
+        
+        # Merge metadata
+        existing = storage.get_evaluation(eval_id)
+        if existing and existing.get('metadata'):
+            update_data['metadata'] = {**existing['metadata'], **update_data['metadata']}
+        
+        # Update evaluation
+        success = storage.update_evaluation(eval_id, **update_data)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update evaluation")
+        
+        # Log Celery task update
+        logger.info(f"Celery task update for {eval_id}: state={task_state}, retries={retries}")
+        
+        return {"message": "Celery task status updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating Celery task status for {eval_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/evaluations/running")
@@ -784,7 +858,6 @@ async def get_evaluation_complete(eval_id: str):
 async def get_openapi_yaml():
     """Get OpenAPI specification in YAML format"""
     from fastapi.openapi.utils import get_openapi
-    import yaml
     
     openapi_schema = get_openapi(
         title=app.title,

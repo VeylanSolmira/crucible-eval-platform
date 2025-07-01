@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Test Celery priority queue by submitting directly to Celery"""
-import os
 import time
 from celery import Celery
 from datetime import datetime

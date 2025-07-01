@@ -5,7 +5,6 @@ This script is 100% safe to run anywhere
 """
 
 import os
-import sys
 import subprocess
 import json
 from datetime import datetime
@@ -173,9 +172,9 @@ def main():
     with open('SAFE_SECURITY_CHECK.md', 'w') as f:
         f.write(report)
     
-    print(f"\n✅ Check complete!")
-    print(f"📄 Report saved to: SAFE_SECURITY_CHECK.md")
-    print(f"📊 Data saved to: safe_security_check.json")
+    print("\n✅ Check complete!")
+    print("📄 Report saved to: SAFE_SECURITY_CHECK.md")
+    print("📊 Data saved to: safe_security_check.json")
 
 
 if __name__ == '__main__':

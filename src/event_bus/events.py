@@ -10,7 +10,6 @@ from typing import Dict, Any, Callable, List
 from collections import defaultdict
 import asyncio
 import threading
-import queue
 # Import from shared base module
 import sys
 from pathlib import Path

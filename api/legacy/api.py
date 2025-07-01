@@ -530,7 +530,6 @@ class RESTfulAPIHandler:
                 
         def openapi_spec(_request: APIRequest) -> APIResponse:
             """Serve OpenAPI specification"""
-            import os
             from pathlib import Path
             
             # Look for OpenAPI spec file

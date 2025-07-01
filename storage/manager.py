@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
-from .database import Evaluation, EvaluationEvent, EvaluationMetric, get_db, SQLALCHEMY_AVAILABLE
+from .database import Evaluation, EvaluationEvent, EvaluationMetric
 
 
 class StorageManager:
@@ -137,7 +137,7 @@ class StorageManager:
         # Add status change event
         event = EvaluationEvent(
             evaluation_id=eval_id,
-            event_type=f'status_changed',
+            event_type='status_changed',
             message=f'Status changed to {status}',
             metadata=kwargs
         )

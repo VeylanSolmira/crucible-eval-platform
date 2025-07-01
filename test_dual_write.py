@@ -2,7 +2,6 @@
 """Test dual-write functionality - verify evaluation goes to both systems"""
 import requests
 import time
-import json
 
 # Submit a test evaluation
 print("Submitting test evaluation...")

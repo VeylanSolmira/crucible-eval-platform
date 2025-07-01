@@ -2,8 +2,6 @@
 """Test priority queue functionality"""
 import requests
 import time
-import json
-from datetime import datetime
 
 API_URL = "http://localhost:8000"
 
@@ -121,7 +119,7 @@ def test_queue_status():
         response = requests.get(f"{API_URL}/api/queue-status")
         if response.status_code == 200:
             status = response.json()
-            print(f"\nQueue Status:")
+            print("\nQueue Status:")
             print(f"  Queued: {status.get('queued', 'N/A')}")
             print(f"  Running: {status.get('running', 'N/A')}")
             print(f"  Workers: {status.get('workers', 'N/A')}")

@@ -119,7 +119,7 @@ class QueueComparison:
         print(f"Failed: {len([r for r in results if r['status'] == 'failed'])}")
         print(f"Timeouts: {len([r for r in results if r['status'] == 'timeout'])}")
         
-        print(f"\nTiming Statistics (seconds):")
+        print("\nTiming Statistics (seconds):")
         print(f"  Min: {min(durations):.3f}")
         print(f"  Max: {max(durations):.3f}")
         print(f"  Mean: {statistics.mean(durations):.3f}")
@@ -145,16 +145,16 @@ class QueueComparison:
             if response.status_code == 200:
                 status = response.json()
                 queue_status = status.get("queue_service", {})
-                print(f"\nLegacy Queue Status:")
+                print("\nLegacy Queue Status:")
                 print(f"  Queued: {queue_status.get('queued', 'N/A')}")
                 print(f"  Running: {queue_status.get('running', 'N/A')}")
         except:
             print("\nLegacy Queue Status: Unable to fetch")
         
         # Check Celery (would need to query Flower API)
-        print(f"\nCelery Status:")
-        print(f"  Check Flower dashboard at http://localhost:5555")
-        print(f"  (Login: admin/crucible)")
+        print("\nCelery Status:")
+        print("  Check Flower dashboard at http://localhost:5555")
+        print("  (Login: admin/crucible)")
 
 def main():
     comparison = QueueComparison()
@@ -174,7 +174,7 @@ def main():
     # Save results
     with open("queue_comparison_results.json", "w") as f:
         json.dump(results, f, indent=2)
-    print(f"\nResults saved to queue_comparison_results.json")
+    print("\nResults saved to queue_comparison_results.json")
 
 if __name__ == "__main__":
     main()

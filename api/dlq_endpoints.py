@@ -4,7 +4,7 @@ Dead Letter Queue API endpoints.
 This module provides REST API endpoints for viewing and managing
 tasks that have failed permanently and are stored in the DLQ.
 """
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from fastapi import APIRouter, HTTPException, Query
 import redis
 import logging
