@@ -16,15 +16,13 @@ from components import (
     AdvancedMonitor,
     TaskQueue,
     QueuedEvaluationPlatform,
-    FileStorage,
     create_api_service,
     create_api_handler,
     APIRequest,
     HTTPMethod,
     create_frontend,
     FrontendConfig,
-    FrontendType,
-    EventBus
+    FrontendType
 )
 
 
@@ -96,10 +94,8 @@ def main():
             print("⚠️  Using subprocess")
     
     # Create components
-    event_bus = EventBus()
     queue = TaskQueue(max_workers=4)
     monitor = AdvancedMonitor()
-    storage = FileStorage("./demo_storage")
     
     # Create platform
     platform = QueuedEvaluationPlatform(

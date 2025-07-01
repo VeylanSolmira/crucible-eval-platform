@@ -263,7 +263,7 @@ The goal is to ensure that even a highly capable AI system cannot break out of i
             json.dump({
                 'timestamp': datetime.now().isoformat(),
                 'engines': list(self.engines.keys()),
-                'scenarios': len(ATTACK_SCENARIOS),
+                'scenarios': len(self.scenarios),
                 'results': self.results,
                 'statistics': engine_stats
             }, f, indent=2)

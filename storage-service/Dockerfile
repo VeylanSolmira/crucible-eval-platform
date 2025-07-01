@@ -16,9 +16,9 @@ COPY shared/ /app/shared/
 # Set Python path to include app directory
 ENV PYTHONPATH=/app
 
-# Health check
+# Health check using Python (curl not available in base image)
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-    CMD curl -f http://localhost:8082/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8082/health').read()" || exit 1
 
 # Switch to non-root user
 USER appuser

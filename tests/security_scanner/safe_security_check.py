@@ -37,8 +37,8 @@ def check_environment():
             elif 'containerd' in cgroup_content:
                 in_container = True
                 container_type = 'containerd'
-    except:
-        pass
+    except (FileNotFoundError, IOError):
+        pass  # Not in container or can't read cgroup
     
     results['environment']['in_container'] = in_container
     results['environment']['container_type'] = container_type
@@ -68,11 +68,11 @@ def check_network_safely():
                               capture_output=True, text=True, timeout=1)
         if result.returncode == 0:
             # Count interfaces (lo, eth0, etc)
-            interfaces = len([l for l in result.stdout.split('\n') 
-                            if ': ' in l and not l.startswith(' ')])
+            interfaces = len([line for line in result.stdout.split('\n') 
+                            if ': ' in line and not line.startswith(' ')])
             return f"{interfaces} interfaces"
         return "unknown"
-    except:
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
         return "no ip command"
 
 
@@ -105,7 +105,7 @@ def check_limits_safely():
         proc_limit = "unlimited" if hard == resource.RLIM_INFINITY else str(hard)
         
         return f"memory:{mem_limit}, processes:{proc_limit}"
-    except:
+    except (OSError, ValueError):
         return "cannot read limits"
 
 

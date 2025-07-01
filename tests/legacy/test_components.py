@@ -68,12 +68,12 @@ def test_component(name, component, timeout_seconds=10):
         if hasattr(component, 'shutdown'):
             try:
                 component.shutdown()
-            except:
+            except Exception:
                 pass
         if hasattr(component, 'stop'):
             try:
                 component.stop()
-            except:
+            except Exception:
                 pass
 
 def main():

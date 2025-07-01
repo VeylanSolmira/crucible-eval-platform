@@ -92,7 +92,7 @@ def test_component(component_name: str):
                 print("\n--- GVisorEngine ---")
                 print("⚠️  gVisor runtime not available")
                 
-        except:
+        except Exception:
             print("\n⚠️  Docker not available - skipping Docker/gVisor tests")
         
         print(f"\n✅ Tested {engines_tested} execution engines")
@@ -246,7 +246,7 @@ def test_component(component_name: str):
         # Test create_api factory
         print("\n--- Testing create_api factory ---")
         try:
-            api_http = create_api(platform, framework='http.server')
+            create_api(platform, framework='http.server')
             print("✅ Created http.server API")
         except Exception as e:
             print(f"❌ Failed to create http.server API: {e}")
@@ -374,7 +374,7 @@ def test_all_configurations():
             all_passed &= test_engine_configuration("Docker (standard runtime)", GVisorEngine, 'runc')
         configurations_tested += 1
         
-    except:
+    except Exception:
         print("\n⚠️  Docker not available - skipping Docker/gVisor configurations")
     
     print(f"\n✅ Tested {configurations_tested} configurations")
@@ -424,7 +424,7 @@ def main():
         try:
             subprocess.run(['docker', '--version'], capture_output=True, check=True)
             all_passed = test_engine_configuration("Docker", DockerEngine)
-        except:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             print("❌ Docker not available!")
             return 1
             
@@ -439,7 +439,7 @@ def main():
             else:
                 print("⚠️  gVisor runtime not available, testing with standard runtime")
                 all_passed = test_engine_configuration("Docker (standard)", GVisorEngine, 'runc')
-        except:
+        except (subprocess.CalledProcessError, FileNotFoundError, Exception):
             print("❌ Docker not available!")
             return 1
             

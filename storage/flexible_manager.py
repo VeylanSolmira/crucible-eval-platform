@@ -95,7 +95,7 @@ class FlexibleStorageManager:
         """Create default storage based on environment."""
         # Try database first
         try:
-            from .database.connection import get_database_url
+            from .database.connection import get_database_url  # noqa: F401
             return DatabaseStorage()
         except ImportError:
             pass

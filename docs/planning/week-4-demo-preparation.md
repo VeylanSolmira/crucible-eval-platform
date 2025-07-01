@@ -82,7 +82,7 @@ This week focuses on achieving demo-ready status with a polished, production-qua
   - Fixed all TypeScript type errors
 - [ ] Remove deprecated code
   - [ ] Remove old queue-service references after Celery works
-  - [ ] Clean up legacy API files
+  - [x] Clean up legacy API files
 - [ ] Consider renaming microservices_gateway.py → app.py
   - [ ] Note: Would require updates to Dockerfile, imports, docs
   - [ ] Decision: Defer to avoid breaking changes during demo prep
@@ -108,11 +108,16 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - [ ] Validate fill in all numbers in docs/testing/performance-metrics.md
 - [x] Create automated test script for demo (run_demo_tests.py)
 - [ ] Verify the above testing protocols perform and cover as expected/desired
+- [ ] Analyze and adapt legacy test code
+  - [ ] Review tests/legacy components for useful patterns
+  - [ ] Adapt tests/security_scanner for current architecture
+  - [ ] Document migration plan for valuable test cases
 
 **Deliverables:**
 - Clean codebase passing all linters
 - Core integration tests passing
 - Performance metrics documented
+- Legacy test analysis complete
 
 ## Day 3 (Wednesday): CI/CD & Infrastructure Polish
 

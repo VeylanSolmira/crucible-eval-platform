@@ -33,7 +33,7 @@ class FileStorageTests(StorageServiceTestMixin, unittest.TestCase):
     
     def test_directory_creation(self):
         """Test that storage directories are created."""
-        storage = FileStorage(self.temp_dir + "/subdir")
+        FileStorage(self.temp_dir + "/subdir")
         
         # Verify directories exist
         base_path = Path(self.temp_dir) / "subdir"
