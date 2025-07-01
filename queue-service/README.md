@@ -1,10 +1,12 @@
-# Queue Service
+# Queue Service (Legacy System)
 
-A simple REST API for task queueing that provides network-accessible task distribution for the Crucible platform.
+A simple REST API for task queueing that provides network-accessible task distribution for the Crucible platform. Currently handles 50% of evaluation traffic as part of a gradual migration to Celery.
 
 ## Overview
 
-The Queue Service acts as a lightweight task queue, similar to what Redis/Celery would provide but using simple Python data structures. It manages the lifecycle of evaluation tasks from submission to completion.
+The Queue Service acts as a lightweight task queue, serving as the legacy queueing system while the platform migrates to Celery. It manages the lifecycle of evaluation tasks from submission to completion using simple Python data structures.
+
+**Current Status**: This service runs alongside Celery in a 50/50 traffic split configuration, allowing for A/B testing and gradual migration.
 
 ## Features
 
@@ -42,6 +44,27 @@ Environment variables:
 - `REDIS_URL` - Redis connection URL (default: `redis://redis:6379`)
 - `API_KEY` - Optional API key for authentication
 - `PORT` - Service port (default: 8081)
+
+## Migration Context
+
+This service is part of a dual-queue architecture during the Celery migration:
+
+```
+API Gateway (50/50 split)
+    ├─→ Queue Service (50%) → Queue Worker → executor-1
+    └─→ Celery (50%) → Celery Workers → executor-2, executor-3
+```
+
+### Traffic Distribution
+- **Current**: 50% of evaluations routed here
+- **Target**: 0% (full migration to Celery)
+- **Rollback**: Can handle 100% if Celery issues arise
+
+### Why Keep Both Systems?
+1. **Risk Mitigation**: Gradual migration reduces risk
+2. **A/B Testing**: Compare performance between systems
+3. **Rollback Capability**: Quick reversion if needed
+4. **Zero Downtime**: No service interruption during migration
 
 ## Architecture
 
@@ -102,10 +125,16 @@ docker run -p 8081:8081 crucible-queue-service
 - **Basic Priority**: Only FIFO ordering, no priority queues
 - **No Retries**: Failed tasks are not automatically retried
 
-## Future Improvements
+## Future (Post-Migration)
 
-- Replace with Redis/RabbitMQ for persistence
-- Add priority queue support
-- Implement task retry logic
-- Add task TTL and expiration
-- Support for delayed/scheduled tasks
+Once Celery migration is complete (CELERY_PERCENTAGE=1.0), this service will be:
+1. Kept in standby mode for emergency fallback
+2. Eventually decommissioned after stability period
+3. Code archived for reference
+
+The Celery system provides all the missing features:
+- Persistence via Redis
+- Priority queue support (implemented)
+- Retry logic with exponential backoff (implemented)
+- Task TTL and Dead Letter Queue (implemented)
+- Scheduled tasks via Celery Beat (future)

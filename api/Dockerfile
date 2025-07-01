@@ -1,25 +1,44 @@
-# API Service - Microservices mode
-FROM crucible-base AS api-service
+# Multi-stage build for API Service
+ARG BASE_IMAGE=crucible-base
 
-WORKDIR /app
+# Build stage - install API-specific dependencies
+FROM ${BASE_IMAGE} AS builder
 
-# Copy API requirements first for better layer caching
-COPY api/requirements.txt /app/api/requirements.txt
+# Switch to root for dependency installation
+USER root
 
-# Install API dependencies
-RUN pip install --no-cache-dir -r /app/api/requirements.txt
+# Copy and install API-specific requirements
+COPY api/requirements.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+    && rm -f /tmp/requirements.txt
 
-# Copy API service code and dependencies
-# Note: This Dockerfile should be built from the repository root:
-# docker build -f api/Dockerfile .
-COPY api/ /app/api/
-COPY storage/ /app/storage/
-COPY shared/ /app/shared/
+# Runtime stage - minimal final image
+FROM ${BASE_IMAGE} AS runtime
 
-# Create data directory with proper ownership for file storage
-RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+# Copy installed packages from builder
+# Python packages are in /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
-# Health check already configured in base image
+# Copy only necessary application code with proper ownership
+COPY --chown=appuser:appuser api/microservices_gateway.py api/__init__.py /app/api/
+COPY --chown=appuser:appuser api/app/ /app/api/app/
+COPY --chown=appuser:appuser storage/ /app/storage/
+COPY --chown=appuser:appuser shared/ /app/shared/
+
+# Create data directory
+RUN mkdir -p /app/data && chown appuser:appuser /app/data
+
+# Set specific environment for API service
+ENV SERVICE_NAME="api-gateway" \
+    HEALTH_CHECK_URL="http://localhost:8080/health"
+
+# Expose port
+EXPOSE 8080
+
+# Labels
+LABEL service="api-gateway" \
+      description="API Gateway for Crucible Platform" \
+      version="1.0.0"
 
 # Switch to non-root user
 USER appuser

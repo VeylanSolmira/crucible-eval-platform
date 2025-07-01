@@ -1,27 +1,45 @@
-# Celery Worker Dockerfile
-FROM python:3.11-slim
+# Multi-stage build for Celery Worker
+ARG BASE_IMAGE=crucible-base
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Build stage - compile dependencies that need gcc
+FROM ${BASE_IMAGE} AS builder
+
+USER root
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN useradd -m -u 1000 celeryuser
+# Copy and install Celery-specific requirements
+COPY celery-worker/requirements.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Set working directory
-WORKDIR /app
+# Runtime stage - no build tools
+FROM ${BASE_IMAGE} AS runtime
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Copy application code
-COPY --chown=celeryuser:celeryuser . .
+COPY --chown=appuser:appuser celery-worker/*.py /app/celery-worker/
+COPY --chown=appuser:appuser shared/ /app/shared/
 
-# Switch to non-root user
-USER celeryuser
+# Set working directory to celery-worker
+WORKDIR /app/celery-worker
 
-# Command will be specified in docker-compose.yml for flexibility
+# Set specific environment
+ENV SERVICE_NAME="celery-worker" \
+    C_FORCE_ROOT="false"
+
+# Labels
+LABEL service="celery-worker" \
+      description="Celery distributed task worker" \
+      version="1.0.0"
+
+# Use appuser from base image
+USER appuser
+
 # Default to worker, but allow override for beat, flower, etc.
 CMD ["celery", "-A", "tasks", "worker", "--loglevel=info"]

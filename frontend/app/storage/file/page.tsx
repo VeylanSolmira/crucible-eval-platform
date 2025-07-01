@@ -36,7 +36,7 @@ export default function FilePage() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchFileDetails()
+    void fetchFileDetails()
   }, [])
 
   const fetchFileDetails = async () => {
@@ -45,7 +45,7 @@ export default function FilePage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json()
+      const data = await response.json() as FileSystemDetails
       setDetails(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch file details')

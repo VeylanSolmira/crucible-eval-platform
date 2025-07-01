@@ -1,34 +1,35 @@
+# Optimized base image without venv complexity
 FROM python:3.11-slim AS python-base
 
-# Common dependencies for all services
-RUN pip install --no-cache-dir \
-    fastapi==0.104.1 \
-    uvicorn[standard]==0.24.0 \
-    pydantic==2.5.0 \
-    httpx==0.25.0 \
-    python-dotenv==1.0.0 \
-    structlog==23.2.0 \
-    requests==2.31.0 \
-    redis[hiredis]==5.0.1
+# Set Python environment variables for optimization
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    LOG_LEVEL=INFO
 
-# Common setup
+# Create non-root user early for better layer caching
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && mkdir -p /app \
+    && chown -R appuser:appuser /app
+
+# Install common dependencies in one layer
+COPY shared/docker/requirements-base.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-base.txt \
+    && rm -f /tmp/requirements-base.txt
+
+# Add optimized health check script
+COPY --chown=appuser:appuser shared/docker/healthcheck.py /healthcheck.py
+RUN chmod +x /healthcheck.py
+
+# Set working directory
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1
-ENV LOG_LEVEL=INFO
-
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Health check script (common for all services)
-RUN echo '#!/usr/bin/env python3\n\
-import sys\n\
-import httpx\n\
-try:\n\
-    response = httpx.get("http://localhost:8080/health", timeout=3)\n\
-    sys.exit(0 if response.status_code == 200 else 1)\n\
-except:\n\
-    sys.exit(1)' > /healthcheck.py && chmod +x /healthcheck.py
 
 # Default health check (services can override)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD python /healthcheck.py || exit 1
+
+# Labels for better container management
+LABEL maintainer="Crucible Platform Team" \
+      description="Base image for Crucible Python services" \
+      version="1.1.0"

@@ -251,7 +251,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
           </p>
           <div className="flex gap-2">
             <button
-              onClick={handleKill}
+              onClick={() => void handleKill()}
               className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
               disabled={killMutation.isPending}
             >
@@ -460,7 +460,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
                   </p>
                   <div className="flex gap-2">
                     <button
-                      onClick={async () => {
+                      onClick={() => void (async () => {
                         try {
                           await updateStatusMutation.mutateAsync({
                             evalId: evalId!,
@@ -472,7 +472,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
                           setToast({ message: `Failed to update status: ${error}`, type: 'error' });
                         }
                         setShowConfirmDialog(false);
-                      }}
+                      })()}
                       className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
                       disabled={updateStatusMutation.isPending}
                     >
@@ -507,7 +507,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={async () => {
+                      onClick={() => void (async () => {
                         if (selectedStatus) {
                           try {
                             await updateStatusMutation.mutateAsync({
@@ -522,7 +522,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
                         }
                         setShowStatusDialog(false);
                         setSelectedStatus('');
-                      }}
+                      })()}
                       className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
                       disabled={updateStatusMutation.isPending}
                     >

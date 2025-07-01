@@ -11,7 +11,7 @@ export default function RedisPage() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchRedisDetails()
+    void fetchRedisDetails()
   }, [])
 
   const fetchRedisDetails = async () => {

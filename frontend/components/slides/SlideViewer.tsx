@@ -50,7 +50,7 @@ export function SlideViewer({ slides, theme = 'black', transition = 'slide' }: S
       navigationMode: 'default', // Allows both horizontal and vertical navigation
     })
 
-    deck.initialize().then(() => {
+    void deck.initialize().then(() => {
       revealRef.current = deck
       
       // Listen for slide changes

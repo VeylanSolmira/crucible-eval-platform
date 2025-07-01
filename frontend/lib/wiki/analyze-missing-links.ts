@@ -346,5 +346,5 @@ async function main() {
 
 // Allow running as a script
 if (require.main === module) {
-  main()
+  void main()
 }

@@ -234,7 +234,7 @@ export default function ResearcherUI() {
           <div className="bg-white rounded-lg shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Batch Testing</h3>
             <button
-              onClick={handleBatchSubmit}
+              onClick={() => void handleBatchSubmit()}
               disabled={batchSubmit.isPending}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
@@ -250,7 +250,7 @@ export default function ResearcherUI() {
             <CodeEditorWithTemplates
               value={code}
               onChange={setCode}
-              onSubmit={handleSubmit}
+              onSubmit={() => void handleSubmit()}
               loading={isSubmitting || isRunning}
             />
           </div>

@@ -228,10 +228,13 @@ celery -A tasks worker --loglevel=info
 ## Production Considerations
 
 1. **Persistence**: Redis configured with AOF for durability
-2. **Memory**: Redis limited to 256MB with LRU eviction
-3. **Security**: Non-root user in container
-4. **Monitoring**: Integrate with Prometheus (future)
-5. **High Availability**: Consider Redis Sentinel (future)
+2. **Memory**: Monitor Redis memory usage, configure eviction policies
+3. **Security**: Tasks run in isolated containers via executor service
+4. **Monitoring**: Flower dashboard + Celery status API endpoint
+5. **High Availability**: Consider Redis Sentinel for failover
+6. **Retry Strategy**: Configure appropriate retry policies per task type
+7. **DLQ Management**: Regular review of failed tasks, automated cleanup
+8. **Traffic Migration**: Use CELERY_PERCENTAGE to gradually shift traffic
 
 ## Troubleshooting
 
@@ -246,6 +249,46 @@ celery -A tasks worker --loglevel=info
 3. Check storage service connectivity
 
 ### Memory Issues
-1. Monitor Redis memory: `docker exec crucible-celery-redis redis-cli info memory`
+1. Monitor Redis memory: `docker exec crucible-redis redis-cli info memory`
 2. Adjust `worker_max_tasks_per_child` to restart workers periodically
 3. Consider adding Redis eviction policy
+
+### Task Not Found
+1. Check if task was routed to correct queue
+2. Verify task ID format (should be celery-{eval_id})
+3. Check DLQ if task failed permanently
+
+## Migration from Legacy Queue
+
+The platform supports gradual migration from the legacy queue system:
+
+### Traffic Splitting Configuration
+```yaml
+# Environment variables in docker-compose.yml
+CELERY_ENABLED: true      # Enable Celery integration
+CELERY_PERCENTAGE: 0.5    # 50% of traffic to Celery
+
+# Migration phases
+# Phase 1: CELERY_PERCENTAGE=0.1  (10% testing)
+# Phase 2: CELERY_PERCENTAGE=0.5  (50% validation)
+# Phase 3: CELERY_PERCENTAGE=0.9  (90% migration)
+# Phase 4: CELERY_PERCENTAGE=1.0  (100% complete)
+```
+
+### Monitoring During Migration
+1. Compare completion rates between systems
+2. Monitor latency differences
+3. Track error rates
+4. Validate output consistency
+
+### Rollback Strategy
+```bash
+# Immediate rollback
+export CELERY_PERCENTAGE=0
+docker-compose restart api-service
+
+# Or force legacy queue
+export FORCE_LEGACY_QUEUE=true
+```
+
+For detailed migration strategy, see `/docs/architecture/celery-migration-strategy.md`

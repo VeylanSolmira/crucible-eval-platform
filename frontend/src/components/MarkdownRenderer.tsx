@@ -26,7 +26,7 @@ export function MarkdownRenderer({
     // Handle Mermaid diagrams if enabled
     if (enableMermaid && contentRef.current) {
       // Dynamically import mermaid only when needed
-      import('mermaid').then(({ default: mermaid }) => {
+      void import('mermaid').then(({ default: mermaid }) => {
         mermaid.initialize({ 
           startOnLoad: true,
           theme: 'default',
@@ -68,7 +68,7 @@ export function MarkdownRenderer({
                   parent.replaceWith(div)
                   
                   // Render the diagram
-                  mermaid.render(graphId, graphDefinition).then((result) => {
+                  void mermaid.render(graphId, graphDefinition).then((result) => {
                     div.innerHTML = result.svg
                   })
                 } catch (error) {
@@ -100,7 +100,12 @@ export function MarkdownRenderer({
           }]
         ]}
         components={{
-          a: ({ href, children, className, ...props }: any) => {
+          a: ({ href, children, className, ...props }: { 
+            href?: string; 
+            children?: React.ReactNode; 
+            className?: string;
+            [key: string]: any;
+          }) => {
             // Handle wiki links
             if (className?.includes('wiki-link')) {
               const isNew = className.includes('wiki-link-new')
@@ -130,7 +135,13 @@ export function MarkdownRenderer({
               </a>
             )
           },
-          code({ node, inline, className, children, ...props }: any) {
+          code({ node, inline, className, children, ...props }: {
+            node?: any;
+            inline?: boolean;
+            className?: string;
+            children?: React.ReactNode;
+            [key: string]: any;
+          }) {
             const match = /language-(\w+)/.exec(className || '')
             const language = match ? match[1] : ''
             

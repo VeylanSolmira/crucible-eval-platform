@@ -1,0 +1,50 @@
+# Multi-stage build for API Service
+ARG BASE_IMAGE=crucible-base
+FROM ${BASE_IMAGE} AS base
+
+# Build stage - install dependencies
+FROM base AS builder
+
+# Switch to root for installations
+USER root
+
+# Create virtual environment for API-specific deps
+RUN python -m venv /opt/api-venv
+ENV PATH="/opt/api-venv/bin:$PATH"
+
+# Copy and install API requirements
+COPY api/requirements.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Runtime stage
+FROM base AS runtime
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/api-venv /opt/api-venv
+ENV PATH="/opt/api-venv/bin:$PATH"
+
+# Copy only necessary application code
+COPY --chown=appuser:appuser api/microservices_gateway.py /app/api/
+COPY --chown=appuser:appuser api/app/ /app/api/app/
+COPY --chown=appuser:appuser api/__init__.py /app/api/
+COPY --chown=appuser:appuser storage/ /app/storage/
+COPY --chown=appuser:appuser shared/ /app/shared/
+
+# Create data directory with proper ownership
+RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+
+# Set specific health check for API service
+ENV HEALTH_CHECK_URL="http://localhost:8080/health"
+
+# Expose port
+EXPOSE 8080
+
+# Labels
+LABEL service="api-gateway"
+LABEL description="API Gateway for Crucible Platform"
+
+# Run as non-root user
+USER appuser
+
+# Run the microservices gateway
+CMD ["uvicorn", "api.microservices_gateway:app", "--host", "0.0.0.0", "--port", "8080"]

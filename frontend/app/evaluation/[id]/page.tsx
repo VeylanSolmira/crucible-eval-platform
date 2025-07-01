@@ -62,7 +62,7 @@ export default function EvaluationDetailPage({ params }: { params: Promise<{ id:
   const router = useRouter()
 
   useEffect(() => {
-    fetchEvaluationDetails()
+    void fetchEvaluationDetails()
   }, [id])
 
   const fetchEvaluationDetails = async () => {

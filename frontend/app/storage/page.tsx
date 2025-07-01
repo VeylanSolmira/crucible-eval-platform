@@ -55,7 +55,7 @@ export default function StoragePage() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchStorageOverview()
+    void fetchStorageOverview()
   }, [])
 
   const fetchStorageOverview = async () => {
@@ -64,7 +64,7 @@ export default function StoragePage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json()
+      const data = await response.json() as StorageOverview
       setOverview(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch storage overview')
