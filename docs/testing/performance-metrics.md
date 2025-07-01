@@ -1,88 +1,94 @@
 # Platform Performance Metrics
 
 ## Overview
-This document summarizes performance testing results for the Crucible platform, demonstrating its ability to handle concurrent workloads and recover from failures.
+This document outlines the performance testing framework for the Crucible platform and provides placeholders for actual metrics to be collected during testing.
 
 ## Test Environment
 - **Hardware**: Local Docker Desktop (adjust for your environment)
 - **Services**: All microservices running via docker-compose
-- **Date**: Week 4, Day 2 Testing
+- **Date**: Week 4, Day 2 - Test Framework Created
 
 ## Load Testing Results
 
 ### Concurrent Evaluation Performance
 
+*Note: The test framework is ready. Run `python tests/integration/test_load.py progressive` to collect actual metrics.*
+
 | Concurrent Users | Total Evaluations | Success Rate | Avg Response Time | Throughput |
 |-----------------|-------------------|--------------|-------------------|------------|
-| 5               | 10                | 100%         | 0.125s            | 8.0/sec    |
-| 10              | 20                | 100%         | 0.237s            | 8.4/sec    |
-| 20              | 40                | 100%         | 0.451s            | 8.8/sec    |
-| 50              | 100               | 98%          | 1.234s            | 7.5/sec    |
+| 5               | 10                | TBD          | TBD               | TBD        |
+| 10              | 20                | TBD          | TBD               | TBD        |
+| 20              | 40                | TBD          | TBD               | TBD        |
+| 50              | 100               | TBD          | TBD               | TBD        |
 
-### Key Metrics
+### Key Metrics (To Be Measured)
 
 **Submission Latency** (time to accept evaluation):
-- Minimum: 0.012s
-- Average: 0.125s
-- Maximum: 0.451s (under heavy load)
-- 95th percentile: 0.234s
+- Minimum: TBD
+- Average: TBD
+- Maximum: TBD
+- 95th percentile: TBD
 
 **End-to-End Completion Time** (submission to result):
-- Simple print statement: 2-3s
-- With 1s sleep: 3-4s
-- Complex computation: 4-6s
-- Timeout handling: Properly enforced at 30s
+- Simple print statement: Expected 2-3s
+- With 1s sleep: Expected 3-4s
+- Complex computation: Expected 4-6s
+- Timeout handling: Should enforce at 30s
 
-### Queue Performance
+### Queue Performance (Expected Behavior)
 
 **Celery Task Processing**:
-- Task acceptance: < 50ms
-- Queue latency: < 100ms typical
-- Worker startup: 2-3s
-- Retry handling: Exponential backoff working correctly
+- Task acceptance: Expected < 50ms
+- Queue latency: Expected < 100ms typical
+- Worker startup: Observed ~2-3s
+- Retry handling: Exponential backoff configured
 
 **50/50 Traffic Split** (during migration):
-- Old queue system: Handling 50% of traffic
-- Celery system: Handling 50% of traffic
-- No dropped tasks during split operation
+- Old queue system: Should handle 50% of traffic
+- Celery system: Should handle 50% of traffic
+- Goal: No dropped tasks during split operation
 
-## Resilience Testing Results
+## Resilience Testing Framework
 
-### Service Restart Tests
+### Service Restart Tests (To Be Validated)
+
+*Note: Run `python tests/integration/test_resilience.py` to validate these behaviors.*
 
 **Queue Worker Restart**:
-- ✅ Evaluations continue after restart
-- ✅ No data loss
-- Recovery time: 5-7 seconds
+- Expected: Evaluations continue after restart
+- Expected: No data loss
+- Expected recovery time: 5-10 seconds
 
 **Celery Worker Failure**:
-- ✅ Tasks remain queued during outage
-- ✅ Automatic processing on recovery
-- ✅ No duplicate executions
+- Expected: Tasks remain queued during outage
+- Expected: Automatic processing on recovery
+- Expected: No duplicate executions
 
 **Storage Service Outage**:
-- ✅ Graceful degradation
-- ✅ Data persisted after recovery
-- ⚠️ API returns cached data when available
+- Expected: Graceful degradation
+- Expected: Data persisted after recovery
+- Expected: API handles missing storage gracefully
 
 ### Network Partition Handling
-- Basic connectivity tested
-- Services reconnect automatically
-- Redis connection pooling handles transient failures
+- Test available for basic connectivity
+- Expected: Services reconnect automatically
+- Expected: Redis connection pooling handles transient failures
 
 ## Resource Usage
 
-### Container Resource Consumption
+### Container Resource Consumption (Estimated)
 
-| Service | CPU (avg) | Memory (avg) | Memory (peak) |
-|---------|-----------|--------------|---------------|
-| API | 15% | 128MB | 256MB |
-| Celery Worker | 20% | 256MB | 512MB |
-| Queue Worker | 10% | 128MB | 256MB |
-| Executor | 25%* | 256MB | 512MB |
-| Storage | 5% | 64MB | 128MB |
-| Redis | 5% | 32MB | 64MB |
-| PostgreSQL | 10% | 256MB | 512MB |
+*Note: Use `docker stats` during load testing to collect actual metrics.*
+
+| Service | CPU (expected) | Memory (expected) | Memory (limit) |
+|---------|----------------|-------------------|----------------|
+| API | 10-20% | 100-200MB | 512MB |
+| Celery Worker | 15-25% | 200-300MB | 512MB |
+| Queue Worker | 5-15% | 100-200MB | 512MB |
+| Executor | 20-50%* | 200-400MB | 512MB |
+| Storage | 5-10% | 50-100MB | 256MB |
+| Redis | 5-10% | 32-64MB | 256MB |
+| PostgreSQL | 10-20% | 200-300MB | 1GB |
 
 *During active evaluation execution
 
@@ -99,23 +105,23 @@ This document summarizes performance testing results for the Crucible platform, 
 2. PostgreSQL connection pool (configurable)
 3. Redis memory (for large result storage)
 
-## Error Handling Performance
+## Error Handling Performance (Test Scenarios)
 
-### Failure Scenarios Tested
+### Failure Scenarios to Test
 
-| Scenario | Detection Time | Recovery Time | Data Loss |
-|----------|---------------|---------------|-----------|
+| Scenario | Expected Detection | Expected Recovery | Expected Data Loss |
+|----------|-------------------|-------------------|-------------------|
 | Invalid code syntax | Immediate | N/A | None |
-| Infinite loop | 30s (timeout) | Immediate | None |
-| Memory exhaustion | 2-3s | Immediate | None |
-| Network timeout | 5s | Automatic retry | None |
-| Container crash | 1-2s | 5s restart | None |
+| Infinite loop | At timeout (30s) | Immediate | None |
+| Memory exhaustion | Within 5s | Immediate | None |
+| Network timeout | At timeout | Automatic retry | None |
+| Container crash | Within 5s | 5-10s restart | None |
 
-### Error Rate by Category
-- Syntax errors: Caught immediately
-- Runtime errors: Detected within 1s
-- Resource limits: Enforced consistently
-- Timeouts: Accurate to ±1s
+### Error Handling Design
+- Syntax errors: Should be caught by executor
+- Runtime errors: Should be captured in logs
+- Resource limits: Enforced by Docker
+- Timeouts: Configured at multiple levels
 
 ## Recommendations
 
@@ -153,12 +159,23 @@ python tests/integration/test_load.py progressive
 - API health: http://localhost:8000/api/health
 - Container stats: `docker stats`
 
-## Conclusions
+## Test Execution Plan
 
-The Crucible platform demonstrates:
-1. **Reliable** evaluation processing at scale
-2. **Resilient** architecture with automatic recovery
-3. **Predictable** performance characteristics
-4. **Smooth** migration path from legacy to Celery
+To populate this document with actual metrics:
 
-The platform is ready for demonstration with confidence in its stability and performance.
+1. **Start the platform**: `./start-platform.sh`
+2. **Run integration tests**: `python tests/integration/test_core_flows.py`
+3. **Run load tests**: `python tests/integration/test_load.py progressive`
+4. **Run resilience tests**: `python tests/integration/test_resilience.py`
+5. **Monitor resources**: `docker stats` during tests
+6. **Update this document** with actual results
+
+## Expected Outcomes
+
+Based on the architecture, we expect:
+1. **Reliable** evaluation processing with proper queueing
+2. **Resilient** service recovery after failures
+3. **Predictable** performance under load
+4. **Successful** 50/50 traffic split during migration
+
+The test framework is ready to validate these expectations.
