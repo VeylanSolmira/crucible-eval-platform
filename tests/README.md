@@ -13,7 +13,10 @@ tests/
 ├── integration/            # Integration tests between services
 │   ├── test_api_integration.py
 │   ├── test_celery_integration.py
-│   └── test_queue_executor_integration.py
+│   ├── test_queue_executor_integration.py
+│   ├── test_core_flows.py      # Complete evaluation flow tests
+│   ├── test_load.py           # Load and concurrent testing
+│   └── test_resilience.py     # Service failure recovery
 ├── e2e/                    # End-to-end tests
 │   └── test_full_evaluation_flow.py
 ├── load/                   # Load and performance tests
@@ -24,6 +27,7 @@ tests/
 ├── manual/                 # Manual testing scripts
 │   ├── README.md
 │   └── test-evaluation.sh
+├── run_demo_tests.py      # Automated demo test runner
 ├── fixtures/              # Test data and fixtures
 │   ├── code_samples/
 │   └── mock_responses/
@@ -75,6 +79,54 @@ pytest -m "requires_docker"
 # Skip integration tests
 pytest -m "not integration"
 ```
+
+### Demo Test Runner
+
+Run the automated demo test suite:
+
+```bash
+# Full demo test suite
+python tests/run_demo_tests.py
+
+# Quick platform check
+python tests/run_demo_tests.py quick
+```
+
+### New Integration Tests
+
+#### Core Flow Tests (`integration/test_core_flows.py`)
+```bash
+python tests/integration/test_core_flows.py
+```
+Tests:
+- Health check verification
+- Simple evaluation submission
+- Full evaluation lifecycle tracking
+- Error handling scenarios
+- Concurrent evaluation handling
+- Storage retrieval verification
+
+#### Load Testing (`integration/test_load.py`)
+```bash
+# Default: 10 concurrent, 20 total
+python tests/integration/test_load.py
+
+# Custom: 50 concurrent, 100 total
+python tests/integration/test_load.py 50 100
+
+# Progressive load test
+python tests/integration/test_load.py progressive
+```
+
+#### Resilience Testing (`integration/test_resilience.py`)
+```bash
+python tests/integration/test_resilience.py
+```
+Tests:
+- Service restart during evaluation
+- Celery worker failure recovery
+- Storage service outage handling
+- Network partition simulation
 
 ## Test Categories
 

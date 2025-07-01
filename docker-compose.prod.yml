@@ -1,109 +1,277 @@
-# Production overrides for docker-compose
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
-#
-# This file:
-# - Mounts host SSL certificates into nginx
-# - Sets production environment variables
-# - Disables development ports
+# Production overrides for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 version: '3.8'
 
 services:
-  # Override images to use ECR versions
-  nginx:
-    image: ${NGINX_IMAGE:-crucible-platform/nginx:latest}
-    environment:
-      # Enable production mode - fail if no valid SSL
-      - PRODUCTION_MODE=true
-      # Disable dev port
-      - NGINX_DEV_PORT=
-    volumes:
-      # Mount host SSL certificates (fetched by EC2 userdata)
-      - /etc/nginx/ssl:/etc/nginx/ssl:ro
-      # Keep other volumes from base compose
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - acme-challenge:/var/www/html/.well-known/acme-challenge
-    # Production health check for load balancer
+  # API Service with resource limits and security
+  api-service:
+    restart: always
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec,nosuid,nodev
     healthcheck:
-      test: ["CMD", "wget", "--no-check-certificate", "--quiet", "--tries=1", "--spider", "https://localhost/health"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 60s
-    # Production logging
+      retries: 5
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
+        max-file: "3"
+
+  # Celery Worker with controlled resources
+  celery-worker:
+    restart: always
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=200M,noexec,nosuid,nodev
+    environment:
+      - CELERY_WORKER_MAX_TASKS_PER_CHILD=100
+      - CELERY_WORKER_PREFETCH_MULTIPLIER=4
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
         max-file: "5"
 
-  # Disable all development ports
-  api-service:
-    image: ${API_IMAGE:-crucible-platform/api-service:latest}
-    ports: []
+  # Storage Service with persistence
+  storage-service:
+    restart: always
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./data:/app/data:rw
+      - storage-db:/var/lib/postgresql/data
+    healthcheck:
+      interval: 10s
+      timeout: 5s
+      retries: 5
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "5"
-  
-  crucible-frontend:
-    image: ${FRONTEND_IMAGE:-crucible-platform/frontend:latest}
-    ports: []
-    environment:
-      - NODE_ENV=production
-      - API_URL=  # Use relative URLs in production
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-  
-  executor-service:
-    image: ${EXECUTOR_SERVICE_IMAGE:-crucible-platform/executor-service:latest}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-  
-  queue:
-    image: ${QUEUE_SERVICE_IMAGE:-crucible-platform/queue-service:latest}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-  
-  queue-worker:
-    image: ${QUEUE_WORKER_IMAGE:-crucible-platform/queue-worker:latest}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-  
-  storage-worker:
-    image: ${STORAGE_WORKER_IMAGE:-crucible-platform/storage-worker:latest}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-  
-  postgres:
-    ports: []
+        max-file: "3"
+
+  # Executor Services with strict limits
+  executor-1:
+    restart: always
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined  # Needed for Docker-in-Docker
+    cap_add:
+      - SYS_ADMIN  # Required for container management
+    devices:
+      - /dev/fuse  # For some container operations
+    ulimits:
+      nproc: 100
+      nofile:
+        soft: 65536
+        hard: 65536
     logging:
       driver: "json-file"
       options:
         max-size: "50m"
         max-file: "5"
-  
-  redis:
-    ports: []
+
+  executor-2:
+    extends: executor-1
+    
+  executor-3:
+    extends: executor-1
+
+  # Queue Services (Legacy)
+  queue:
+    restart: always
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M,noexec,nosuid,nodev
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
+        max-file: "3"
+
+  queue-worker:
+    restart: always
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M,noexec,nosuid,nodev
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Storage Worker with write access
+  storage-worker:
+    restart: always
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./data:/app/data:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Frontend with caching
+  crucible-frontend:
+    restart: always
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec,nosuid,nodev
+      - /app/.next/cache:size=100M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # PostgreSQL with optimizations
+  postgres:
+    restart: always
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1.0
+    environment:
+      # Performance tuning
+      - POSTGRES_SHARED_BUFFERS=128MB
+      - POSTGRES_EFFECTIVE_CACHE_SIZE=256MB
+      - POSTGRES_MAINTENANCE_WORK_MEM=64MB
+      - POSTGRES_CHECKPOINT_COMPLETION_TARGET=0.9
+      - POSTGRES_WAL_BUFFERS=4MB
+      - POSTGRES_DEFAULT_STATISTICS_TARGET=100
+      - POSTGRES_RANDOM_PAGE_COST=1.1
+      - POSTGRES_EFFECTIVE_IO_CONCURRENCY=200
+    volumes:
+      - postgres-data:/var/lib/postgresql/data:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
         max-file: "5"
+    command: >
+      postgres
+      -c shared_preload_libraries='pg_stat_statements'
+      -c pg_stat_statements.track=all
+      -c log_statement='mod'
+      -c log_duration=on
+      -c log_min_duration_statement=100
+
+  # Redis with persistence
+  redis:
+    restart: always
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    sysctls:
+      - net.core.somaxconn=1024
+    volumes:
+      - redis-data:/data:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx with security headers
+  nginx:
+    restart: always
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=100M
+      - /var/run:size=10M
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ssl-certs:/etc/nginx/ssl:ro
+      - acme-challenge:/var/www/html/.well-known/acme-challenge:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Docker proxy with minimal permissions
+  docker-proxy:
+    restart: always
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: 0.1
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+# Production volume configurations
+# Using Docker-managed volumes for better portability
+volumes:
+  postgres-data:
+    driver: local
+  
+  redis-data:
+    driver: local
+  
+  storage-db:
+    driver: local
+
+# Production network configuration
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: crucible_prod
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
