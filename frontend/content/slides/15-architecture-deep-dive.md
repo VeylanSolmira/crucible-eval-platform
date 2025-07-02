@@ -1,7 +1,7 @@
 ---
-title: "Architecture Deep Dive"
+title: 'Architecture Deep Dive'
 duration: 3
-tags: ["architecture", "technical"]
+tags: ['architecture', 'technical']
 ---
 
 ## Architecture Deep Dive
@@ -24,6 +24,7 @@ tags: ["architecture", "technical"]
 ```
 
 **Design Principles:**
+
 - Loose coupling via events
 - Pluggable implementations
 - Security by default

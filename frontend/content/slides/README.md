@@ -14,10 +14,10 @@ Each slide file uses Markdown with YAML frontmatter:
 
 ```markdown
 ---
-title: "Slide Title"
+title: 'Slide Title'
 order: 1
-tags: ["tag1", "tag2"]
-description: "Optional description"
+tags: ['tag1', 'tag2']
+description: 'Optional description'
 ---
 
 # Main Title
@@ -43,6 +43,7 @@ Use `---` to separate individual slides within a file.
 ## Viewing Slides
 
 Navigate to `/slides` in the application to:
+
 - Browse all slides
 - View individual slides
 - Present slides using reveal.js
@@ -51,6 +52,7 @@ Navigate to `/slides` in the application to:
 ## Editing Slides
 
 The slide editor supports:
+
 - Live preview
 - Syntax highlighting for code blocks
 - Markdown formatting

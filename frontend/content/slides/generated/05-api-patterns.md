@@ -1,7 +1,7 @@
 ---
-title: "API Patterns & Best Practices"
+title: 'API Patterns & Best Practices'
 order: 5
-tags: ["api", "patterns", "react"]
+tags: ['api', 'patterns', 'react']
 ---
 
 # API Patterns & Best Practices
@@ -28,7 +28,7 @@ console.log('Evaluation ID:', data.eval_id)
 ```typescript
 function EvaluationStatus({ evalId }: { evalId: string }) {
   const [status, setStatus] = useState<EvaluationStatus | null>(null)
-  
+
   useEffect(() => {
     async function checkStatus() {
       const { data, error } = await apiClient.getEvaluationStatus(evalId)
@@ -36,7 +36,7 @@ function EvaluationStatus({ evalId }: { evalId: string }) {
     }
     checkStatus()
   }, [evalId])
-  
+
   return <div>{status?.output}</div>
 }
 ```
@@ -48,13 +48,13 @@ function EvaluationStatus({ evalId }: { evalId: string }) {
 ```typescript
 try {
   const { data, error } = await apiClient.submitEvaluation(code)
-  
+
   if (error) {
     // API returned an error
     showError(error.message)
     return
   }
-  
+
   // Success!
   processResult(data)
 } catch (e) {

@@ -9,7 +9,14 @@ from .events import (
     EvaluationRunningEvent,
     EvaluationCompletedEvent,
     EvaluationFailedEvent,
-    EventChannels
+    EventChannels,
 )
 
-__all__ = ["EvaluationStatus", "EvaluationQueuedEvent", "EvaluationRunningEvent", "EvaluationCompletedEvent", "EvaluationFailedEvent", "EventChannels"]
+__all__ = [
+    "EvaluationStatus",
+    "EvaluationQueuedEvent",
+    "EvaluationRunningEvent",
+    "EvaluationCompletedEvent",
+    "EvaluationFailedEvent",
+    "EventChannels",
+]

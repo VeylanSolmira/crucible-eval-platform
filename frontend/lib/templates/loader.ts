@@ -18,10 +18,10 @@ export async function loadTemplate(id: string): Promise<CodeTemplate | null> {
   try {
     const filePath = path.join(process.cwd(), 'lib', 'templates', metadata.filename)
     const code = await fs.readFile(filePath, 'utf-8')
-    
+
     return {
       ...metadata,
-      code
+      code,
     }
   } catch (error) {
     console.error(`Error loading template ${id}:`, error)
@@ -33,10 +33,8 @@ export async function loadTemplate(id: string): Promise<CodeTemplate | null> {
  * Load all templates (server-side only)
  */
 export async function loadAllTemplates(): Promise<CodeTemplate[]> {
-  const templates = await Promise.all(
-    templateMetadata.map(meta => loadTemplate(meta.id))
-  )
-  
+  const templates = await Promise.all(templateMetadata.map(meta => loadTemplate(meta.id)))
+
   return templates.filter((t): t is CodeTemplate => t !== null)
 }
 
@@ -45,13 +43,16 @@ export async function loadAllTemplates(): Promise<CodeTemplate[]> {
  */
 export async function getTemplatesByCategory(): Promise<Record<string, CodeTemplate[]>> {
   const templates = await loadAllTemplates()
-  
-  return templates.reduce((acc, template) => {
-    const category = template.category
-    if (!acc[category]) {
-      acc[category] = []
-    }
-    acc[category]!.push(template)
-    return acc
-  }, {} as Record<string, CodeTemplate[]>)
+
+  return templates.reduce(
+    (acc, template) => {
+      const category = template.category
+      if (!acc[category]) {
+        acc[category] = []
+      }
+      acc[category]!.push(template)
+      return acc
+    },
+    {} as Record<string, CodeTemplate[]>
+  )
 }

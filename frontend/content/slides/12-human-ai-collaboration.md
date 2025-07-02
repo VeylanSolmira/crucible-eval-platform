@@ -1,12 +1,13 @@
 ---
-title: "The Human-AI Collaboration Story"
+title: 'The Human-AI Collaboration Story'
 duration: 3
-tags: ["collaboration", "ai"]
+tags: ['collaboration', 'ai']
 ---
 
 ## The Human-AI Collaboration Story
 
 ### Code Ownership Distribution
+
 ```python
 # Lines of code by origin:
 ai_generated = 5847  # 73%

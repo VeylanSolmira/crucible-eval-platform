@@ -38,13 +38,13 @@ class Logger {
     if (process.env.NODE_ENV === 'production') {
       return LogLevel.ERROR
     }
-    
+
     // Check for explicit log level in env
     const envLevel = process.env.NEXT_PUBLIC_LOG_LEVEL?.toUpperCase()
     if (envLevel && envLevel in LogLevel) {
       return LogLevel[envLevel as keyof typeof LogLevel]
     }
-    
+
     return LogLevel.INFO
   }
 
@@ -62,23 +62,23 @@ class Logger {
 
   private formatMessage(level: string, message: string, ...args: unknown[]): unknown[] {
     const parts: unknown[] = []
-    
+
     if (this.config.includePrefix) {
       parts.push(`[${level}]`)
     }
-    
+
     parts.push(message)
-    
+
     if (this.config.includeTimestamp) {
       parts.push(new Date().toISOString())
     }
-    
+
     return [...parts, ...args]
   }
 
   debug(message: string, ...args: unknown[]) {
     if (this.config.level <= LogLevel.DEBUG) {
-      console.log(...this.formatMessage('DEBUG', message, ...args))
+      console.info(...this.formatMessage('DEBUG', message, ...args))
     }
   }
 
@@ -103,11 +103,11 @@ class Logger {
   // Group related logs
   group(label: string, fn: () => void) {
     if (this.config.level < LogLevel.NONE) {
-      console.group(label)
+      console.info(`[GROUP START] ${label}`)
       try {
         fn()
       } finally {
-        console.groupEnd()
+        console.info(`[GROUP END] ${label}`)
       }
     }
   }
@@ -115,8 +115,8 @@ class Logger {
   // Time operations
   time(label: string): () => void {
     if (this.config.level <= LogLevel.DEBUG) {
-      console.time(label)
-      return () => console.timeEnd(label)
+      const start = Date.now()
+      return () => console.info(`[TIMER] ${label}: ${Date.now() - start}ms`)
     }
     return () => {} // no-op
   }
@@ -167,8 +167,8 @@ export default logger
 // Development helpers - only available in dev mode
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   // Expose logger on window for debugging
-  (window as { __logger?: Logger }).__logger = logger
-  
+  ;(window as { __logger?: Logger }).__logger = logger
+
   // Log current configuration
   console.info('Logger initialized with config:', logger.getConfig())
 }

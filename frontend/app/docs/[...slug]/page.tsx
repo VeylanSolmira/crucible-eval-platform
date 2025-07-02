@@ -14,10 +14,10 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
   const doc = await getDocBySlug(slug)
-  
+
   if (!doc) {
     return {
-      title: 'Not Found - Crucible Docs'
+      title: 'Not Found - Crucible Docs',
     }
   }
 
@@ -27,26 +27,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export async function generateStaticParams() {
+export function generateStaticParams() {
   // Only pre-build essential docs during build time
   // Others will be built on-demand (ISR)
-  const criticalDocs = [
-    'quickstart',
-    'README',
-    'architecture/overview',
-    'getting-started'
-  ];
-  
+  const criticalDocs = ['quickstart', 'README', 'architecture/overview', 'getting-started']
+
   // Always only pre-build critical docs (both dev and prod)
-  return criticalDocs.map((path) => ({
-    slug: path.split('/')
-  }));
+  return criticalDocs.map(path => ({
+    slug: path.split('/'),
+  }))
 }
 
 export default async function DocPage({ params }: PageProps) {
   const { slug } = await params
   const doc = await getDocBySlug(slug)
-  
+
   if (!doc) {
     notFound()
   }
@@ -60,7 +55,9 @@ export default async function DocPage({ params }: PageProps) {
       <nav className="text-sm text-gray-600 mb-4">
         <ol className="flex items-center space-x-2">
           <li>
-            <Link href="/docs" className="hover:text-gray-900">Docs</Link>
+            <Link href="/docs" className="hover:text-gray-900">
+              Docs
+            </Link>
           </li>
           {slug.map((segment, index) => (
             <li key={segment} className="flex items-center">
@@ -76,16 +73,12 @@ export default async function DocPage({ params }: PageProps) {
       {/* Document header */}
       <div className="mb-8 pb-8 border-b border-gray-200">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">{doc.title}</h1>
-        {doc.description && (
-          <p className="text-lg text-gray-600">{doc.description}</p>
-        )}
+        {doc.description && <p className="text-lg text-gray-600">{doc.description}</p>}
         <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
           {doc.lastModified && (
             <span>Last updated: {new Date(doc.lastModified).toLocaleDateString()}</span>
           )}
-          {doc.readingTime && (
-            <span>• {doc.readingTime} min read</span>
-          )}
+          {doc.readingTime && <span>• {doc.readingTime} min read</span>}
         </div>
       </div>
 
@@ -96,24 +89,34 @@ export default async function DocPage({ params }: PageProps) {
       <div className="mt-12 pt-8 border-t border-gray-200">
         <div className="flex justify-between">
           {doc.prev && (
-            <a 
+            <a
               href={`/docs/${doc.prev.slug}`}
               className="flex items-center text-blue-600 hover:text-blue-700"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
               {doc.prev.title}
             </a>
           )}
           {doc.next && (
-            <a 
+            <a
               href={`/docs/${doc.next.slug}`}
               className="flex items-center text-blue-600 hover:text-blue-700 ml-auto"
             >
               {doc.next.title}
               <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </a>
           )}

@@ -1,16 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  
+
   // Increase timeout for static generation
   staticPageGenerationTimeout: 240, // 4 minutes
-  
+
   // Reduce build parallelism
   experimental: {
     workerThreads: false,
-    cpus: 2
+    cpus: 2,
   },
-  
+
   // API routes will be proxied to backend
   async rewrites() {
     // For Docker, use the service name; for local dev, use localhost

@@ -24,10 +24,10 @@ except ImportError:
     DatabaseStorage = None
 
 __all__ = [
-    'StorageManager',
-    'FlexibleStorageManager', 
-    'StorageService',
-    'InMemoryStorage',
-    'FileStorage',
-    'DatabaseStorage'
+    "StorageManager",
+    "FlexibleStorageManager",
+    "StorageService",
+    "InMemoryStorage",
+    "FileStorage",
+    "DatabaseStorage",
 ]

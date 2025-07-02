@@ -37,16 +37,16 @@ export default function SlidesContainer({ initialSlides }: SlidesContainerProps)
         },
         body: JSON.stringify({
           action: 'save',
-          slide: updatedSlide
+          slide: updatedSlide,
         }),
       })
-      
+
       if (!response.ok) {
         throw new Error('Failed to save slide')
       }
-      
+
       // Update local state
-      setSlides(slides.map(s => s.id === updatedSlide.id ? updatedSlide : s))
+      setSlides(slides.map(s => (s.id === updatedSlide.id ? updatedSlide : s)))
       setSelectedSlide(updatedSlide)
       setViewMode('list')
     } catch (error) {
@@ -60,11 +60,11 @@ export default function SlidesContainer({ initialSlides }: SlidesContainerProps)
       const response = await fetch(`/app/slides?id=${slideId}`, {
         method: 'DELETE',
       })
-      
+
       if (!response.ok) {
         throw new Error('Failed to delete slide')
       }
-      
+
       // Update local state
       setSlides(slides.filter(s => s.id !== slideId))
       if (selectedSlide?.id === slideId) {
@@ -121,7 +121,7 @@ export default function SlidesContainer({ initialSlides }: SlidesContainerProps)
           slides={slides}
           onSelectSlide={handleSelectSlide}
           onEditSlide={handleEditSlide}
-          onDeleteSlide={handleDeleteSlide}
+          onDeleteSlide={id => void handleDeleteSlide(id)}
           selectedSlideId={selectedSlide?.id || ''}
         />
       </div>
@@ -154,11 +154,19 @@ export default function SlidesContainer({ initialSlides }: SlidesContainerProps)
               <div className="prose prose-lg max-w-none">
                 {selectedSlide.sections.map((section, index) => (
                   <div key={index} className="mb-12 pb-12 border-b last:border-0">
-                    <div className="slide-section" dangerouslySetInnerHTML={{ 
-                      __html: section.replace(/```(\w+)?\n([\s\S]*?)```/g, (_match, lang, code) => {
-                        return `<pre><code class="language-${lang || 'plaintext'}">${code.trim()}</code></pre>`
-                      })
-                    }} />
+                    <div
+                      className="slide-section"
+                      dangerouslySetInnerHTML={{
+                        __html: section.replace(
+                          /```(\w+)?\n([\s\S]*?)```/g,
+                          (_match: string, lang: string | undefined, code: string) => {
+                            const language = lang || 'plaintext'
+                            const trimmedCode = code.trim()
+                            return `<pre><code class="language-${language}">${trimmedCode}</code></pre>`
+                          }
+                        ),
+                      }}
+                    />
                   </div>
                 ))}
               </div>

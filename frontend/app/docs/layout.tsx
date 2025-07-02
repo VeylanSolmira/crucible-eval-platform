@@ -19,7 +19,7 @@ const navigation: NavItem[] = [
       { title: 'Quick Start', href: '/docs/getting-started/quickstart' },
       { title: 'Installation', href: '/docs/getting-started/installation' },
       { title: 'Configuration', href: '/docs/getting-started/configuration' },
-    ]
+    ],
   },
   {
     title: 'Architecture',
@@ -28,7 +28,7 @@ const navigation: NavItem[] = [
       { title: 'Microservices Design', href: '/docs/architecture/microservices' },
       { title: 'Security Model', href: '/docs/architecture/security' },
       { title: 'Event Architecture', href: '/docs/architecture/events' },
-    ]
+    ],
   },
   {
     title: 'API Reference',
@@ -37,7 +37,7 @@ const navigation: NavItem[] = [
       { title: 'Authentication', href: '/docs/api/authentication' },
       { title: 'WebSocket Events', href: '/docs/api/websockets' },
       { title: 'Error Handling', href: '/docs/api/errors' },
-    ]
+    ],
   },
   {
     title: 'Deployment',
@@ -46,7 +46,7 @@ const navigation: NavItem[] = [
       { title: 'AWS EC2', href: '/docs/deployment/ec2' },
       { title: 'Kubernetes', href: '/docs/deployment/kubernetes' },
       { title: 'SSL & Certificates', href: '/docs/deployment/ssl' },
-    ]
+    ],
   },
   {
     title: 'Development',
@@ -55,7 +55,7 @@ const navigation: NavItem[] = [
       { title: 'Testing', href: '/docs/development/testing' },
       { title: 'Contributing', href: '/docs/development/contributing' },
       { title: 'Code Style', href: '/docs/development/code-style' },
-    ]
+    ],
   },
   {
     title: 'Frontend',
@@ -64,7 +64,7 @@ const navigation: NavItem[] = [
       { title: 'React Query Patterns', href: '/docs/frontend/react-query' },
       { title: 'Type Safety', href: '/docs/frontend/typescript' },
       { title: 'UX Principles', href: '/docs/frontend/ux-principles' },
-    ]
+    ],
   },
   {
     title: 'Security',
@@ -73,8 +73,8 @@ const navigation: NavItem[] = [
       { title: 'Network Policies', href: '/docs/security/network' },
       { title: 'Threat Model', href: '/docs/security/threats' },
       { title: 'Best Practices', href: '/docs/security/best-practices' },
-    ]
-  }
+    ],
+  },
 ]
 
 function NavSection({ item, isActive }: { item: NavItem; isActive: (href: string) => boolean }) {
@@ -82,11 +82,11 @@ function NavSection({ item, isActive }: { item: NavItem; isActive: (href: string
 
   if (item.href) {
     return (
-      <Link 
+      <Link
         href={item.href}
         className={`block px-4 py-2 text-sm rounded-md transition-colors ${
-          isActive(item.href) 
-            ? 'bg-blue-50 text-blue-700 font-medium' 
+          isActive(item.href)
+            ? 'bg-blue-50 text-blue-700 font-medium'
             : 'text-gray-700 hover:bg-gray-50'
         }`}
       >
@@ -113,7 +113,7 @@ function NavSection({ item, isActive }: { item: NavItem; isActive: (href: string
       </button>
       {isOpen && item.children && (
         <div className="mt-1 ml-3 space-y-1">
-          {item.children.map((child) => (
+          {item.children.map(child => (
             <NavSection key={child.href || child.title} item={child} isActive={isActive} />
           ))}
         </div>
@@ -122,11 +122,7 @@ function NavSection({ item, isActive }: { item: NavItem; isActive: (href: string
   )
 }
 
-export default function DocsLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function DocsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
@@ -153,8 +149,8 @@ export default function DocsLayout({
                 <Link href="/storage" className="text-gray-700 hover:text-gray-900">
                   Storage
                 </Link>
-                <a 
-                  href="https://github.com/your-repo/crucible" 
+                <a
+                  href="https://github.com/your-repo/crucible"
                   className="text-gray-700 hover:text-gray-900"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -163,18 +159,18 @@ export default function DocsLayout({
                 </a>
               </nav>
             </div>
-            
+
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
               className="md:hidden p-2 rounded-md text-gray-700 hover:bg-gray-100"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d={isMobileNavOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d={isMobileNavOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'}
                 />
               </svg>
             </button>
@@ -184,9 +180,11 @@ export default function DocsLayout({
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className={`${
-          isMobileNavOpen ? 'block' : 'hidden'
-        } md:block w-64 bg-white border-r border-gray-200 min-h-screen fixed md:sticky top-16 overflow-y-auto`}>
+        <aside
+          className={`${
+            isMobileNavOpen ? 'block' : 'hidden'
+          } md:block w-64 bg-white border-r border-gray-200 min-h-screen fixed md:sticky top-16 overflow-y-auto`}
+        >
           <div className="p-4">
             {/* Search */}
             <div className="mb-6">
@@ -194,19 +192,15 @@ export default function DocsLayout({
                 type="text"
                 placeholder="Search docs..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             {/* Navigation */}
             <nav className="space-y-2">
-              {navigation.map((section) => (
-                <NavSection 
-                  key={section.title} 
-                  item={section} 
-                  isActive={isActive}
-                />
+              {navigation.map(section => (
+                <NavSection key={section.title} item={section} isActive={isActive} />
               ))}
             </nav>
           </div>
@@ -214,9 +208,7 @@ export default function DocsLayout({
 
         {/* Main content */}
         <main className="flex-1 md:ml-64">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </div>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</div>
         </main>
       </div>
     </div>

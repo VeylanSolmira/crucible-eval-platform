@@ -1,7 +1,7 @@
 ---
-title: "The Deployment Journey"
+title: 'The Deployment Journey'
 duration: 3
-tags: ["deployment", "systemd"]
+tags: ['deployment', 'systemd']
 ---
 
 ## The Deployment Journey
@@ -9,6 +9,7 @@ tags: ["deployment", "systemd"]
 ### Manual Deployment: Feel the Pain First
 
 **What We Experienced:**
+
 ```bash
 # The manual deployment dance
 $ ./scripts/deploy-to-s3.sh
@@ -19,12 +20,14 @@ $ sudo systemctl status crucible-platform  # FAILED!
 ```
 
 **Debugging SystemD (2 hours):**
+
 - Namespace errors (exit code 226)
 - Security directive conflicts
 - Hidden formatting issues
 - The dreaded "ReadWritePaths must be on one line"
 
 **The SystemD Security Journey:**
+
 ```ini
 # What looked right but failed:
 ReadWritePaths=/home/ubuntu/crucible/storage \

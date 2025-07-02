@@ -7,12 +7,14 @@ To improve build performance when dealing with many documentation files, we've i
 ## Problem
 
 Next.js was timing out when building documentation pages:
+
 ```
 Failed to build /docs/[...slug]/page: /docs/toast-component (attempt 1 of 3)
 because it took more than 60 seconds. Retrying again shortly.
 ```
 
 This occurred because:
+
 - Each markdown file was being read and parsed during page generation
 - Gray-matter parsing and frontmatter extraction happened on every build
 - Multiple documentation pages were processed in parallel, consuming resources
@@ -59,20 +61,20 @@ if (!fs.existsSync(cacheDir)) {
 function processMarkdownFiles(dir) {
   const files = fs.readdirSync(dir);
   const processed = {};
-  
+
   files.forEach(file => {
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
-    
+
     if (stat.isDirectory()) {
       Object.assign(processed, processMarkdownFiles(filePath));
     } else if (file.endsWith('.md') || file.endsWith('.mdx')) {
       const content = fs.readFileSync(filePath, 'utf8');
       const { data, content: body } = matter(content);
-      
+
       // Generate hash for caching
       const hash = crypto.createHash('md5').update(content).digest('hex');
-      
+
       // Store processed data
       const relativePath = path.relative(docsDir, filePath);
       processed[relativePath] = {
@@ -83,7 +85,7 @@ function processMarkdownFiles(dir) {
       };
     }
   });
-  
+
   return processed;
 }
 
@@ -120,33 +122,33 @@ Updated `frontend/lib/docs.ts` to use the preprocessed cache:
 ```typescript
 // Preprocessed docs cache
 interface ProcessedDoc {
-  frontmatter: any;
-  content: string;
-  hash: string;
-  path: string;
+  frontmatter: any
+  content: string
+  hash: string
+  path: string
 }
 
-let docsCache: Record<string, ProcessedDoc> | null = null;
+let docsCache: Record<string, ProcessedDoc> | null = null
 
 // Load preprocessed docs if available
 function loadDocsCache(): Record<string, ProcessedDoc> {
-  if (docsCache) return docsCache;
-  
-  const cacheFile = path.join(process.cwd(), '.docs-cache', 'processed-docs.json');
-  
+  if (docsCache) return docsCache
+
+  const cacheFile = path.join(process.cwd(), '.docs-cache', 'processed-docs.json')
+
   try {
     if (fs.existsSync(cacheFile)) {
-      console.log('[Docs] Using preprocessed documentation cache');
-      docsCache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-      return docsCache!;
+      console.log('[Docs] Using preprocessed documentation cache')
+      docsCache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
+      return docsCache!
     }
   } catch (error) {
-    console.warn('[Docs] Failed to load preprocessed cache, falling back to runtime processing');
+    console.warn('[Docs] Failed to load preprocessed cache, falling back to runtime processing')
   }
-  
+
   // Fallback to empty cache
-  docsCache = {};
-  return docsCache;
+  docsCache = {}
+  return docsCache
 }
 ```
 
@@ -155,20 +157,20 @@ The `getDocBySlug` function now checks the cache first:
 ```typescript
 export async function getDocBySlug(slug: string[]): Promise<Doc | null> {
   const filePath = slugToFilePath(slug)
-  
+
   if (!filePath) {
     return null
   }
-  
+
   // Check cache first
-  const cache = loadDocsCache();
-  const relativePath = path.relative(path.join(process.cwd(), 'docs'), filePath);
-  const cachedDoc = cache[relativePath];
-  
+  const cache = loadDocsCache()
+  const relativePath = path.relative(path.join(process.cwd(), 'docs'), filePath)
+  const cachedDoc = cache[relativePath]
+
   if (cachedDoc) {
     // Use cached content
-    data = cachedDoc.frontmatter;
-    content = cachedDoc.content;
+    data = cachedDoc.frontmatter
+    content = cachedDoc.content
     // ... rest of processing
   } else {
     // Fallback to reading from filesystem
@@ -212,7 +214,7 @@ export async function getDocBySlug(slug: string[]): Promise<Doc | null> {
    - `README`
    - `architecture/overview`
    - `getting-started`
-   
+
    All other docs are built on-demand when first accessed (Incremental Static Regeneration)
 
 ## Future Improvements
@@ -234,6 +236,7 @@ The TypeScript changes are very easy to undo if needed. The implementation is is
 ### Partial revert option:
 
 You can also:
+
 1. Keep the Docker preprocessing stage (still helps with build layer caching)
 2. But remove the TypeScript integration (so it doesn't use the cache at runtime)
 
@@ -242,6 +245,7 @@ This way you'd still get Docker build benefits without changing the runtime beha
 ### Why reverting is safe:
 
 The changes are designed to be:
+
 - **Non-invasive**: The cache is only checked if it exists
 - **Backward compatible**: Falls back to original behavior if no cache
 - **Easy to remove**: All cache logic is in one place

@@ -1,7 +1,7 @@
 ---
-title: "Chapter 15: The Researcher-First UI Revolution"
+title: 'Chapter 15: The Researcher-First UI Revolution'
 duration: 3
-tags: ["ui", "researcher"]
+tags: ['ui', 'researcher']
 ---
 
 ## Chapter 15: The Researcher-First UI Revolution
@@ -9,6 +9,7 @@ tags: ["ui", "researcher"]
 ### Problem: Platform Built for Developers, Not Researchers
 
 **The Researcher Needs:**
+
 1. Professional code editor (not a textarea!)
 2. Real-time execution monitoring
 3. Clear error messages with context
@@ -18,11 +19,13 @@ tags: ["ui", "researcher"]
 ### The Monaco Editor Integration
 
 **Before: Basic Textarea**
+
 ```html
-<textarea value={code} />
+<textarea value="{code}" />
 ```
 
 **After: VS Code's Monaco Editor**
+
 ```typescript
 <CodeEditorWithTemplates
   value={code}

@@ -22,25 +22,25 @@ def run_all_tests():
     # Create test suite
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    
+
     # Add backend tests
     print("Loading backend tests...")
     suite.addTests(loader.loadTestsFromTestCase(InMemoryStorageTests))
     suite.addTests(loader.loadTestsFromTestCase(FileStorageTests))
     suite.addTests(loader.loadTestsFromTestCase(DatabaseStorageTests))
-    
+
     # Add manager tests
     print("Loading manager tests...")
     suite.addTests(loader.loadTestsFromTestCase(TestFlexibleStorageManager))
-    
+
     # Run tests
     print("\nRunning storage tests...\n")
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
-    
+
     # Return exit code
     return 0 if result.wasSuccessful() else 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(run_all_tests())

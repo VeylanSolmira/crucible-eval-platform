@@ -17,10 +17,7 @@ declare module 'gray-matter' {
     stringify?: (lang?: string) => string
   }
 
-  function matter<I = any, O = any>(
-    input: I,
-    options?: GrayMatterOption<I, O>
-  ): GrayMatterFile<I>
+  function matter<I = any, O = any>(input: I, options?: GrayMatterOption<I, O>): GrayMatterFile<I>
 
   export = matter
 }

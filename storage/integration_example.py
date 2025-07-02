@@ -15,37 +15,35 @@ from .backends.memory import InMemoryStorage
 def create_storage_manager(db_session: Optional[AsyncSession] = None) -> FlexibleStorageManager:
     """
     Create a storage manager based on environment configuration.
-    
+
     This shows how to set up different storage strategies:
     - Production: Database primary, File fallback, Redis cache
     - Development: File primary, Memory cache
     - Testing: All in-memory
     """
-    
-    env = os.getenv('ENVIRONMENT', 'development')
-    
-    if env == 'production':
+
+    env = os.getenv("ENVIRONMENT", "development")
+
+    if env == "production":
         # Production setup
         primary = DatabaseStorage()
-        fallback = FileStorage('/data/storage')
+        fallback = FileStorage("/data/storage")
         cache = None  # Would be RedisStorage() when implemented
-        
-    elif env == 'testing':
+
+    elif env == "testing":
         # Testing setup - all in memory
         primary = InMemoryStorage()
         fallback = None
         cache = InMemoryStorage()
-        
+
     else:
         # Development setup
-        primary = FileStorage('./data/storage')
+        primary = FileStorage("./data/storage")
         fallback = InMemoryStorage()
         cache = InMemoryStorage()
-    
+
     return FlexibleStorageManager(
-        primary_storage=primary,
-        fallback_storage=fallback,
-        cache_storage=cache
+        primary_storage=primary, fallback_storage=fallback, cache_storage=cache
     )
 
 

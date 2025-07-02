@@ -26,7 +26,7 @@ ${editedSlide.description ? `description: "${editedSlide.description}"` : ''}
 ---
 
 ${editedSlide.content}`
-    
+
     setContent(frontmatter)
   }, [editedSlide])
 
@@ -39,7 +39,7 @@ ${editedSlide.content}`
       const frontmatterLines: string[] = []
       const markdownLines: string[] = []
       let frontmatterCount = 0
-      
+
       for (const line of lines) {
         if (line === '---') {
           frontmatterCount++
@@ -51,14 +51,14 @@ ${editedSlide.content}`
             continue
           }
         }
-        
+
         if (inFrontmatter) {
           frontmatterLines.push(line)
         } else if (frontmatterCount >= 2) {
           markdownLines.push(line)
         }
       }
-      
+
       // Parse frontmatter
       interface FrontmatterData {
         title?: string
@@ -67,7 +67,7 @@ ${editedSlide.content}`
         description?: string
         [key: string]: string | number | string[] | undefined
       }
-      
+
       const frontmatter: FrontmatterData = {}
       frontmatterLines.forEach(line => {
         const match = line.match(/^(\w+):\s*(.+)$/)
@@ -75,11 +75,14 @@ ${editedSlide.content}`
           const key = match[1]!
           const rawValue = match[2]!.trim()
           let value: string | number | string[]
-          
+
           // Parse different value types
           if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
             // Array
-            value = rawValue.slice(1, -1).split(',').map((v: string) => v.trim().replace(/^["']|["']$/g, ''))
+            value = rawValue
+              .slice(1, -1)
+              .split(',')
+              .map((v: string) => v.trim().replace(/^["']|["']$/g, ''))
           } else if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
             // String
             value = rawValue.slice(1, -1)
@@ -90,14 +93,17 @@ ${editedSlide.content}`
             // Default to string
             value = rawValue
           }
-          
+
           frontmatter[key] = value
         }
       })
-      
+
       const markdown = markdownLines.join('\n').trim()
-      const sections = markdown.split(/\n---\n/).map(s => s.trim()).filter(Boolean)
-      
+      const sections = markdown
+        .split(/\n---\n/)
+        .map(s => s.trim())
+        .filter(Boolean)
+
       const updatedSlide: Slide = {
         ...editedSlide,
         title: frontmatter.title || editedSlide.title,
@@ -105,9 +111,9 @@ ${editedSlide.content}`
         tags: Array.isArray(frontmatter.tags) ? frontmatter.tags : editedSlide.tags,
         ...(frontmatter.description !== undefined && { description: frontmatter.description }),
         content: markdown,
-        sections
+        sections,
       }
-      
+
       await onSave(updatedSlide)
     } catch (error) {
       console.error('Error saving slide:', error)
@@ -129,7 +135,7 @@ ${editedSlide.content}`
             {preview ? 'Edit' : 'Preview'}
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300"
           >
@@ -143,7 +149,7 @@ ${editedSlide.content}`
           </button>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-hidden">
         {preview ? (
           <div className="h-full p-8 overflow-y-auto">
@@ -161,7 +167,7 @@ ${editedSlide.content}`
             <Editor
               height="100%"
               value={content}
-              onChange={(value) => setContent(value || '')}
+              onChange={value => setContent(value || '')}
               language="markdown"
               theme="vs-dark"
               options={{
@@ -176,11 +182,11 @@ ${editedSlide.content}`
           </div>
         )}
       </div>
-      
+
       <div className="p-4 bg-gray-100 text-sm">
         <p className="text-gray-600">
-          Format: Use <code>---</code> to separate slides. 
-          First section should contain frontmatter with title, duration, tags, and optional description.
+          Format: Use <code>---</code> to separate slides. First section should contain frontmatter
+          with title, duration, tags, and optional description.
         </p>
       </div>
     </div>

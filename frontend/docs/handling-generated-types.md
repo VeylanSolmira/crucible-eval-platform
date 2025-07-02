@@ -3,6 +3,7 @@
 ## Problem Statement
 
 The frontend uses TypeScript types generated from the API's OpenAPI specification. These types are:
+
 - Generated using `openapi-typescript`
 - Located at `frontend/types/generated/api.ts`
 - Currently in `.gitignore` (best practice for generated files)
@@ -19,6 +20,7 @@ Generate types during Docker build from the OpenAPI spec in the repository.
 **Implementation**: Multi-stage Dockerfile that generates types before building the frontend.
 
 **Pros:**
+
 - Always in sync with API spec
 - No manual steps required
 - No generated files in git
@@ -26,6 +28,7 @@ Generate types during Docker build from the OpenAPI spec in the repository.
 - Works well when frontend and API are in same repo
 
 **Cons:**
+
 - Slightly more complex Dockerfile
 - Requires OpenAPI spec to be available during build
 
@@ -36,12 +39,14 @@ Generate types during Docker build from the OpenAPI spec in the repository.
 Use GitHub Actions to automatically commit updated types when API changes.
 
 **Pros:**
+
 - Simple Docker builds
 - Types always available
 - Visible history of API changes in git
 - Works offline
 
 **Cons:**
+
 - Generated files in version control
 - Requires automation setup
 - Can create noise in git history
@@ -53,11 +58,13 @@ Use GitHub Actions to automatically commit updated types when API changes.
 Generate types in CI/CD pipeline before Docker build starts.
 
 **Pros:**
+
 - No generated files in git
 - Types always fresh
 - Flexible approach
 
 **Cons:**
+
 - More complex CI/CD pipeline
 - May require API to be running
 - Build artifacts need to be passed between stages
@@ -69,11 +76,13 @@ Generate types in CI/CD pipeline before Docker build starts.
 Publish types as an npm package to a registry.
 
 **Pros:**
+
 - Version controlled
 - Can be shared across multiple projects
 - Clear dependency management
 
 **Cons:**
+
 - Requires package registry infrastructure
 - More complex release process
 - Additional versioning to manage
@@ -85,10 +94,12 @@ Publish types as an npm package to a registry.
 Generate types on container startup.
 
 **Pros:**
+
 - Always current
 - No build-time complexity
 
 **Cons:**
+
 - Slower startup
 - Requires API availability at runtime
 - Not suitable for production
@@ -100,13 +111,13 @@ Generate types on container startup.
 
 The multistage Dockerfile approach:
 
-1. **Stage 1 - Type Generator**: 
+1. **Stage 1 - Type Generator**:
    - Uses Node Alpine image
    - Installs `openapi-typescript`
    - Copies OpenAPI spec from API directory
    - Generates TypeScript types
 
-2. **Stage 2 - Dependencies**: 
+2. **Stage 2 - Dependencies**:
    - Standard dependency installation (unchanged)
 
 3. **Stage 3 - Builder**:
@@ -135,6 +146,7 @@ The multistage Dockerfile approach:
 ### Future Considerations
 
 If the architecture changes (e.g., API moves to separate repo), we could:
+
 1. Publish OpenAPI spec to S3/artifact registry
 2. Switch to Option 2 (automated commits)
 3. Use Option 4 (npm package) for multiple consumers
@@ -149,7 +161,9 @@ If the architecture changes (e.g., API moves to separate repo), we could:
 ## Known Limitations (To Address Later)
 
 ### Build Order Dependency
+
 Currently, the frontend Docker build depends on `api/openapi.yaml` existing:
+
 - **Issue**: Fresh clones don't have this file
 - **Workaround**: Run the API service once before building frontend
 - **Impact**: CI/CD needs to account for this order
@@ -171,10 +185,12 @@ When making API changes, developers must update both the OpenAPI spec and TypeSc
    - No manual step required!
 
 3. **Generate TypeScript types**:
+
    ```bash
    cd frontend
    npm run generate-types
    ```
+
    This reads `api/openapi.yaml` and generates `frontend/types/generated/api.ts`
 
 4. **Verify the changes**:
@@ -212,6 +228,7 @@ git status  # Should see .py changes (openapi.yaml is auto-generated)
 ### Automated Export Details
 
 The API service automatically exports the OpenAPI spec on startup:
+
 - Location: `api/openapi.yaml` and `api/openapi.json`
 - Timing: Every time the API container starts
 - Fallback: If PyYAML is missing, only JSON is exported
@@ -222,8 +239,9 @@ This ensures the spec is always in sync with the code!
 ## Conclusion
 
 The build-time generation approach provides the best balance of:
+
 - Clean version control
-- Build reproducibility  
+- Build reproducibility
 - Minimal infrastructure requirements
 - Type safety
 

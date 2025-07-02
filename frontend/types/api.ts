@@ -68,15 +68,15 @@ export interface EvaluationLogs {
   error: string
   is_running: boolean
   exit_code: number | null
-  status?: string  // Added to match API response
-  created_at?: string  // When the evaluation was created
-  last_update?: string  // Last activity timestamp (including heartbeats)
-  started_at?: string  // When the evaluation started
-  completed_at?: string  // When the evaluation completed
-  runtime_ms?: number  // Total runtime in milliseconds
-  source?: string  // Whether from redis_cache or database
-  container_id?: string  // Docker container ID
-  executor_id?: string  // Which executor is running the evaluation
+  status?: string // Added to match API response
+  created_at?: string // When the evaluation was created
+  last_update?: string // Last activity timestamp (including heartbeats)
+  started_at?: string // When the evaluation started
+  completed_at?: string // When the evaluation completed
+  runtime_ms?: number // Total runtime in milliseconds
+  source?: string // Whether from redis_cache or database
+  container_id?: string // Docker container ID
+  executor_id?: string // Which executor is running the evaluation
 }
 
 export interface KillEvaluationResponse {
@@ -88,7 +88,7 @@ export interface KillEvaluationResponse {
 // API response types for evaluation list endpoint
 export interface EvaluationListItem {
   eval_id: string
-  status: string  // API returns string, we'll validate/narrow at usage
+  status: string // API returns string, we'll validate/narrow at usage
   created_at: string
   code_preview?: string
   success?: boolean

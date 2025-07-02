@@ -1,13 +1,15 @@
 ---
-title: "Chapter 2: Adding Isolation"
+title: 'Chapter 2: Adding Isolation'
 duration: 2
-tags: ["docker", "security"]
+tags: ['docker', 'security']
 ---
 
 ## Chapter 2: Adding Isolation
+
 ### Problem: Direct execution is a security nightmare
 
 **Evolution to Docker:**
+
 ```python
 # From subprocess...
 subprocess.run(['python', '-c', code])
@@ -23,6 +25,7 @@ docker_client.containers.run(
 ```
 
 **What this solved:**
+
 - Process isolation
 - Resource limits
 - Network restrictions

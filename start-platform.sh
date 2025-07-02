@@ -79,25 +79,41 @@ else
     docker compose up -d
 fi
 
-# Wait for critical services
-echo -e "\n${YELLOW}Waiting for services to initialize...${NC}"
-
-# Wait for core infrastructure
+# Wait for critical services needed for migrations
+echo -e "\n${YELLOW}Waiting for database to be ready...${NC}"
 wait_for_service "postgres"
-wait_for_service "redis"
 
-# Wait for storage-service since other services depend on it
-wait_for_service "storage-service"
+# Let Docker Compose handle the rest of the dependencies
+echo -e "\n${YELLOW}Waiting for all services to be healthy...${NC}"
 
-# Give services a moment to fully initialize
-sleep 3
+# Wait for all services to be healthy (not just started)
+max_wait=60
+waited=0
+while [ $waited -lt $max_wait ]; do
+    if ! docker compose ps | grep -E "\(health: starting\)|\(unhealthy\)|Restarting" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ All services are healthy${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 2
+    ((waited+=2))
+done
+
+if [ $waited -ge $max_wait ]; then
+    echo -e "\n${YELLOW}Some services are still starting. This may be normal.${NC}"
+fi
 
 # Check all services are up
 echo -e "\nChecking all services..."
 
 # Run database migrations
 echo -e "\n${YELLOW}Running database migrations...${NC}"
-docker compose run --rm migrate || echo -e "${YELLOW}Migrations may have already been applied${NC}"
+# Note: The migrate service uses the storage-service image, so it must be built first
+if docker compose run --rm migrate 2>&1 | grep -q "Will assume transactional DDL"; then
+    echo -e "${GREEN}Migrations completed successfully${NC}"
+else
+    echo -e "${YELLOW}Migrations may have already been applied or there was an error${NC}"
+fi
 
 # Display service status
 echo -e "\n${GREEN}Platform Status:${NC}"
@@ -120,8 +136,15 @@ echo "  Clean restart:  docker compose down -v && ./start-platform.sh"
 
 # Check if all services are healthy
 if docker compose ps | grep -E "unhealthy|Exit|Restarting" > /dev/null 2>&1; then
-    echo -e "\n${YELLOW}Warning: Some services may not be healthy. Check logs with:${NC}"
-    echo "  docker compose logs [service-name]"
+    echo -e "\n${YELLOW}Warning: Some services may not be healthy yet.${NC}"
+    
+    # Check if it's just nginx restarting (common during initial startup)
+    if docker compose ps | grep -E "unhealthy|Exit" | grep -v nginx > /dev/null 2>&1; then
+        echo "  Check logs with: docker compose logs [service-name]"
+    else
+        echo "  nginx may still be starting up. This is normal and should resolve within 30 seconds."
+        echo "  You can check status with: docker compose ps"
+    fi
 else
     echo -e "\n${GREEN}✓ All services started successfully!${NC}"
 fi

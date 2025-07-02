@@ -6,14 +6,14 @@
 export interface DocsConfig {
   // Loading strategy
   loadingStrategy: 'static' | 'dynamic' | 'hybrid'
-  
+
   // Cache settings
   cache: {
     enabled: boolean
     ttl: number // seconds
     maxSize: number // MB
   }
-  
+
   // Build optimization
   build: {
     // Pre-render all pages at build time
@@ -23,7 +23,7 @@ export interface DocsConfig {
     // Generate search index at build time
     generateSearchIndex: boolean
   }
-  
+
   // Runtime optimization
   runtime: {
     // Lazy load images and diagrams
@@ -41,18 +41,18 @@ const devConfig: DocsConfig = {
   cache: {
     enabled: false,
     ttl: 0,
-    maxSize: 0
+    maxSize: 0,
   },
   build: {
     prerender: false,
     bundleContent: true,
-    generateSearchIndex: false
+    generateSearchIndex: false,
   },
   runtime: {
     lazyLoadMedia: false,
     prefetchLinks: false,
-    enableOffline: false
-  }
+    enableOffline: false,
+  },
 }
 
 // Production config - optimized for performance
@@ -61,18 +61,18 @@ const prodConfig: DocsConfig = {
   cache: {
     enabled: true,
     ttl: 3600, // 1 hour
-    maxSize: 50 // 50MB
+    maxSize: 50, // 50MB
   },
   build: {
     prerender: true,
     bundleContent: false, // Use dynamic imports
-    generateSearchIndex: true
+    generateSearchIndex: true,
   },
   runtime: {
     lazyLoadMedia: true,
     prefetchLinks: true,
-    enableOffline: true
-  }
+    enableOffline: true,
+  },
 }
 
 // Future API-based config (when needed)
@@ -81,24 +81,24 @@ const apiConfig: DocsConfig = {
   cache: {
     enabled: true,
     ttl: 300, // 5 minutes
-    maxSize: 100
+    maxSize: 100,
   },
   build: {
     prerender: false,
     bundleContent: false,
-    generateSearchIndex: false
+    generateSearchIndex: false,
   },
   runtime: {
     lazyLoadMedia: true,
     prefetchLinks: true,
-    enableOffline: false
-  }
+    enableOffline: false,
+  },
 }
 
 export function getDocsConfig(): DocsConfig {
   if (process.env.DOCS_STRATEGY === 'api') {
     return apiConfig
   }
-  
+
   return process.env.NODE_ENV === 'production' ? prodConfig : devConfig
 }

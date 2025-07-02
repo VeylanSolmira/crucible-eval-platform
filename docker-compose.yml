@@ -67,7 +67,7 @@ services:
       - ENABLE_CACHING=false  # Disable caching to avoid stale data in distributed setup
       # Celery configuration - 50% traffic split
       - CELERY_ENABLED=true
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
       - CELERY_PERCENTAGE=0.5  # 50% of traffic to Celery
     depends_on:
       base:
@@ -85,27 +85,6 @@ services:
       timeout: 3s
       retries: 3
     mem_limit: 128m
-
-  # Monolithic Platform (DEPRECATED - Use api-gateway for microservices mode)
-  # crucible-platform:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   image: ${BACKEND_IMAGE:-${PROJECT_NAME:-crucible-platform}:local}
-  #   container_name: ${CONTAINER_NAME:-crucible-platform}
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
-  #     - ./data:/app/data
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #     - DOCKER_HOST=unix:///var/run/docker.sock
-  #     - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   mem_limit: 128m
 
   crucible-frontend:
     build:
@@ -159,14 +138,14 @@ services:
 
   # Database migration service - run with: docker compose run --rm migrate
   migrate:
-    build: .
-    image: ${BACKEND_IMAGE:-${PROJECT_NAME:-crucible-platform}:local}
+    image: ${PROJECT_NAME:-crucible-platform}/storage-service:local
     container_name: crucible-migrate
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+      PYTHONPATH: /app
     working_dir: /app/storage/database/migrations
     entrypoint: ["alembic"]
     command: ["upgrade", "head"]
@@ -174,6 +153,7 @@ services:
       - tools  # Only run when explicitly requested
 
   # Queue Service - HTTP wrapper around existing TaskQueue
+  # TODO: Remove after Celery migration complete (Day 7)
   # This modularizes our queue component for future Celery migration
   queue:
     build:
@@ -207,6 +187,7 @@ services:
       - /tmp:size=100M,noexec
 
   # Queue Worker - Routes tasks from queue to executors
+  # TODO: Remove after Celery migration complete (Day 7)
   # This will become Celery beat/scheduler in the future
   queue-worker:
     build:
@@ -309,18 +290,20 @@ services:
     image: ${PROJECT_NAME:-crucible-platform}/celery-worker:local
     container_name: celery-worker-1
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://celery-redis:6379/0
       - STORAGE_SERVICE_URL=http://storage-service:8082
       - REDIS_URL=redis://redis:6379
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
-      # Use executor-2 and executor-3 for Celery tasks
-      - EXECUTOR_SERVICE_URL=http://executor-2:8083,http://executor-3:8083
+      # Dynamic routing to executors 2 and 3 (executor-1 reserved for legacy queue)
+      - EXECUTOR_COUNT=2
+      - EXECUTOR_BASE_URL=http://executor
+      - EXECUTOR_START_INDEX=2  # Start from executor-2 instead of executor-1
     depends_on:
       base:
         condition: service_completed_successfully
-      redis:
+      celery-redis:
         condition: service_healthy
       executor-2:
         condition: service_started
@@ -337,6 +320,36 @@ services:
       timeout: 10s
       retries: 3
     mem_limit: 256m
+
+  # Flower - Celery monitoring dashboard
+  flower:
+    image: mher/flower:2.0
+    container_name: crucible-flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - FLOWER_PORT=5555
+      # Basic auth for security (change in production)
+      - FLOWER_BASIC_AUTH=admin:${FLOWER_PASSWORD:-changeme}
+    depends_on:
+      celery-redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 128m
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M,noexec
 
   # Storage Worker - Handles all database writes via events
   storage-worker:
@@ -398,7 +411,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8082/health').read()"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -436,6 +449,32 @@ services:
       retries: 5
     mem_limit: 100m  # Increased for event broker usage
 
+  # Separate Redis for Celery (isolation from main event bus)
+  celery-redis:
+    image: redis:7-alpine
+    container_name: crucible-celery-redis
+    ports:
+      - "6380:6379"  # Different port to avoid conflict
+    volumes:
+      - celery-redis-data:/data
+    # Celery queue configuration - optimized for task queueing
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save "900 1"
+      --save "300 10"
+      --save "60 10000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 300m  # Higher limit for task queuing
+
   # Nginx Reverse Proxy
   nginx:
     build:
@@ -460,6 +499,7 @@ services:
     depends_on:
       - api-service
       - crucible-frontend
+      - flower
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
@@ -469,6 +509,8 @@ services:
 
 volumes:
   redis-data:
+    driver: local
+  celery-redis-data:
     driver: local
   postgres-data:
     driver: local

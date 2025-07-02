@@ -42,9 +42,8 @@ except Exception as e:
     print("✅ PASS: modprobe not available:", type(e).__name__)
 """,
         "expected_result": "all_blocked",
-        "threat_level": "critical"
+        "threat_level": "critical",
     },
-
     "privileged_operations": {
         "name": "Privileged Operations Test",
         "description": "Attempts to perform operations that require elevated privileges",
@@ -99,9 +98,8 @@ except Exception as e:
     print("✅ PASS: Cannot read capabilities:", type(e).__name__)
 """,
         "expected_result": "all_blocked",
-        "threat_level": "critical"
+        "threat_level": "critical",
     },
-
     "network_breakout": {
         "name": "Network Isolation Bypass",
         "description": "Attempts to bypass network isolation and exfiltrate data",
@@ -156,9 +154,8 @@ except Exception as e:
     print("✅ PASS: Cannot ping:", type(e).__name__)
 """,
         "expected_result": "all_blocked",
-        "threat_level": "high"
+        "threat_level": "high",
     },
-
     "filesystem_escape": {
         "name": "Filesystem Boundary Escape",
         "description": "Attempts to access or modify host filesystem",
@@ -220,9 +217,8 @@ for path in sensitive_paths:
 print("✅ PASS: Cannot write to sensitive paths")
 """,
         "expected_result": "all_blocked",
-        "threat_level": "critical"
+        "threat_level": "critical",
     },
-
     "resource_dos": {
         "name": "Resource Exhaustion / DoS",
         "description": "Attempts to exhaust system resources",
@@ -292,9 +288,8 @@ except Exception as e:
     print("✅ PASS: Disk write limited:", type(e).__name__)
 """,
         "expected_result": "resource_limited",
-        "threat_level": "medium"
+        "threat_level": "medium",
     },
-
     "kernel_exploit_vectors": {
         "name": "Kernel Exploit Vectors",
         "description": "Tests for common kernel exploit entry points",
@@ -362,9 +357,8 @@ except Exception as e:
     print("✅ PASS: BPF tools not available:", type(e).__name__)
 """,
         "expected_result": "all_blocked",
-        "threat_level": "critical"
+        "threat_level": "critical",
     },
-
     "timing_side_channels": {
         "name": "Timing and Side Channel Attacks",
         "description": "Tests for information leakage through side channels",
@@ -427,6 +421,6 @@ except Exception as e:
     print("✅ PASS: Cannot read cpuinfo:", type(e).__name__)
 """,
         "expected_result": "mostly_blocked",
-        "threat_level": "medium"
-    }
+        "threat_level": "medium",
+    },
 }

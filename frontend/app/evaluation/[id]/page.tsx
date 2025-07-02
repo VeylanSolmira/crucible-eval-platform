@@ -62,23 +62,22 @@ export default function EvaluationDetailPage({ params }: { params: Promise<{ id:
   const router = useRouter()
 
   useEffect(() => {
+    const fetchEvaluationDetails = async () => {
+      try {
+        const response = await fetch(`http://localhost:8082/evaluations/${id}/complete`)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const data = (await response.json()) as EvaluationComplete
+        setEvaluation(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch evaluation details')
+      } finally {
+        setLoading(false)
+      }
+    }
     void fetchEvaluationDetails()
   }, [id])
-
-  const fetchEvaluationDetails = async () => {
-    try {
-      const response = await fetch(`http://localhost:8082/evaluations/${id}/complete`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      setEvaluation(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch evaluation details')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -145,10 +144,10 @@ export default function EvaluationDetailPage({ params }: { params: Promise<{ id:
                     evalData.status === 'completed'
                       ? 'bg-green-100 text-green-800'
                       : evalData.status === 'failed'
-                      ? 'bg-red-100 text-red-800'
-                      : evalData.status === 'running'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-yellow-100 text-yellow-800'
+                        ? 'bg-red-100 text-red-800'
+                        : evalData.status === 'running'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-yellow-100 text-yellow-800'
                   }`}
                 >
                   {evalData.status.toUpperCase()}
@@ -167,7 +166,9 @@ export default function EvaluationDetailPage({ params }: { params: Promise<{ id:
             </div>
             <div>
               <div className="text-sm text-gray-600">Completed</div>
-              <div className="text-sm font-medium mt-1">{formatTimestamp(evalData.completed_at)}</div>
+              <div className="text-sm font-medium mt-1">
+                {formatTimestamp(evalData.completed_at)}
+              </div>
             </div>
           </div>
         </div>
@@ -282,7 +283,10 @@ export default function EvaluationDetailPage({ params }: { params: Promise<{ id:
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Storage Locations</h3>
                 <div className="space-y-4">
                   {Object.entries(storage_locations).map(([type, location]) => (
-                    <div key={type} className="flex items-center justify-between p-4 bg-gray-50 rounded-md">
+                    <div
+                      key={type}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-md"
+                    >
                       <div>
                         <span className="font-medium text-gray-900 capitalize">{type}</span>
                         <p className="text-sm text-gray-600 mt-1 font-mono">{location}</p>

@@ -64,7 +64,7 @@ export default function StoragePage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json() as StorageOverview
+      const data = (await response.json()) as StorageOverview
       setOverview(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch storage overview')
@@ -115,9 +115,7 @@ export default function StoragePage() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                ⚡ Crucible Research Platform
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900">⚡ Crucible Research Platform</h1>
               <p className="text-sm text-gray-600 mt-1">
                 Storage Explorer - View where your evaluation data lives
               </p>
@@ -129,9 +127,7 @@ export default function StoragePage() {
               >
                 Back to Platform
               </button>
-              <div className="text-sm text-gray-500">
-                v2.0.0
-              </div>
+              <div className="text-sm text-gray-500">v2.0.0</div>
             </div>
           </div>
         </div>
@@ -310,7 +306,9 @@ export default function StoragePage() {
                           <dl className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                               <dt className="text-gray-600">Largest File</dt>
-                              <dd className="font-medium">{backend.metrics.largest_file || 'N/A'}</dd>
+                              <dd className="font-medium">
+                                {backend.metrics.largest_file || 'N/A'}
+                              </dd>
                             </div>
                             <div>
                               <dt className="text-gray-600">Total Files</dt>

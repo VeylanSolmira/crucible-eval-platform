@@ -4,6 +4,7 @@ theme: night
 ---
 
 # Week 3 Progress
+
 ## Documentation Renaissance & Celery Migration
 
 ---
@@ -14,6 +15,7 @@ theme: night
 <div class="left">
 
 ### Before
+
 - 📁 Scattered markdown files
 - 🔍 No cross-references
 - 🏝️ Island documentation
@@ -23,6 +25,7 @@ theme: night
 <div class="right">
 
 ### After
+
 - 🕸️ Wiki-style linking
 - 🔗 Automatic backlinks
 - 🧠 Knowledge graph
@@ -36,15 +39,18 @@ theme: night
 ## Wiki Features Implemented
 
 ### [[Cross-References]] Everywhere
+
 ```markdown
 See [[OpenAPI Integration]] for type generation
 Related: [[Storage Service]], [[Docker Security]]
 ```
 
 ### Automatic Backlinks
+
 Every page shows what references it - bidirectional navigation!
 
 ### Topic Analysis
+
 - Analyzed 191 documentation files
 - Extracted 550+ potential wiki links
 - Identified 180 orphaned pages
@@ -57,16 +63,14 @@ Every page shows what references it - bidirectional navigation!
 // Custom remark plugin for wiki links
 import remarkWikiLink from 'remark-wiki-link'
 
-const processor = remark()
-  .use(remarkWikiLink, {
-    pageResolver: (name) => 
-      name.toLowerCase().replace(/ /g, '-'),
-    hrefTemplate: (permalink) => 
-      `/docs/${permalink}`
-  })
+const processor = remark().use(remarkWikiLink, {
+  pageResolver: name => name.toLowerCase().replace(/ /g, '-'),
+  hrefTemplate: permalink => `/docs/${permalink}`,
+})
 ```
 
 ### Features
+
 - Works even if target pages don't exist
 - Encourages organic documentation growth
 - Foundation for future graph visualization
@@ -86,6 +90,7 @@ const processor = remark()
 ```
 
 ### What We Fixed
+
 - Replaced `<a>` tags with Next.js `<Link>` components
 - Fixed unescaped apostrophes in JSX
 - Proper type imports with `import type`
@@ -98,6 +103,7 @@ const processor = remark()
 <div class="comparison">
 
 ### Current: Simple Redis Queue
+
 ```python
 while True:
     task = redis_client.brpop("queue")
@@ -105,6 +111,7 @@ while True:
 ```
 
 ### Future: Enterprise Celery
+
 ```python
 @app.task(retry_backoff=True)
 def evaluate_code(eval_id, code, lang):
@@ -123,16 +130,17 @@ def evaluate_code(eval_id, code, lang):
 ```yaml
 services:
   # Existing services continue running
-  queue-worker:     # Current worker
-  redis:           # Current queue
-  
+  queue-worker: # Current worker
+  redis: # Current queue
+
   # New Celery stack runs alongside
-  celery-redis:    # Separate Redis
-  celery-worker:   # New worker
-  flower:          # Monitoring dashboard
+  celery-redis: # Separate Redis
+  celery-worker: # New worker
+  flower: # Monitoring dashboard
 ```
 
 ### The Key: Parallel Operation
+
 Never break what's working while building what's better
 
 ---
@@ -142,18 +150,18 @@ Never break what's working while building what's better
 ```python
 async def submit_evaluation(code: str, language: str):
     eval_id = str(uuid.uuid4())
-    
+
     # Write to existing queue (business as usual)
-    await redis_client.lpush("evaluation_queue", 
+    await redis_client.lpush("evaluation_queue",
                            json.dumps({...}))
-    
+
     # ALSO write to Celery (shadow mode)
     if settings.CELERY_ENABLED:
         evaluate_code.apply_async(
             args=[eval_id, code, language],
             queue='high' if is_premium() else 'normal'
         )
-    
+
     return {"eval_id": eval_id}  # Same API
 ```
 
@@ -162,12 +170,14 @@ async def submit_evaluation(code: str, language: str):
 ## Production Features Coming
 
 ### 1. Priority Queues
+
 - High priority for authenticated users
 - Normal priority for anonymous
 - Batch queue for large jobs
 - Maintenance queue for cleanup
 
 ### 2. Horizontal Scaling
+
 ```bash
 # Specialized workers for different tasks
 celery -A app worker -Q evaluation -c 4
@@ -182,6 +192,7 @@ celery -A app worker -Q maintenance -c 1
 <div class="monitoring-features">
 
 ### Real-Time Dashboard
+
 - 📊 Active tasks across all workers
 - 📈 Queue depths and consumption rates
 - 💻 Worker pool utilization
@@ -217,15 +228,16 @@ def evaluate_code(self, eval_id, code, language):
 ## Testing Strategy
 
 ### Parallel Validation
+
 ```python
 # Run same evaluation through both systems
 async def validate_celery_parity():
     # Submit to old system
     old_result = await submit_via_redis(code)
-    
+
     # Submit to Celery
     new_result = await submit_via_celery(code)
-    
+
     # Compare results
     assert old_result == new_result
 ```
@@ -239,22 +251,26 @@ async def validate_celery_parity():
 <div class="timeline">
 
 ### Week 1: Foundation ✅
+
 - Celery infrastructure setup
 - Basic task definitions
 - Flower monitoring
 - Dual-write implementation
 
 ### Week 2: Feature Parity
+
 - Priority queues
 - Retry mechanisms
 - Task lifecycle tracking
 
 ### Week 3: Advanced Features
+
 - Task chains
 - Scheduled tasks
 - Circuit breakers
 
 ### Week 4: Cutover
+
 - Shadow validation complete
 - Gradual traffic shift
 - Old system retirement
@@ -267,7 +283,7 @@ async def validate_celery_parity():
 
 This demonstrates:
 
-1. **Production Thinking** 
+1. **Production Thinking**
    - Zero-downtime migrations
    - Risk mitigation strategies
 
@@ -291,18 +307,23 @@ This demonstrates:
 <div class="evolution-steps">
 
 ### 1. Identify Limitations
+
 Current approach constraints
 
 ### 2. Design Better Solution
+
 Production-grade architecture
 
 ### 3. Implement Alongside
+
 Never break existing functionality
 
 ### 4. Validate Thoroughly
+
 Prove equivalence and improvements
 
 ### 5. Migrate with Confidence
+
 Data-driven cutover decision
 
 </div>
@@ -312,16 +333,19 @@ Data-driven cutover decision
 ## Summary: Week 3 Achievements
 
 ### Documentation Revolution
+
 - Wiki-style knowledge graph
 - Cross-references and backlinks
 - Living documentation system
 
 ### Build Process Excellence
+
 - TypeScript linting configured
 - Clean build pipeline
 - Developer experience improved
 
 ### Celery Migration Started
+
 - Zero-downtime strategy
 - Production-grade queueing
 - Enterprise monitoring ready
@@ -341,6 +365,7 @@ platform = CruciblePlatform(
 ```
 
 ## From MVP to Production Platform
+
 ### Every enhancement increases sophistication
 
 <style>

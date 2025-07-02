@@ -22,6 +22,7 @@ print("\nTesting network isolation:")
 # Test 1: Import test (not sufficient!)
 try:
     import requests  # noqa: F401
+
     print("⚠️  Note: requests module found (but may not work)")
 except ImportError:
     print("ℹ️  Info: requests module not installed")

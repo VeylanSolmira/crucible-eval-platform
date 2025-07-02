@@ -1,7 +1,7 @@
 ---
-title: "Security Test Results"
+title: 'Security Test Results'
 duration: 2
-tags: ["security", "testing"]
+tags: ['security', 'testing']
 ---
 
 ## Security Test Results
@@ -23,8 +23,9 @@ tags: ["security", "testing"]
 ```
 
 ### Defense Layers
+
 1. **Network**: Complete isolation
 2. **Filesystem**: Read-only root
-3. **Syscalls**: gVisor filtering  
+3. **Syscalls**: gVisor filtering
 4. **Resources**: Hard limits
 5. **Monitoring**: Anomaly detection

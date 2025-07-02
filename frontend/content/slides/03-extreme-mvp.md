@@ -1,10 +1,11 @@
 ---
-title: "Chapter 1: The Extreme MVP"
+title: 'Chapter 1: The Extreme MVP'
 duration: 2
-tags: ["mvp", "beginning"]
+tags: ['mvp', 'beginning']
 ---
 
 ## Chapter 1: The Extreme MVP
+
 ### Problem: Need to evaluate AI code somehow
 
 **`extreme_mvp.py` - 97 lines of terror**
@@ -21,6 +22,7 @@ def handle_evaluation(self, code: str):
 ```
 
 **Why we started here:**
+
 - Fastest path to working demo
 - Understand the core problem
 - "Make it work, then make it safe"

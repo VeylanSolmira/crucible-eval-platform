@@ -18,7 +18,7 @@ const ALWAYS_LINK = new Set([
   'EC2',
   'FastAPI',
   'Next.js',
-  'TypeScript'
+  'TypeScript',
 ])
 
 // Tier 2: Context-dependent linking
@@ -36,20 +36,20 @@ const CONTEXT_LINK = new Set([
   'Python',
   'React',
   'Terraform',
-  'OpenTofu'
+  'OpenTofu',
 ])
 
 // Canonical mappings for variations
 const CANONICAL_FORMS: Record<string, string> = {
-  'k8s': 'Kubernetes',
-  'K8S': 'Kubernetes',
+  k8s: 'Kubernetes',
+  K8S: 'Kubernetes',
   'container isolation': 'Container Isolation',
   'Container isolation': 'Container Isolation',
   'threat model': 'Threat Model',
   'ai safety': 'AI Safety',
   'AI Safety': 'AI Safety',
-  'Gvisor': 'gVisor',
-  'GVISOR': 'gVisor'
+  Gvisor: 'gVisor',
+  GVISOR: 'gVisor',
 }
 
 export interface TopicDetectionOptions {
@@ -72,11 +72,8 @@ export interface DetectedTopic {
 export class TopicDetector {
   private options: TopicDetectionOptions
   private existingDocs: Map<string, Doc>
-  
-  constructor(
-    docs: Doc[],
-    options: Partial<TopicDetectionOptions> = {}
-  ) {
+
+  constructor(docs: Doc[], options: Partial<TopicDetectionOptions> = {}) {
     this.options = {
       enableAutoLink: true,
       skipCodeBlocks: true,
@@ -84,9 +81,9 @@ export class TopicDetector {
       skipExistingLinks: true,
       maxLinksPerTerm: 3,
       caseInsensitive: false,
-      ...options
+      ...options,
     }
-    
+
     // Build index of existing documents
     this.existingDocs = new Map()
     docs.forEach(doc => {
@@ -94,49 +91,49 @@ export class TopicDetector {
       this.existingDocs.set(doc.slug.toLowerCase(), doc)
     })
   }
-  
+
   /**
    * Detect topics in content and suggest wiki links
    */
   detectTopics(content: string): DetectedTopic[] {
     const topics: DetectedTopic[] = []
     const processedTerms = new Map<string, number>()
-    
+
     // Remove code blocks temporarily
     const codeBlocks: string[] = []
     let processedContent = content
     if (this.options.skipCodeBlocks) {
-      processedContent = content.replace(/```[\s\S]*?```/g, (match) => {
+      processedContent = content.replace(/```[\s\S]*?```/g, match => {
         codeBlocks.push(match)
         return `__CODE_BLOCK_${codeBlocks.length - 1}__`
       })
     }
-    
+
     // Skip existing wiki links
     if (this.options.skipExistingLinks) {
       processedContent = processedContent.replace(/\[\[[\s\S]*?\]\]/g, '__WIKI_LINK__')
     }
-    
+
     // Detect Tier 1 topics (always link)
     ALWAYS_LINK.forEach(term => {
       const detections = this.findTerm(processedContent, term, 'high', true)
       topics.push(...detections)
     })
-    
+
     // Detect Tier 2 topics (context-dependent)
     CONTEXT_LINK.forEach(term => {
       const detections = this.findTerm(processedContent, term, 'medium', true)
       topics.push(...detections)
     })
-    
+
     // Detect document titles as topics
-    this.existingDocs.forEach((doc) => {
+    this.existingDocs.forEach(doc => {
       if (!ALWAYS_LINK.has(doc.title) && !CONTEXT_LINK.has(doc.title)) {
         const detections = this.findTerm(processedContent, doc.title, 'low', false)
         topics.push(...detections)
       }
     })
-    
+
     // Apply max links per term limit
     const filteredTopics: DetectedTopic[] = []
     topics.forEach(topic => {
@@ -146,19 +143,19 @@ export class TopicDetector {
         processedTerms.set(topic.canonical, count + 1)
       }
     })
-    
+
     return filteredTopics
   }
-  
+
   /**
    * Apply auto-linking to content
    */
   autoLink(content: string): string {
     if (!this.options.enableAutoLink) return content
-    
+
     const topics = this.detectTopics(content)
     let result = content
-    
+
     // Sort by position (reverse) to maintain correct offsets
     topics.sort((a, b) => {
       const bPos = b.positions[0]
@@ -166,23 +163,20 @@ export class TopicDetector {
       if (!bPos || !aPos) return 0
       return bPos.start - aPos.start
     })
-    
+
     // Apply wiki links
     topics.forEach(topic => {
       if (topic.autoLinkable && topic.positions.length > 0) {
         const pos = topic.positions[0]
         if (pos) {
-          result = 
-            result.slice(0, pos.start) + 
-            `[[${topic.canonical}]]` + 
-            result.slice(pos.end)
+          result = result.slice(0, pos.start) + `[[${topic.canonical}]]` + result.slice(pos.end)
         }
       }
     })
-    
+
     return result
   }
-  
+
   /**
    * Get suggestions for manual linking
    */
@@ -193,79 +187,76 @@ export class TopicDetector {
     confidence: string
   }> {
     const topics = this.detectTopics(content)
-    
+
     return topics
       .filter(t => !t.autoLinkable)
       .map(topic => ({
         term: topic.term,
         canonical: topic.canonical,
         reason: this.getSuggestionReason(topic),
-        confidence: topic.confidence
+        confidence: topic.confidence,
       }))
   }
-  
+
   private findTerm(
-    content: string, 
-    term: string, 
+    content: string,
+    term: string,
     confidence: 'high' | 'medium' | 'low',
     autoLinkable: boolean
   ): DetectedTopic[] {
     const topics: DetectedTopic[] = []
     const canonical = CANONICAL_FORMS[term] || term
-    
+
     // Build regex pattern
     const pattern = this.options.caseInsensitive
       ? new RegExp(`\\b(${this.escapeRegex(term)})\\b`, 'gi')
       : new RegExp(`\\b(${this.escapeRegex(term)})\\b`, 'g')
-    
+
     let match
     const positions: Array<{ start: number; end: number }> = []
-    
+
     while ((match = pattern.exec(content)) !== null) {
       // Skip if inside a code block placeholder
       if (content.slice(match.index - 15, match.index).includes('__CODE_BLOCK_')) {
         continue
       }
-      
+
       // Skip if inside a URL
       if (this.options.skipUrls && this.isInsideUrl(content, match.index)) {
         continue
       }
-      
+
       positions.push({
         start: match.index,
-        end: match.index + match[0].length
+        end: match.index + match[0].length,
       })
     }
-    
+
     if (positions.length > 0) {
       topics.push({
         term,
         canonical,
         positions,
         confidence,
-        autoLinkable
+        autoLinkable,
       })
     }
-    
+
     return topics
   }
-  
+
   private isInsideUrl(content: string, position: number): boolean {
     // Simple heuristic: check if position is between http(s):// and whitespace
     const before = content.slice(Math.max(0, position - 50), position)
     const after = content.slice(position, position + 50)
-    
-    return (
-      (before.includes('http://') || before.includes('https://')) &&
-      !after.match(/\s/)
-    )
+
+    return (before.includes('http://') || before.includes('https://')) && !after.match(/\s/)
   }
-  
+
   private escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
-  
+
   private getSuggestionReason(topic: DetectedTopic): string {
     if (topic.confidence === 'low') {
       return `Found document titled "${topic.canonical}"`
@@ -286,10 +277,10 @@ export function useTopicDetection(
   options?: Partial<TopicDetectionOptions>
 ) {
   const detector = new TopicDetector(docs, options)
-  
+
   return {
     topics: detector.detectTopics(content),
     autoLinkedContent: detector.autoLink(content),
-    suggestions: detector.getSuggestions(content)
+    suggestions: detector.getSuggestions(content),
   }
 }

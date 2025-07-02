@@ -1,11 +1,13 @@
 # Frontend Logger Documentation
 
 ## Overview
+
 The logger utility provides a configurable logging system for the frontend application with different log levels and formatting options.
 
 ## Usage
 
 ### Basic Usage
+
 ```typescript
 import { log } from '@/src/utils/logger'
 
@@ -30,12 +32,15 @@ log.group('API Calls', () => {
 ### Configuration
 
 #### Environment Variable
+
 Set the default log level in your `.env.local`:
+
 ```bash
 NEXT_PUBLIC_LOG_LEVEL=DEBUG  # DEBUG, INFO, WARN, ERROR, NONE
 ```
 
 #### Runtime Configuration
+
 You can change the log level at runtime (useful for debugging):
 
 ```typescript
@@ -48,42 +53,47 @@ logger.setLevel(LogLevel.DEBUG)
 logger.configure({
   level: LogLevel.INFO,
   includeTimestamp: true,
-  includePrefix: true
+  includePrefix: true,
 })
 ```
 
 #### Browser Console
+
 In development mode, the logger is exposed on the window object:
+
 ```javascript
 // In browser console
-__logger.setLevel(0)  // Enable DEBUG
+__logger.setLevel(0) // Enable DEBUG
 __logger.configure({ includeTimestamp: true })
-__logger.getConfig()  // View current config
+__logger.getConfig() // View current config
 ```
 
 ## Log Levels
 
-| Level | Value | Description |
-|-------|-------|-------------|
-| DEBUG | 0 | Detailed information for debugging |
-| INFO  | 1 | General informational messages |
-| WARN  | 2 | Warning messages |
-| ERROR | 3 | Error messages |
-| NONE  | 4 | Disable all logging |
+| Level | Value | Description                        |
+| ----- | ----- | ---------------------------------- |
+| DEBUG | 0     | Detailed information for debugging |
+| INFO  | 1     | General informational messages     |
+| WARN  | 2     | Warning messages                   |
+| ERROR | 3     | Error messages                     |
+| NONE  | 4     | Disable all logging                |
 
 ## Features
 
 ### Automatic Configuration
+
 - Production: Only ERROR level logs by default
 - Development: INFO level logs with timestamps
 - Configuration persists in localStorage
 
 ### Performance
+
 - No-op functions when logging is disabled
 - Minimal overhead in production
 - Lazy evaluation of expensive log data
 
 ### Format Options
+
 - **includeTimestamp**: Add ISO timestamp to logs
 - **includePrefix**: Add [LEVEL] prefix to logs
 
@@ -100,11 +110,12 @@ __logger.getConfig()  // View current config
    - Use DEBUG for temporary debugging
 
 3. **Structure log data**
+
    ```typescript
    log.info('User action', {
      action: 'submit_evaluation',
      evalId: result.eval_id,
-     duration: endTime - startTime
+     duration: endTime - startTime,
    })
    ```
 

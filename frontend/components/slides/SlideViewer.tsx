@@ -12,7 +12,16 @@ import type { Slide } from '@/lib/slides/loader'
 
 interface SlideViewerProps {
   slides: Slide[]
-  theme?: 'black' | 'white' | 'league' | 'beige' | 'sky' | 'night' | 'serif' | 'simple' | 'solarized'
+  theme?:
+    | 'black'
+    | 'white'
+    | 'league'
+    | 'beige'
+    | 'sky'
+    | 'night'
+    | 'serif'
+    | 'simple'
+    | 'solarized'
   transition?: 'none' | 'fade' | 'slide' | 'convex' | 'concave' | 'zoom'
 }
 
@@ -25,9 +34,9 @@ export function SlideViewer({ slides, theme = 'black', transition = 'slide' }: S
     if (!deckRef.current || slides.length === 0) return
 
     // Debug: Log what we're rendering
-    console.log('Slides:', slides)
+    console.info('Slides:', slides)
     slides.forEach((slide, i) => {
-      console.log(`Slide ${i} sections:`, slide.sections)
+      console.info(`Slide ${i} sections:`, slide.sections)
     })
 
     // Initialize Reveal.js
@@ -52,9 +61,9 @@ export function SlideViewer({ slides, theme = 'black', transition = 'slide' }: S
 
     void deck.initialize().then(() => {
       revealRef.current = deck
-      
+
       // Listen for slide changes
-      deck.on('slidechanged', (event: any) => {
+      deck.on('slidechanged', (event: { indexh: number }) => {
         setCurrentSlideIndex(event.indexh)
       })
     })
@@ -68,19 +77,20 @@ export function SlideViewer({ slides, theme = 'black', transition = 'slide' }: S
 
   // Dynamically import theme CSS
   useEffect(() => {
-    import(`reveal.js/dist/theme/${theme}.css`)
-      .catch(err => console.error(`Failed to load theme ${theme}:`, err))
+    import(`reveal.js/dist/theme/${theme}.css`).catch(err =>
+      console.error(`Failed to load theme ${theme}:`, err)
+    )
   }, [theme])
 
   return (
     <div className="slide-viewer h-screen w-full relative overflow-hidden">
       <div className="reveal" ref={deckRef} style={{ height: '100%' }}>
         <div className="slides">
-          {slides.map((slide) => (
+          {slides.map(slide => (
             <section key={slide.id}>
               {slide.sections.map((section, index) => (
-                <section 
-                  key={`${slide.id}-${index}`} 
+                <section
+                  key={`${slide.id}-${index}`}
                   data-markdown=""
                   data-separator="^\n---\n"
                   data-separator-vertical="^\n--\n"
@@ -95,7 +105,7 @@ export function SlideViewer({ slides, theme = 'black', transition = 'slide' }: S
           ))}
         </div>
       </div>
-      
+
       {/* Slide counter */}
       <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
         {currentSlideIndex + 1} / {slides.length}

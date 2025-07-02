@@ -4,7 +4,12 @@ import { appConfig } from '@/lib/config'
 import { smartApi } from '@/src/utils/smartApiClient'
 import { log } from '@/src/utils/logger'
 import type { components } from '@/types/generated/api'
-import type { RunningEvaluationsResponse, EvaluationLogs, KillEvaluationResponse, EvaluationsApiResponse } from '@/types/api'
+import type {
+  RunningEvaluationsResponse,
+  EvaluationLogs,
+  KillEvaluationResponse,
+  EvaluationsApiResponse,
+} from '@/types/api'
 
 // Use OpenAPI generated types
 export type EvaluationRequest = components['schemas']['EvaluationRequest']
@@ -39,8 +44,8 @@ async function submitEvaluation(request: EvaluationRequest): Promise<{ eval_id: 
 
 async function fetchEvaluation(evalId: string): Promise<EvaluationStatusResponse> {
   log.debug('Fetching evaluation status', evalId)
-  const response = await fetch(`${appConfig.api.baseUrl}/api/eval-status/${evalId}`)
-  
+  const response = await fetch(`${appConfig.api.baseUrl}/api/eval/${evalId}`)
+
   if (!response.ok) {
     const error = await response.text()
     throw new Error(error || 'Failed to fetch evaluation')
@@ -54,10 +59,10 @@ async function fetchEvaluation(evalId: string): Promise<EvaluationStatusResponse
 // React Query hooks
 export function useSubmitEvaluation() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: submitEvaluation,
-    onSuccess: (data) => {
+    onSuccess: data => {
       // Prefetch the evaluation data
       queryClient.prefetchQuery({
         queryKey: ['evaluation', data.eval_id],
@@ -73,7 +78,7 @@ export function useEvaluation(evalId: string | null) {
     queryFn: () => fetchEvaluation(evalId!),
     enabled: !!evalId,
     // Poll while evaluation is running
-    refetchInterval: (query) => {
+    refetchInterval: query => {
       const data = query.state.data
       if (!data) return 1000 // Poll every second initially
       if (data.status === 'queued' || data.status === 'running') {
@@ -107,19 +112,20 @@ export function useRunningEvaluations() {
         throw new Error('Failed to fetch running evaluations')
       }
       const data: EvaluationsApiResponse = await response.json()
-      
+
       // Transform evaluations to include placeholder executor info
       // TODO: Update when API returns executor info
       return {
-        evaluations: data.evaluations?.map((ev) => ({
-          eval_id: ev.eval_id,  // Now TypeScript will catch if this field doesn't exist!
-          status: ev.status,
-          created_at: ev.created_at,
-          executor_id: 'unknown',
-          container_id: 'unknown',
-          started_at: ev.created_at || new Date().toISOString(),
-          timeout: 30
-        })) || []
+        evaluations:
+          data.evaluations?.map(ev => ({
+            eval_id: ev.eval_id, // Now TypeScript will catch if this field doesn't exist!
+            status: ev.status,
+            created_at: ev.created_at,
+            executor_id: 'unknown',
+            container_id: 'unknown',
+            started_at: ev.created_at || new Date().toISOString(),
+            timeout: 30,
+          })) || [],
       }
     },
     refetchInterval: 2000, // Poll every 2 seconds
@@ -129,31 +135,39 @@ export function useRunningEvaluations() {
 // Hook for updating evaluation status (admin action)
 export function useUpdateEvaluationStatus() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: async ({ evalId, status, reason }: { evalId: string; status: string; reason?: string }) => {
+    mutationFn: async ({
+      evalId,
+      status,
+      reason,
+    }: {
+      evalId: string
+      status: string
+      reason?: string
+    }) => {
       // Build URL with proper handling for relative paths
-      const baseUrl = appConfig.api.baseUrl || '';
-      const path = `/api/eval/${evalId}/status`;
-      const params = new URLSearchParams();
-      params.append('status', status);
+      const baseUrl = appConfig.api.baseUrl || ''
+      const path = `/api/eval/${evalId}/status`
+      const params = new URLSearchParams()
+      params.append('status', status)
       if (reason) {
-        params.append('reason', reason);
+        params.append('reason', reason)
       }
-      const url = `${baseUrl}${path}?${params.toString()}`;
-      
+      const url = `${baseUrl}${path}?${params.toString()}`
+
       const response = await fetch(url, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
       })
-      
+
       if (!response.ok) {
         const error = await response.text()
         throw new Error(error || 'Failed to update evaluation status')
       }
-      
+
       return response.json()
     },
     onSuccess: (_data, variables) => {
@@ -161,30 +175,30 @@ export function useUpdateEvaluationStatus() {
       queryClient.invalidateQueries({ queryKey: ['evaluation', variables.evalId] })
       queryClient.invalidateQueries({ queryKey: ['evaluations'] })
       queryClient.invalidateQueries({ queryKey: ['running-evaluations'] })
-    }
+    },
   })
 }
 
 // Hook for killing an evaluation
 export function useKillEvaluation() {
   const queryClient = useQueryClient()
-  
+
   return useMutation<KillEvaluationResponse, Error, string>({
     mutationFn: async (evalId: string) => {
       const response = await fetch(`${appConfig.api.baseUrl}/api/eval/${evalId}/kill`, {
         method: 'POST',
       })
       if (!response.ok) {
-        let errorMessage = 'Failed to kill evaluation';
+        let errorMessage = 'Failed to kill evaluation'
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.detail || errorMessage;
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.detail || errorMessage
         } catch {
           // If JSON parsing fails, try to get text
-          const errorText = await response.text();
-          if (errorText) errorMessage = errorText;
+          const errorText = await response.text()
+          if (errorText) errorMessage = errorText
         }
-        throw new Error(errorMessage);
+        throw new Error(errorMessage)
       }
       return response.json()
     },
@@ -201,7 +215,7 @@ export function useEvaluationLogs(evalId: string | null) {
     queryKey: ['evaluation', evalId, 'logs'],
     queryFn: async () => {
       if (!evalId) return null
-      
+
       const response = await fetch(`${appConfig.api.baseUrl}/api/eval/${evalId}/logs`)
       if (!response.ok) {
         if (response.status === 404) {
@@ -212,7 +226,7 @@ export function useEvaluationLogs(evalId: string | null) {
       return response.json()
     },
     enabled: !!evalId,
-    refetchInterval: (query) => {
+    refetchInterval: query => {
       // Continue polling if evaluation is running
       const data = query.state.data
       if (!data || data.is_running) {
@@ -230,14 +244,18 @@ export function useEvaluationFlow() {
   const [currentEvalId, setCurrentEvalId] = useState<string | null>(null)
   const evaluationQuery = useEvaluation(currentEvalId)
 
-  const submitCode = async (code: string, language: string = 'python', priority: boolean = false) => {
+  const submitCode = async (
+    code: string,
+    language: string = 'python',
+    priority: boolean = false
+  ) => {
     try {
-      const result = await submitMutation.mutateAsync({ 
-        code, 
+      const result = await submitMutation.mutateAsync({
+        code,
         language,
         engine: 'docker',
         timeout: 30,
-        priority
+        priority,
       })
       setCurrentEvalId(result.eval_id)
       return result.eval_id
@@ -252,7 +270,8 @@ export function useEvaluationFlow() {
     submitMutation.reset()
   }
 
-  const isComplete = evaluationQuery.data?.status === 'completed' || evaluationQuery.data?.status === 'failed'
+  const isComplete =
+    evaluationQuery.data?.status === 'completed' || evaluationQuery.data?.status === 'failed'
   const isPolling = evaluationQuery.isFetching && !isComplete
 
   return {
@@ -285,7 +304,7 @@ export function useEvaluationHistory(page: number = 0, limit: number = 100) {
       return {
         evaluations: data.evaluations || [],
         total: data.count || data.evaluations?.length || 0,
-        hasMore: data.has_more || false
+        hasMore: data.has_more || false,
       }
     },
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
@@ -296,7 +315,7 @@ export function useEvaluationHistory(page: number = 0, limit: number = 100) {
 // Hook for fetching evaluation output with pagination
 export function useEvaluationOutput(evalId: string | null, lastLine: number = 0) {
   const queryClient = useQueryClient()
-  
+
   return useQuery({
     queryKey: ['evaluation', evalId, 'output', lastLine],
     queryFn: async () => {
@@ -326,20 +345,20 @@ export function useMultipleEvaluations(evalIds: string[]) {
     queryKey: ['evaluations', 'multiple', evalIds],
     queryFn: async () => {
       if (evalIds.length === 0) return []
-      
+
       const results = await Promise.all(
-        evalIds.map(async (evalId) => {
+        evalIds.map(async evalId => {
           try {
             const evaluation = await fetchEvaluation(evalId)
             return evaluation
           } catch (error) {
             // Return a failed evaluation with error details
-            return { 
-              eval_id: evalId, 
-              status: 'failed' as const, 
+            return {
+              eval_id: evalId,
+              status: 'failed' as const,
               error: error instanceof Error ? error.message : 'Failed to fetch',
               output: '',
-              success: false
+              success: false,
             } as EvaluationStatusResponse
           }
         })
@@ -347,10 +366,10 @@ export function useMultipleEvaluations(evalIds: string[]) {
       return results
     },
     enabled: evalIds.length > 0,
-    refetchInterval: (query) => {
+    refetchInterval: query => {
       const data = query.state.data
       if (!data) return 1000
-      
+
       // Continue polling if any evaluation is still in progress
       const hasActive = data.some(e => e.status === 'queued' || e.status === 'running')
       return hasActive ? 1000 : false
@@ -377,15 +396,15 @@ export function useQueueStatus() {
 // Hook for batch submission - uses smartApiClient for rate limiting
 export function useBatchSubmit() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (evaluations: EvaluationRequest[]) => {
       // Use smartApiClient which handles rate limiting and retries
       return smartApi.submitBatch(evaluations)
     },
-    onSuccess: (results) => {
+    onSuccess: results => {
       // Prefetch status for each successful submission
-      results.forEach((result) => {
+      results.forEach(result => {
         if (result.eval_id) {
           queryClient.prefetchQuery({
             queryKey: ['evaluation', result.eval_id],
@@ -393,6 +412,6 @@ export function useBatchSubmit() {
           })
         }
       })
-    }
+    },
   })
 }

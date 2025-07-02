@@ -15,9 +15,7 @@ export function BacklinksSection({ backlinks }: BacklinksSectionProps) {
 
   return (
     <div className="mt-12 pt-8 border-t border-gray-200">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">
-        Referenced by
-      </h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Referenced by</h2>
       <div className="space-y-3">
         {backlinks.map((backlink, index) => (
           <div
@@ -31,9 +29,7 @@ export function BacklinksSection({ backlinks }: BacklinksSectionProps) {
               {backlink.fromTitle}
             </Link>
             {backlink.context && (
-              <p className="mt-2 text-sm text-gray-600 italic">
-                {backlink.context}
-              </p>
+              <p className="mt-2 text-sm text-gray-600 italic">{backlink.context}</p>
             )}
           </div>
         ))}

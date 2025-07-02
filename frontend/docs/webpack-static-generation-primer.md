@@ -11,14 +11,16 @@ Webpack is a **module bundler** that takes your code and its dependencies and pa
 ### Key Concepts:
 
 **Entry Points**: Where webpack starts building the dependency graph
+
 ```javascript
 // webpack.config.js
 module.exports = {
-  entry: './src/index.js'  // Start here
+  entry: './src/index.js', // Start here
 }
 ```
 
 **Loaders**: Transform files as they're imported
+
 ```javascript
 // This allows: import styles from './app.css'
 {
@@ -28,10 +30,11 @@ module.exports = {
 ```
 
 **Plugins**: Perform wider operations
+
 ```javascript
 plugins: [
-  new HtmlWebpackPlugin(),  // Generate HTML files
-  new MiniCssExtractPlugin() // Extract CSS to files
+  new HtmlWebpackPlugin(), // Generate HTML files
+  new MiniCssExtractPlugin(), // Extract CSS to files
 ]
 ```
 
@@ -40,6 +43,7 @@ plugins: [
 Next.js comes with webpack pre-configured but extends it for:
 
 ### File-based Routing
+
 ```
 pages/index.js → /
 pages/about.js → /about
@@ -47,17 +51,20 @@ pages/blog/[slug].js → /blog/:slug
 ```
 
 ### Automatic Code Splitting
+
 Each page gets its own bundle:
+
 ```
 /.next/static/chunks/pages/index-abc123.js
 /.next/static/chunks/pages/about-def456.js
 ```
 
 ### Module Imports
+
 ```javascript
 // Next.js webpack config handles these special imports:
-import Image from 'next/image'  // Optimized images
-import dynamic from 'next/dynamic'  // Dynamic imports
+import Image from 'next/image' // Optimized images
+import dynamic from 'next/dynamic' // Dynamic imports
 ```
 
 ## 3. Static Generation in Next.js
@@ -65,6 +72,7 @@ import dynamic from 'next/dynamic'  // Dynamic imports
 ### Build Time vs Runtime
 
 **Static Generation (SSG)**: HTML generated at build time
+
 ```javascript
 // This runs at BUILD TIME, not when users visit
 export async function getStaticProps() {
@@ -74,6 +82,7 @@ export async function getStaticProps() {
 ```
 
 **Server-Side Rendering (SSR)**: HTML generated per request
+
 ```javascript
 // This runs on EVERY REQUEST
 export async function getServerSideProps() {
@@ -91,6 +100,7 @@ export async function getServerSideProps() {
 ## 4. Practical Example: Loading Markdown Files
 
 ### Development Mode
+
 ```javascript
 // lib/slides/loader.ts
 import fs from 'fs'
@@ -105,6 +115,7 @@ export async function loadSlide(id: string) {
 ```
 
 ### Production Mode - Option 1: Static Imports
+
 ```javascript
 // Webpack bundles these at build time
 export async function loadSlide(id: string) {
@@ -113,13 +124,14 @@ export async function loadSlide(id: string) {
     'evolution': () => import('../../content/slides/02-evolution.md'),
     // ... webpack creates separate chunks for each
   }
-  
+
   const module = await slides[id]()
   return module.default
 }
 ```
 
 ### Production Mode - Option 2: getStaticProps
+
 ```javascript
 // pages/slides/[id].js
 export async function getStaticPaths() {
@@ -127,7 +139,7 @@ export async function getStaticPaths() {
   const slides = ['genesis', 'evolution', 'docker-journey']
   return {
     paths: slides.map(id => ({ params: { id } })),
-    fallback: false
+    fallback: false,
   }
 }
 
@@ -135,7 +147,7 @@ export async function getStaticProps({ params }) {
   // This runs at build time for each slide
   const slideContent = await loadSlide(params.id)
   return {
-    props: { slideContent }
+    props: { slideContent },
   }
 }
 ```
@@ -175,17 +187,20 @@ import slidesManifest from '../../content/slides/index.json'
 ## 7. Benefits for Our Slides System
 
 ### Development
+
 - Edit markdown files directly
 - Hot reload sees changes
 - No build step needed
 
 ### Production
+
 - All slides pre-rendered as HTML
 - No filesystem access needed
 - Can deploy to CDN
 - Works in serverless environments
 
 ### Example Build Output
+
 ```
 Route (app)                          Size     First Load JS
 ┌ ● /slides                         312 B          87.5 kB
@@ -201,15 +216,17 @@ Route (app)                          Size     First Load JS
 ## 8. Webpack Optimizations
 
 ### Code Splitting
+
 ```javascript
 // Webpack automatically splits this into separate chunk
 const RevealJS = dynamic(() => import('reveal.js'), {
   loading: () => <p>Loading presentation...</p>,
-  ssr: false  // Don't render on server
+  ssr: false, // Don't render on server
 })
 ```
 
 ### Tree Shaking
+
 ```javascript
 // If you only use `parse` from this library:
 import { parse } from 'markdown-library'
@@ -217,6 +234,7 @@ import { parse } from 'markdown-library'
 ```
 
 ### Asset Optimization
+
 ```javascript
 // These get optimized URLs in production:
 import slideStyles from './slides.module.css'
@@ -226,12 +244,14 @@ import slideStyles from './slides.module.css'
 ## Summary
 
 For our slides system:
+
 1. **Development**: Read markdown files directly from filesystem
 2. **Build Time**: Webpack bundles everything, Next.js pre-renders pages
 3. **Production**: Serve static HTML + JS, no filesystem access needed
 4. **Result**: Fast, scalable, simple to deploy
 
 This approach gives us the best of both worlds:
+
 - Easy content editing (just markdown files)
 - Blazing fast production performance (pre-rendered)
 - No database complexity

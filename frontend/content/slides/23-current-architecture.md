@@ -1,7 +1,7 @@
 ---
-title: "The Current Production Architecture"
+title: 'The Current Production Architecture'
 duration: 3
-tags: ["architecture", "production"]
+tags: ['architecture', 'production']
 ---
 
 ## The Current Production Architecture
@@ -17,7 +17,7 @@ tags: ["architecture", "production"]
          │              │   PostgreSQL     │     │  Storage Worker  │
          │              │   (Persistent)   │◀────│  (Subscriber)    │
          │              └──────────────────┘     └──────────────────┘
-         │                                                  
+         │
          │              ┌──────────────────┐     ┌──────────────────┐
          └──────────────▶│  Queue Service   │────▶│  Queue Worker    │
                         │   (HTTP API)     │     │   (Router)       │

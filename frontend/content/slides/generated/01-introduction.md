@@ -1,7 +1,7 @@
 ---
-title: "METR Evaluation Platform"
+title: 'METR Evaluation Platform'
 order: 1
-tags: ["introduction", "overview"]
+tags: ['introduction', 'overview']
 ---
 
 # METR Evaluation Platform

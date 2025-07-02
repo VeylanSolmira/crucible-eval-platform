@@ -1,7 +1,7 @@
 ---
-title: "Journey Overview"
+title: 'Journey Overview'
 duration: 3
-tags: ["overview", "timeline"]
+tags: ['overview', 'timeline']
 ---
 
 ## Journey Overview: Each Step Driven by a Problem
@@ -22,6 +22,7 @@ graph LR
 ## Current State: Production on AWS
 
 **What We've Achieved:**
+
 - ✅ Full stack deployed on EC2 with Docker Compose
 - ✅ Blue-green deployment with zero downtime
 - ✅ PostgreSQL for persistent storage

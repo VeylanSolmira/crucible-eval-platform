@@ -1,10 +1,11 @@
 ---
-title: "Chapter 8: Next Step - Containerization"
+title: 'Chapter 8: Next Step - Containerization'
 duration: 2
-tags: ["docker", "future"]
+tags: ['docker', 'future']
 ---
 
 ## Chapter 8: Next Step - Containerization
+
 ### Problem: Deployment still tied to specific EC2 setup
 
 **Why Docker Next:**
@@ -15,6 +16,7 @@ tags: ["docker", "future"]
 4. **Speed**: Pre-built images vs. installation on boot
 
 **The Path Forward:**
+
 ```dockerfile
 FROM python:3.11-slim
 # Security: Non-root user

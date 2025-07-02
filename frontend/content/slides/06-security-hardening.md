@@ -1,10 +1,11 @@
 ---
-title: "Chapter 4: Security Hardening"
+title: 'Chapter 4: Security Hardening'
 duration: 3
-tags: ["security", "gvisor"]
+tags: ['security', 'gvisor']
 ---
 
 ## Chapter 4: Security Hardening
+
 ### Problem: Still vulnerable to sophisticated attacks
 
 **Multi-Layer Defense:**
@@ -16,7 +17,7 @@ def validate_code(code: str) -> bool:
     # Import restrictions
     # Pattern blacklisting
 
-# Layer 2: Execution Isolation  
+# Layer 2: Execution Isolation
 def execute_in_gvisor(code: str) -> dict:
     # gVisor kernel isolation
     # Syscall filtering
@@ -30,6 +31,7 @@ def monitor_execution(eval_id: str) -> None:
 ```
 
 **Security Test Results:**
+
 - ✅ Network exfiltration blocked
 - ✅ Filesystem access denied
 - ✅ Fork bombs prevented

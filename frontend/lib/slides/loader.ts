@@ -33,7 +33,7 @@ const SLIDES_DIR = path.join(process.cwd(), 'content', 'slides')
 export async function loadSlidesIndex(): Promise<SlidesIndex> {
   const indexPath = path.join(SLIDES_DIR, 'index.json')
   const content = await fs.readFile(indexPath, 'utf-8')
-  return JSON.parse(content)
+  return JSON.parse(content) as SlidesIndex
 }
 
 /**
@@ -44,38 +44,41 @@ export async function loadSlide(id: string): Promise<Slide | null> {
     // First load the index to get metadata
     const index = await loadSlidesIndex()
     const metadata = index.slides.find(s => s.id === id)
-    
+
     if (!metadata) {
       console.error(`Slide ${id} not found in index`)
       return null
     }
-    
+
     // Load the content file
     const filePath = path.join(SLIDES_DIR, metadata.file)
     const content = await fs.readFile(filePath, 'utf-8')
-    
+
     // Parse frontmatter if present, otherwise use raw content
     const { data, content: markdown } = matter(content)
-    
+
     // Split content into sections (separated by ---)
-    const sections = markdown.split(/\n---\n/).map(s => s.trim()).filter(Boolean)
-    
+    const sections = markdown
+      .split(/\n---\n/)
+      .map(s => s.trim())
+      .filter(Boolean)
+
     // Merge metadata from index with frontmatter data
     const slide: Slide = {
       id: metadata.id,
-      title: data.title || metadata.title,
+      title: (data.title as string) || metadata.title,
       file: metadata.file,
-      duration: data.duration || metadata.duration,
-      tags: data.tags || metadata.tags,
+      duration: (data.duration as number) || metadata.duration,
+      tags: (data.tags as string[]) || metadata.tags,
       content: markdown,
-      sections
+      sections,
     }
-    
+
     // Only add description if it exists
     if (metadata.description || data.description) {
-      slide.description = data.description || metadata.description
+      slide.description = (data.description as string) || metadata.description
     }
-    
+
     return slide
   } catch (error) {
     console.error(`Error loading slide ${id}:`, error)
@@ -88,10 +91,8 @@ export async function loadSlide(id: string): Promise<Slide | null> {
  */
 export async function loadAllSlides(): Promise<Slide[]> {
   const index = await loadSlidesIndex()
-  const slides = await Promise.all(
-    index.slides.map(metadata => loadSlide(metadata.id))
-  )
-  
+  const slides = await Promise.all(index.slides.map(metadata => loadSlide(metadata.id)))
+
   // Sort slides by their position in the index
   const slideOrder = index.slides.map(s => s.id)
   return slides
@@ -113,10 +114,11 @@ export async function getSlidesByTag(tag: string): Promise<Slide[]> {
 export async function searchSlides(query: string): Promise<Slide[]> {
   const slides = await loadAllSlides()
   const lowerQuery = query.toLowerCase()
-  
-  return slides.filter(slide => 
-    slide.title.toLowerCase().includes(lowerQuery) ||
-    slide.content.toLowerCase().includes(lowerQuery) ||
-    slide.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
+
+  return slides.filter(
+    slide =>
+      slide.title.toLowerCase().includes(lowerQuery) ||
+      slide.content.toLowerCase().includes(lowerQuery) ||
+      slide.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
   )
 }

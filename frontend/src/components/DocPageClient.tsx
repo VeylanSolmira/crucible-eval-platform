@@ -17,7 +17,7 @@ export function DocPageClient({ content, backlinks = [] }: DocPageClientProps) {
       <div className="prose prose-gray max-w-none">
         <MarkdownRenderer content={content} />
       </div>
-      
+
       <BacklinksSection backlinks={backlinks} />
     </>
   )

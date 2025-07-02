@@ -25,7 +25,7 @@ export default function DatabasePage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json() as DatabaseDetails
+      const data = (await response.json()) as DatabaseDetails
       setDetails(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch database details')
@@ -96,7 +96,7 @@ export default function DatabasePage() {
         {/* Table Statistics */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-4 text-gray-900">Table Statistics</h2>
-          
+
           {/* Evaluations Table */}
           <div className="mb-6">
             <h3 className="font-medium text-gray-900 mb-2">Evaluations Table</h3>
@@ -173,7 +173,7 @@ export default function DatabasePage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {details.recent_evaluations.map((evaluation) => (
+                {details.recent_evaluations.map(evaluation => (
                   <tr key={evaluation.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                       {evaluation.id.substring(0, 8)}...
@@ -184,10 +184,10 @@ export default function DatabasePage() {
                           evaluation.status === 'completed'
                             ? 'bg-green-100 text-green-800'
                             : evaluation.status === 'failed'
-                            ? 'bg-red-100 text-red-800'
-                            : evaluation.status === 'running'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-red-100 text-red-800'
+                              : evaluation.status === 'running'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-yellow-100 text-yellow-800'
                         }`}
                       >
                         {evaluation.status}

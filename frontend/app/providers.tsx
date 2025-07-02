@@ -15,14 +15,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             staleTime: 60 * 1000,
             // Retry with exponential backoff
             retry: 3,
-            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+            retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
             // Refetch on window focus for fresh data
             refetchOnWindowFocus: true,
             // Don't refetch on reconnect by default
             refetchOnReconnect: 'always',
           },
         },
-      }),
+      })
   )
 
   return (

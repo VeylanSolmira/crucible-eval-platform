@@ -8,4 +8,4 @@ Only run these in isolated environments with proper sandboxing!
 from .safe_demo_scenarios import SAFE_DEMO_SCENARIOS
 # Deliberately not importing attack_scenarios by default for safety
 
-__all__ = ['SAFE_DEMO_SCENARIOS']
+__all__ = ["SAFE_DEMO_SCENARIOS"]

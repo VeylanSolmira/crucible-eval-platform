@@ -1,15 +1,15 @@
-import React, { useRef, useEffect } from 'react';
-import Editor, { type Monaco } from '@monaco-editor/react';
-import type { editor } from 'monaco-editor';
+import React, { useRef, useEffect } from 'react'
+import Editor, { type Monaco } from '@monaco-editor/react'
+import type { editor } from 'monaco-editor'
 
 interface CodeEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  onMount?: (editor: editor.IStandaloneCodeEditor) => void;
-  language?: string;
-  theme?: string;
-  height?: string;
-  readOnly?: boolean;
+  value: string
+  onChange: (value: string) => void
+  onMount?: (editor: editor.IStandaloneCodeEditor) => void
+  language?: string
+  theme?: string
+  height?: string
+  readOnly?: boolean
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -21,11 +21,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   height = '400px',
   readOnly = false,
 }) => {
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
-    editorRef.current = editor;
-    
+    editorRef.current = editor
+
     // Configure Python-specific settings
     if (language === 'python') {
       editor.updateOptions({
@@ -34,49 +34,46 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         autoIndent: 'full',
         formatOnPaste: true,
         formatOnType: true,
-      });
+      })
     }
 
     // Add keyboard shortcuts
-    editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-      () => {
-        // Trigger save to localStorage
-        const currentValue = editor.getValue();
-        localStorage.setItem('crucible-last-code', currentValue);
-        localStorage.setItem('crucible-last-saved', new Date().toISOString());
-      }
-    );
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      // Trigger save to localStorage
+      const currentValue = editor.getValue()
+      localStorage.setItem('crucible-last-code', currentValue)
+      localStorage.setItem('crucible-last-saved', new Date().toISOString())
+    })
 
     if (onMount) {
-      onMount(editor);
+      onMount(editor)
     }
-  };
+  }
 
   const handleChange = (value: string | undefined) => {
-    onChange(value || '');
-    
+    onChange(value || '')
+
     // Auto-save to localStorage with debounce
     if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
+      clearTimeout(autoSaveTimeoutRef.current)
     }
-    
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      localStorage.setItem('crucible-draft-code', value || '');
-      localStorage.setItem('crucible-draft-saved', new Date().toISOString());
-    }, 1000);
-  };
 
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      localStorage.setItem('crucible-draft-code', value || '')
+      localStorage.setItem('crucible-draft-saved', new Date().toISOString())
+    }, 1000)
+  }
+
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // Cleanup on unmount
     return () => {
       if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
+        clearTimeout(autoSaveTimeoutRef.current)
       }
-    };
-  }, []);
+    }
+  }, [])
 
   return (
     <div className="border border-gray-700 rounded-lg overflow-hidden">
@@ -88,7 +85,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         onChange={handleChange}
         onMount={handleEditorDidMount}
         options={{
-          minimap: { enabled: false },
+          minimap: { enabled: true },
           fontSize: 14,
           lineNumbers: 'on',
           rulers: [80, 120],
@@ -110,11 +107,22 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             showKeywords: true,
             showSnippets: true,
           },
+          // Explicitly enable features that might not be on by default
+          bracketPairColorization: {
+            enabled: true,
+          },
+          matchBrackets: 'always',
+          autoClosingBrackets: 'always',
+          autoClosingQuotes: 'always',
+          autoSurround: 'languageDefined',
+          folding: true,
+          foldingStrategy: 'indentation',
+          showFoldingControls: 'mouseover',
         }}
       />
     </div>
-  );
-};
+  )
+}
 
 // Re-export Monaco type for use in other components
-export type { Monaco } from '@monaco-editor/react';
+export type { Monaco } from '@monaco-editor/react'

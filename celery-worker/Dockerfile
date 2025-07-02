@@ -19,8 +19,9 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # Runtime stage - no build tools
 FROM ${BASE_IMAGE} AS runtime
 
-# Copy installed packages from builder
+# Copy installed packages and executables from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin/celery /usr/local/bin/celery
 
 # Copy application code
 COPY --chown=appuser:appuser celery-worker/*.py /app/celery-worker/

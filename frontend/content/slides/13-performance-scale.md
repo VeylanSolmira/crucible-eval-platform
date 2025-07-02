@@ -1,20 +1,20 @@
 ---
-title: "Performance & Scale"
+title: 'Performance & Scale'
 duration: 2
-tags: ["performance", "benchmarks"]
+tags: ['performance', 'benchmarks']
 ---
 
 ## Performance & Scale
 
 ### Current Benchmarks
 
-| Operation | Latency | Throughput | Bottleneck |
-|-----------|---------|------------|------------|
-| Simple eval | 45ms | 1,000/sec | CPU |
-| Docker eval | 890ms | 100/sec | Container startup |
-| gVisor eval | 1,250ms | 80/sec | Kernel overhead |
-| Queue ops | <1ms | 10,000/sec | Memory |
-| Event streaming | <1ms | 50,000/sec | Memory |
+| Operation       | Latency | Throughput | Bottleneck        |
+| --------------- | ------- | ---------- | ----------------- |
+| Simple eval     | 45ms    | 1,000/sec  | CPU               |
+| Docker eval     | 890ms   | 100/sec    | Container startup |
+| gVisor eval     | 1,250ms | 80/sec     | Kernel overhead   |
+| Queue ops       | <1ms    | 10,000/sec | Memory            |
+| Event streaming | <1ms    | 50,000/sec | Memory            |
 
 ### Scaling Strategy
 

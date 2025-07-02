@@ -39,9 +39,8 @@ else:
     print("⚠️  No Docker environment file")
 """,
         "expected_result": "informational",
-        "threat_level": "none"
+        "threat_level": "none",
     },
-
     "network_check_demo": {
         "name": "Network Configuration Check",
         "description": "Checks network configuration without making connections",
@@ -82,9 +81,8 @@ except Exception as e:
     print(f"DNS resolution error: {e}")
 """,
         "expected_result": "informational",
-        "threat_level": "none"
+        "threat_level": "none",
     },
-
     "resource_limits_demo": {
         "name": "Resource Limits Check",
         "description": "Checks resource limits without exhausting them",
@@ -136,9 +134,8 @@ except Exception as e:
     print(f"Cannot read memory info: {e}")
 """,
         "expected_result": "informational",
-        "threat_level": "none"
+        "threat_level": "none",
     },
-
     "filesystem_readonly_demo": {
         "name": "Filesystem Permissions Check",
         "description": "Checks filesystem permissions without writing",
@@ -178,9 +175,8 @@ except Exception as e:
     print(f"Cannot check temp directory: {e}")
 """,
         "expected_result": "informational",
-        "threat_level": "none"
+        "threat_level": "none",
     },
-
     "capability_info_demo": {
         "name": "Process Capabilities Information",
         "description": "Shows process capabilities without trying to escalate",
@@ -222,6 +218,6 @@ for cmd in dangerous_commands:
         print(f"✅ Not found: {cmd}")
 """,
         "expected_result": "informational",
-        "threat_level": "none"
-    }
+        "threat_level": "none",
+    },
 }

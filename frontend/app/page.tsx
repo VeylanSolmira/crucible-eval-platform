@@ -19,8 +19,10 @@ export default function ResearcherUI() {
   // State
   const [code, setCode] = useState('')
   const [events, setEvents] = useState<EventMessage[]>([])
+  const [batchCount, setBatchCount] = useState<number>(5)
+  const [showBatchDialog, setShowBatchDialog] = useState(false)
   // Removed selectedRunningEvalId - now handled inside Executions component
-  
+
   // Execution config
   const [execConfig, setExecConfig] = useState<ExecutionConfigData>({
     timeout: 30,
@@ -38,12 +40,12 @@ export default function ResearcherUI() {
     evaluation,
     isPolling,
     evaluationError: _evaluationError,
-    isComplete
+    isComplete,
   } = useEvaluationFlow()
 
   const { data: queueStatus } = useQueueStatus()
   const batchSubmit = useBatchSubmit()
-  
+
   // Track recently submitted evaluation IDs for UI feedback
   const [recentEvalIds, setRecentEvalIds] = useState<string[]>([])
 
@@ -52,7 +54,7 @@ export default function ResearcherUI() {
     const event: EventMessage = {
       type,
       data,
-      timestamp: new Date().toLocaleTimeString()
+      timestamp: new Date().toLocaleTimeString(),
     }
     setEvents(prev => [...prev.slice(-50), event]) // Keep last 50 events
   }, [])
@@ -60,7 +62,10 @@ export default function ResearcherUI() {
   // Submit code for evaluation
   const handleSubmit = async () => {
     try {
-      addEvent('submission', { type: 'single', code: code.substring(0, 50) + '...' })
+      addEvent('submission', {
+        type: 'single',
+        code: code.substring(0, 50) + '...',
+      })
       const newEvalId = await submitCode(code, 'python', execConfig.priority)
       // Track the new evaluation ID
       if (newEvalId) {
@@ -68,46 +73,53 @@ export default function ResearcherUI() {
         addEvent('evaluation_submitted', { id: newEvalId })
       }
     } catch (error) {
-      addEvent('error', { message: error instanceof Error ? error.message : 'Failed to submit evaluation' })
+      addEvent('error', {
+        message: error instanceof Error ? error.message : 'Failed to submit evaluation',
+      })
     }
   }
 
   // Kill execution is now handled inside Executions component
 
   // Submit multiple evaluations
-  const handleBatchSubmit = async () => {
+  const handleBatchSubmit = async (count: number) => {
+    if (!code.trim()) {
+      addEvent('error', { message: 'No code to submit' })
+      return
+    }
+    
     try {
-      addEvent('submission', { type: 'batch', count: 5 })
-      
-      // Prepare batch evaluations
-      const evaluations: EvaluationRequest[] = Array.from({ length: 5 }, (_, i) => ({
-        code: `# Evaluation ${i + 1}\nprint(f"This is evaluation ${i + 1}")\nimport time\ntime.sleep(${Math.random() * 2})`,
+      addEvent('submission', { type: 'batch', count })
+
+      // Prepare batch evaluations - all with the same code from editor
+      const evaluations: EvaluationRequest[] = Array.from({ length: count }, () => ({
+        code: code,
         language: 'python',
         engine: 'docker',
-        timeout: 30,
-        priority: false,
+        timeout: execConfig.timeout,
+        priority: execConfig.priority,
       }))
-      
-      const results = await batchSubmit.mutateAsync(evaluations) as BatchSubmissionResult[]
-      
+
+      const results = (await batchSubmit.mutateAsync(evaluations)) as BatchSubmissionResult[]
+
       // Extract eval IDs and add to recent submissions
-      const evalIds = results
-        .filter((r) => r.eval_id)
-        .map((r) => r.eval_id as string)
+      const evalIds = results.filter(r => r.eval_id).map(r => r.eval_id as string)
       setRecentEvalIds(prev => [...prev, ...evalIds])
-      
+
       results.forEach((result, index) => {
         if (result.error) {
           addEvent('error', { batch_index: index + 1, message: result.error })
         } else if (result.eval_id) {
-          addEvent('evaluation_submitted', { 
-            id: result.eval_id, 
-            batch_index: index + 1 
+          addEvent('evaluation_submitted', {
+            id: result.eval_id,
+            batch_index: index + 1,
           })
         }
       })
     } catch (error) {
-      addEvent('error', { message: error instanceof Error ? error.message : 'Failed to submit batch' })
+      addEvent('error', {
+        message: error instanceof Error ? error.message : 'Failed to submit batch',
+      })
     }
   }
 
@@ -115,17 +127,23 @@ export default function ResearcherUI() {
   useEffect(() => {
     if (evaluation) {
       addEvent('status_change', { id: evalId, status: evaluation.status })
-      
+
       if (isComplete) {
-        addEvent('evaluation_complete', { id: evalId, status: evaluation.status })
+        addEvent('evaluation_complete', {
+          id: evalId,
+          status: evaluation.status,
+        })
       }
     }
-  }, [evaluation?.status, evalId, isComplete, addEvent])
+  }, [evaluation, evalId, isComplete, addEvent])
 
   // Track polling activity
   useEffect(() => {
     if (isPolling && evalId) {
-      addEvent('polling', { id: evalId, evaluation_status: evaluation?.status || 'unknown' })
+      addEvent('polling', {
+        id: evalId,
+        evaluation_status: evaluation?.status || 'unknown',
+      })
     }
   }, [isPolling, evalId, evaluation?.status, addEvent])
 
@@ -140,9 +158,7 @@ export default function ResearcherUI() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                ⚡ Crucible Research Platform
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900">⚡ Crucible Research Platform</h1>
               <p className="text-sm text-gray-600 mt-1">
                 Professional Python evaluation environment for AI safety research
               </p>
@@ -174,9 +190,7 @@ export default function ResearcherUI() {
               >
                 🌻 Flower Dashboard
               </a>
-              <div className="text-sm text-gray-500">
-                v2.0.0
-              </div>
+              <div className="text-sm text-gray-500">v2.0.0</div>
             </div>
           </div>
         </div>
@@ -230,17 +244,6 @@ export default function ResearcherUI() {
             </div>
           </div>
 
-          {/* Batch Testing */}
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Batch Testing</h3>
-            <button
-              onClick={() => void handleBatchSubmit()}
-              disabled={batchSubmit.isPending}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-            >
-              {batchSubmit.isPending ? 'Submitting...' : 'Submit 5 Test Evaluations'}
-            </button>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -283,17 +286,20 @@ export default function ResearcherUI() {
                     {events.map((event, idx) => (
                       <div key={idx} className="flex">
                         <span className="text-gray-400 mr-2">{event.timestamp}</span>
-                        <span className={`font-medium ${
-                          event.type === 'error' ? 'text-red-400' :
-                          event.type === 'submission' ? 'text-blue-400' :
-                          event.type === 'evaluation_complete' ? 'text-green-400' :
-                          'text-gray-300'
-                        }`}>
+                        <span
+                          className={`font-medium ${
+                            event.type === 'error'
+                              ? 'text-red-400'
+                              : event.type === 'submission'
+                                ? 'text-blue-400'
+                                : event.type === 'evaluation_complete'
+                                  ? 'text-green-400'
+                                  : 'text-gray-300'
+                          }`}
+                        >
                           [{event.type}]
                         </span>
-                        <span className="ml-2 text-gray-300">
-                          {JSON.stringify(event.data)}
-                        </span>
+                        <span className="ml-2 text-gray-300">{JSON.stringify(event.data)}</span>
                       </div>
                     ))}
                   </div>
@@ -306,9 +312,7 @@ export default function ResearcherUI() {
         {/* Unified Executions View */}
         <div className="mt-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Executions</h2>
-          <Executions 
-            recentEvalIds={recentEvalIds}
-          />
+          <Executions recentEvalIds={recentEvalIds} />
         </div>
       </div>
     </div>

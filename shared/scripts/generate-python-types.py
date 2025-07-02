@@ -7,16 +7,17 @@ This ensures all services use the same type definitions.
 import yaml
 from pathlib import Path
 
+
 def generate_enum_from_yaml(yaml_file: Path, output_file: Path):
     """Generate Python enum from OpenAPI YAML schema."""
-    with open(yaml_file, 'r') as f:
+    with open(yaml_file, "r") as f:
         spec = yaml.safe_load(f)
-    
+
     # Extract the EvaluationStatus schema
-    status_schema = spec['components']['schemas']['EvaluationStatus']
-    enum_values = status_schema['enum']
-    description = status_schema.get('description', '')
-    
+    status_schema = spec["components"]["schemas"]["EvaluationStatus"]
+    enum_values = status_schema["enum"]
+    description = status_schema.get("description", "")
+
     # Generate Python code
     code = f'''"""
 Generated from {yaml_file.name}
@@ -31,58 +32,60 @@ class EvaluationStatus(str, Enum):
     Generated from: shared/types/evaluation-status.yaml
     """
 '''
-    
+
     # Add enum values with comments from YAML
     for value in enum_values:
         # Extract comment from YAML if present
         comment = ""
-        with open(yaml_file, 'r') as f:
+        with open(yaml_file, "r") as f:
             lines = f.readlines()
             for i, line in enumerate(lines):
-                if f'- {value}' in line and '#' in line:
-                    comment = line.split('#')[1].strip()
+                if f"- {value}" in line and "#" in line:
+                    comment = line.split("#")[1].strip()
                     break
-        
+
         const_name = value.upper()
         if comment:
             code += f'    {const_name} = "{value}"  # {comment}\n'
         else:
             code += f'    {const_name} = "{value}"\n'
-    
+
     # Write the generated code
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write(code)
-    
+
     print(f"Generated {output_file}")
+
 
 def main():
     # Get the shared directory path
     script_dir = Path(__file__).parent
     shared_dir = script_dir.parent
-    
+
     # Generate EvaluationStatus enum
     generate_enum_from_yaml(
-        yaml_file=shared_dir / 'types' / 'evaluation-status.yaml',
-        output_file=shared_dir / 'generated' / 'python' / 'evaluation_status.py'
+        yaml_file=shared_dir / "types" / "evaluation-status.yaml",
+        output_file=shared_dir / "generated" / "python" / "evaluation_status.py",
     )
-    
+
     # Generate event contract classes
     generate_event_contracts(
-        yaml_file=shared_dir / 'types' / 'event-contracts.yaml',
-        output_file=shared_dir / 'generated' / 'python' / 'events.py'
+        yaml_file=shared_dir / "types" / "event-contracts.yaml",
+        output_file=shared_dir / "generated" / "python" / "events.py",
     )
-    
+
     # Update __init__.py to export all generated types
-    update_init_file(shared_dir / 'generated' / 'python' / '__init__.py')
+    update_init_file(shared_dir / "generated" / "python" / "__init__.py")
+
 
 def generate_event_contracts(yaml_file: Path, output_file: Path):
     """Generate Python event classes from OpenAPI YAML schema."""
-    with open(yaml_file, 'r') as f:
+    with open(yaml_file, "r") as f:
         spec = yaml.safe_load(f)
-    
-    schemas = spec['components']['schemas']
-    
+
+    schemas = spec["components"]["schemas"]
+
     # Generate Python code
     code = f'''"""
 Generated from {yaml_file.name}
@@ -94,127 +97,129 @@ from pydantic import BaseModel, Field
 
 
 '''
-    
+
     # Generate each event class
     for schema_name, schema_def in schemas.items():
-        if schema_name.endswith('Event'):
-            code += generate_event_class(schema_name, schema_def) + '\n\n'
-    
+        if schema_name.endswith("Event"):
+            code += generate_event_class(schema_name, schema_def) + "\n\n"
+
     # Add event channel constants from events.yaml
-    constants_file = yaml_file.parent.parent / 'constants' / 'events.yaml'
+    constants_file = yaml_file.parent.parent / "constants" / "events.yaml"
     if constants_file.exists():
-        with open(constants_file, 'r') as f:
+        with open(constants_file, "r") as f:
             constants = yaml.safe_load(f)
-        
-        code += generate_channel_constants(constants['channels'])
-    
+
+        code += generate_channel_constants(constants["channels"])
+
     # Write the generated code
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write(code)
-    
+
     print(f"Generated {output_file}")
+
 
 def generate_event_class(class_name: str, schema: dict) -> str:
     """Generate a single Pydantic event class."""
-    code = f'class {class_name}(BaseModel):\n'
-    
+    code = f"class {class_name}(BaseModel):\n"
+
     # Add docstring if description exists
     desc_lines = []
-    if 'description' in schema:
-        desc_lines.append(schema['description'])
-    
+    if "description" in schema:
+        desc_lines.append(schema["description"])
+
     # Find description comments from properties
-    properties = schema.get('properties', {})
+    properties = schema.get("properties", {})
     if properties:
         desc_lines.append("")
         desc_lines.append("Fields:")
         for prop_name, prop_def in properties.items():
-            if 'description' in prop_def:
+            if "description" in prop_def:
                 desc_lines.append(f"    {prop_name}: {prop_def['description']}")
-    
+
     if desc_lines:
-        code += '    """' + '\n    '.join(desc_lines) + '"""\n'
-    
+        code += '    """' + "\n    ".join(desc_lines) + '"""\n'
+
     # Generate fields
-    required = schema.get('required', [])
+    required = schema.get("required", [])
     for prop_name, prop_def in properties.items():
         field_type = python_type_from_openapi(prop_def)
-        
+
         # Handle required vs optional
         if prop_name in required:
-            if 'default' in prop_def:
-                default_val = repr(prop_def['default'])
-                code += f'    {prop_name}: {field_type} = Field(default={default_val}'
+            if "default" in prop_def:
+                default_val = repr(prop_def["default"])
+                code += f"    {prop_name}: {field_type} = Field(default={default_val}"
             else:
-                code += f'    {prop_name}: {field_type} = Field(...'
+                code += f"    {prop_name}: {field_type} = Field(..."
         else:
-            default_val = repr(prop_def.get('default', None))
-            code += f'    {prop_name}: Optional[{field_type}] = Field(default={default_val}'
-        
+            default_val = repr(prop_def.get("default", None))
+            code += f"    {prop_name}: Optional[{field_type}] = Field(default={default_val}"
+
         # Add description
-        if 'description' in prop_def:
+        if "description" in prop_def:
             code += f', description="{prop_def["description"]}"'
-        
-        code += ')\n'
-    
+
+        code += ")\n"
+
     return code
+
 
 def python_type_from_openapi(prop_def: dict) -> str:
     """Convert OpenAPI type to Python type."""
     type_mapping = {
-        'string': 'str',
-        'integer': 'int',
-        'number': 'float',
-        'boolean': 'bool',
-        'array': 'list',
-        'object': 'Dict[str, Any]'
+        "string": "str",
+        "integer": "int",
+        "number": "float",
+        "boolean": "bool",
+        "array": "list",
+        "object": "Dict[str, Any]",
     }
-    
-    prop_type = prop_def.get('type', 'string')
-    
+
+    prop_type = prop_def.get("type", "string")
+
     # Handle enums
-    if 'enum' in prop_def:
-        enum_values = ', '.join(f'"{v}"' for v in prop_def['enum'])
-        return f'Literal[{enum_values}]'
-    
+    if "enum" in prop_def:
+        enum_values = ", ".join(f'"{v}"' for v in prop_def["enum"])
+        return f"Literal[{enum_values}]"
+
     # Handle datetime
-    if prop_def.get('format') == 'date-time':
-        return 'datetime'
-    
-    return type_mapping.get(prop_type, 'Any')
+    if prop_def.get("format") == "date-time":
+        return "datetime"
+
+    return type_mapping.get(prop_type, "Any")
+
 
 def generate_channel_constants(channels: dict) -> str:
     """Generate channel constants class."""
-    code = '\n# Event channel names\n'
-    code += 'class EventChannels:\n'
+    code = "\n# Event channel names\n"
+    code += "class EventChannels:\n"
     code += '    """Redis pub/sub channel names"""\n'
-    
+
     for key, value in channels.items():
         const_name = key.upper()
         code += f'    {const_name} = "{value}"\n'
-    
+
     return code
+
 
 def update_init_file(init_file: Path):
     """Update __init__.py to export all generated types."""
-    imports = [
-        "from .evaluation_status import EvaluationStatus",
-        "from .events import *"
-    ]
-    
+    imports = ["from .evaluation_status import EvaluationStatus", "from .events import *"]
+
     code = '''"""
 Generated Python types from shared contracts.
 DO NOT EDIT FILES IN THIS DIRECTORY - They are auto-generated.
 """
 
 '''
-    code += '\n'.join(imports)
+    code += "\n".join(imports)
     code += '\n\n__all__ = ["EvaluationStatus", "EvaluationQueuedEvent", "EvaluationRunningEvent", '
     code += '"EvaluationCompletedEvent", "EvaluationFailedEvent", "EventChannels"]\n'
-    
-    with open(init_file, 'w') as f:
+
+    with open(init_file, "w") as f:
         f.write(code)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

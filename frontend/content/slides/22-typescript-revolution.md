@@ -1,13 +1,15 @@
 ---
-title: "Chapter 13: The TypeScript Revolution"
+title: 'Chapter 13: The TypeScript Revolution'
 duration: 3
-tags: ["typescript", "type-safety"]
+tags: ['typescript', 'type-safety']
 ---
 
 ## Chapter 13: The TypeScript Revolution
+
 ### Problem: Frontend silently failing due to API mismatches
 
 **The Silent Failure Incident:**
+
 ```typescript
 // Frontend expected:
 interface Response {

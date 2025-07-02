@@ -1,10 +1,11 @@
 ---
-title: "Chapter 5: Production Structure"
+title: 'Chapter 5: Production Structure'
 duration: 2
-tags: ["organization", "structure"]
+tags: ['organization', 'structure']
 ---
 
 ## Chapter 5: Production Structure
+
 ### Problem: Evolution folder chaos, unclear organization
 
 **The Great Reorganization:**

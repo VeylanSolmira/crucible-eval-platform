@@ -27,7 +27,7 @@ def print_section(title: str):
 def check_services() -> bool:
     """Check if all required services are running."""
     print("Checking platform health...", end=" ", flush=True)
-    
+
     try:
         response = requests.get(f"{API_BASE_URL}/health", timeout=5)
         if response.status_code == 200:
@@ -47,15 +47,15 @@ def run_test_script(script_path: str, args: List[str] = None) -> Tuple[bool, str
     cmd = ["python3", script_path]
     if args:
         cmd.extend(args)
-    
+
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=300,  # 5 minute timeout
         )
-        
+
         success = result.returncode == 0
         output = result.stdout + result.stderr
         return success, output
@@ -68,13 +68,13 @@ def run_test_script(script_path: str, args: List[str] = None) -> Tuple[bool, str
 def run_demo_sequence():
     """Run the demonstration test sequence."""
     print_section("CRUCIBLE PLATFORM DEMO TEST SUITE")
-    
+
     # Check services first
     if not check_services():
         print("\n⚠️  Please ensure all services are running with:")
         print("   docker-compose up -d")
         sys.exit(1)
-    
+
     # Test sequence
     tests = [
         {
@@ -82,44 +82,40 @@ def run_demo_sequence():
             "description": "Tests basic submission, retrieval, and error handling",
             "script": "tests/integration/test_core_flows.py",
             "args": [],
-            "critical": True
+            "critical": True,
         },
         {
             "name": "Concurrent Load Test",
             "description": "Tests 10 concurrent evaluations",
             "script": "tests/integration/test_load.py",
             "args": ["10", "20"],
-            "critical": False
+            "critical": False,
         },
         {
             "name": "Service Resilience",
             "description": "Tests service restart and failure recovery",
             "script": "tests/integration/test_resilience.py",
             "args": [],
-            "critical": False
-        }
+            "critical": False,
+        },
     ]
-    
+
     results = []
-    
+
     for test in tests:
         print_section(test["name"])
         print(f"Description: {test['description']}")
         print(f"Running: {test['script']}")
         print()
-        
+
         # Run the test
         success, output = run_test_script(test["script"], test["args"])
-        results.append({
-            "name": test["name"],
-            "success": success,
-            "critical": test["critical"]
-        })
-        
+        results.append({"name": test["name"], "success": success, "critical": test["critical"]})
+
         # Show key results
         if success:
             # Extract summary from output
-            lines = output.split('\n')
+            lines = output.split("\n")
             summary_start = False
             for line in lines:
                 if "SUMMARY" in line:
@@ -134,28 +130,28 @@ def run_demo_sequence():
                 print("\n⚠️  Critical test failed. Stopping demo tests.")
                 print(f"\nError output:\n{output[-500:]}")  # Last 500 chars
                 break
-    
+
     # Final summary
     print_section("DEMO TEST SUMMARY")
-    
+
     total = len(results)
     passed = sum(1 for r in results if r["success"])
     failed = total - passed
-    
+
     print(f"Total Tests Run: {total}")
     print(f"Passed: {passed}")
     print(f"Failed: {failed}")
     print()
-    
+
     for result in results:
         status = "✅ PASSED" if result["success"] else "❌ FAILED"
         print(f"{status} - {result['name']}")
-    
+
     if passed == total:
         print("\n🎉 All tests passed! Platform is ready for demo.")
     else:
         print(f"\n⚠️  {failed} test(s) failed. Please check the logs.")
-    
+
     # Show next steps
     print_section("NEXT STEPS")
     print("1. Review test results in the generated JSON files")
@@ -174,10 +170,10 @@ def run_demo_sequence():
 def run_quick_check():
     """Run a quick platform check for demos."""
     print_section("QUICK PLATFORM CHECK")
-    
+
     if not check_services():
         return False
-    
+
     # Submit a quick test
     print("Submitting test evaluation...", end=" ", flush=True)
     try:
@@ -187,19 +183,19 @@ def run_quick_check():
                 "code": "print('Demo test successful!')",
                 "language": "python",
                 "engine": "docker",
-                "timeout": 10
+                "timeout": 10,
             },
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code == 200:
             eval_id = response.json()["eval_id"]
             print(f"✅ Submitted (ID: {eval_id})")
-            
+
             # Wait for completion
             print("Waiting for completion...", end=" ", flush=True)
             time.sleep(3)
-            
+
             response = requests.get(f"{API_BASE_URL}/eval/{eval_id}", timeout=5)
             if response.status_code == 200:
                 status = response.json().get("status")
@@ -214,7 +210,7 @@ def run_quick_check():
             print(f"❌ Submission failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     return False
 
 

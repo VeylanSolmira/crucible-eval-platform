@@ -1,7 +1,7 @@
 ---
-title: "Lessons for the Industry"
+title: 'Lessons for the Industry'
 duration: 3
-tags: ["lessons", "insights"]
+tags: ['lessons', 'insights']
 ---
 
 ## Lessons for the Industry
@@ -16,7 +16,7 @@ tags: ["lessons", "insights"]
 ### On Security Engineering
 
 1. **Defense in Depth**: Multiple layers, not single solutions
-2. **Isolation First**: Assume breach, limit blast radius  
+2. **Isolation First**: Assume breach, limit blast radius
 3. **Observability**: Can't secure what you can't see
 4. **Testing**: Security must be continuously validated
 

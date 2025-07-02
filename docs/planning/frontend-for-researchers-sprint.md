@@ -18,30 +18,30 @@
 ## Day 1: Enhanced Code Editor & Submission Experience
 
 ### Morning (4 hours): Professional Code Editor
-- [ ] Replace textarea with Monaco Editor (VS Code's editor)
-  - [ ] Python syntax highlighting
-  - [ ] Auto-indentation and bracket matching
-  - [ ] Code folding and minimap
-  - [ ] Find/replace functionality
-  - [ ] Multiple cursor support
+- [x] Replace textarea with Monaco Editor (VS Code's editor)
+  - [x] Python syntax highlighting
+  - [x] Auto-indentation and bracket matching
+  - [x] Code folding and minimap
+  - [x] Find/replace functionality
+  - [x] Multiple cursor support
 - [ ] Add code templates dropdown
-  - [ ] "Hello World" example
+  - [x] "Hello World" example
   - [ ] "Fibonacci calculation"
-  - [ ] "Network request example"
-  - [ ] "File I/O example"
-  - [ ] "Resource-intensive computation"
-- [ ] Implement code persistence
-  - [ ] Auto-save to localStorage
-  - [ ] "Recent submissions" dropdown
+  - [x] "Network request example"
+  - [x] "File I/O example"
+  - [x] "Resource-intensive computation" (CPU-intensive task)
+- [x] Implement code persistence
+  - [x] Auto-save to localStorage
+  - [x] "Recent submissions" dropdown
   - [ ] Named templates users can save
   - [ ] Import/export code snippets
 
 ### Afternoon (4 hours): Submission Configuration
-- [ ] Add execution configuration panel
-  - [ ] Timeout slider (30s - 5min)
-  - [ ] Memory limit selector (256MB - 2GB)
+- [x] Add execution configuration panel
+  - [x] Timeout slider (30s - 5min)
+  - [x] Memory limit selector (256MB - 2GB)
   - [ ] CPU limit selector (0.5 - 2 cores)
-  - [ ] Python version selector (3.9, 3.10, 3.11)
+  - [x] Python version selector (3.9, 3.10, 3.11)
 - [ ] Pre-submission validation
   - [ ] Basic syntax checking
   - [ ] Import analysis (show which packages are available)
@@ -55,33 +55,33 @@
 ## Day 2: Real-Time Monitoring & Debugging
 
 ### Morning (4 hours): Live Execution Dashboard
-- [ ] Real-time execution viewer
+- [x] Real-time execution viewer
   - [ ] Live stdout/stderr streaming
   - [ ] Execution timeline visualization
   - [ ] Current line indicator (if possible)
-  - [ ] Elapsed time counter
-- [ ] Resource usage monitoring
-  - [ ] CPU usage graph (live)
-  - [ ] Memory usage graph (live)
+  - [x] Elapsed time counter
+- [x] Resource usage monitoring
+  - [x] CPU usage graph (live) # verify
+  - [x] Memory usage graph (live) # verify
   - [ ] Network I/O indicators
   - [ ] Disk I/O indicators
-- [ ] Execution controls
+- [x] Execution controls
   - [ ] Pause/resume (if supported)
-  - [ ] Kill execution button
+  - [x] Kill execution button
   - [ ] Extend timeout while running
   - [ ] Download partial results
 
 ### Afternoon (4 hours): Enhanced Error Handling
-- [ ] Intelligent error display
-  - [ ] Stack trace with code context
-  - [ ] Link errors to code editor line
-  - [ ] Common error explanations
-  - [ ] Suggested fixes
-- [ ] Debug information panel
-  - [ ] Environment variables
+- [x] Intelligent error display
+  - [x] Stack trace with code context
+  - [x] Link errors to code editor line
+  - [x] Common error explanations
+  - [x] Suggested fixes
+- [x] Debug information panel
+  - [x] Environment variables
   - [ ] Installed packages list
-  - [ ] System information
-  - [ ] Container constraints
+  - [x] System information
+  - [x] Container constraints
 - [ ] Error history and patterns
   - [ ] Track common failure types
   - [ ] Suggest solutions based on history
@@ -90,9 +90,9 @@
 ## Day 3: Results Management & Analysis
 
 ### Morning (4 hours): Evaluation History & Comparison
-- [ ] Advanced history view
-  - [ ] Filterable table (date, status, code hash, duration)
-  - [ ] Quick preview on hover
+- [x] Advanced history view
+  - [x] Filterable table (date, status, code hash, duration)
+  - [x] Quick preview on hover
   - [ ] Bulk operations (delete, export, re-run)
   - [ ] Tagging and categorization
 - [ ] Side-by-side comparison

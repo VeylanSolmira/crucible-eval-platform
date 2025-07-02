@@ -43,8 +43,8 @@ interface AnalysisReport {
 }
 
 async function analyzeWikiLinks(): Promise<AnalysisReport> {
-  console.log('🔍 Analyzing wiki links across all documentation...\n')
-  
+  console.info('🔍 Analyzing wiki links across all documentation...\n')
+
   // Get all documents
   const docs = await getAllDocs()
   const detector = new TopicDetector(docs, {
@@ -52,24 +52,24 @@ async function analyzeWikiLinks(): Promise<AnalysisReport> {
     skipCodeBlocks: true,
     skipUrls: true,
     skipExistingLinks: true,
-    maxLinksPerTerm: 10 // Higher limit for analysis
+    maxLinksPerTerm: 10, // Higher limit for analysis
   })
-  
+
   // Track incoming links
   const incomingLinks = new Map<string, Set<string>>()
-  
+
   // Analyze each document
   const fileReports: FileReport[] = []
   const missingTermCounts = new Map<string, number>()
-  
+
   for (const doc of docs) {
-    console.log(`  Analyzing: ${doc.slug}`)
-    
+    console.info(`  Analyzing: ${doc.slug}`)
+
     const content = doc.content
     const lines = content.split('\n')
     const missingLinks: MissingLink[] = []
     const outgoingLinks: string[] = []
-    
+
     // Find existing wiki links
     const existingLinkPattern = /\[\[([^\]]+)\]\]/g
     let match
@@ -77,7 +77,7 @@ async function analyzeWikiLinks(): Promise<AnalysisReport> {
       const linkedDoc = match[1]
       if (linkedDoc) {
         outgoingLinks.push(linkedDoc)
-        
+
         // Track incoming link
         if (!incomingLinks.has(linkedDoc)) {
           incomingLinks.set(linkedDoc, new Set())
@@ -85,22 +85,23 @@ async function analyzeWikiLinks(): Promise<AnalysisReport> {
         incomingLinks.get(linkedDoc)!.add(doc.slug)
       }
     }
-    
+
     // Detect missing links
     const topics = detector.detectTopics(content)
-    
+
     topics.forEach(topic => {
       // Skip if this term is already linked somewhere in the doc
       if (content.includes(`[[${topic.canonical}]]`)) {
         return
       }
-      
+
       // Find line number for first occurrence
-      topic.positions.slice(0, 3).forEach(pos => { // Top 3 occurrences
+      topic.positions.slice(0, 3).forEach(pos => {
+        // Top 3 occurrences
         let line = 1
         let column = 1
         let currentPos = 0
-        
+
         for (let i = 0; i < lines.length; i++) {
           const currentLine = lines[i]
           if (currentLine !== undefined && currentPos + currentLine.length >= pos.start) {
@@ -110,7 +111,7 @@ async function analyzeWikiLinks(): Promise<AnalysisReport> {
           }
           currentPos += (currentLine?.length || 0) + 1 // +1 for newline
         }
-        
+
         missingLinks.push({
           file: doc.slug,
           line,
@@ -118,41 +119,38 @@ async function analyzeWikiLinks(): Promise<AnalysisReport> {
           text: content.slice(pos.start, pos.end),
           suggestedLink: topic.canonical,
           confidence: topic.confidence,
-          reason: getReasonForSuggestion(topic.canonical, topic.confidence)
+          reason: getReasonForSuggestion(topic.canonical, topic.confidence),
         })
-        
+
         // Track missing term counts
-        missingTermCounts.set(
-          topic.canonical,
-          (missingTermCounts.get(topic.canonical) || 0) + 1
-        )
+        missingTermCounts.set(topic.canonical, (missingTermCounts.get(topic.canonical) || 0) + 1)
       })
     })
-    
+
     fileReports.push({
       path: doc.slug,
       missingLinks,
       hasIncomingLinks: false, // Will update after
-      outgoingLinks
+      outgoingLinks,
     })
   }
-  
+
   // Update incoming links status
   fileReports.forEach(report => {
     report.hasIncomingLinks = incomingLinks.has(report.path)
   })
-  
+
   // Find orphaned files
   const orphanedFiles = fileReports
     .filter(r => !r.hasIncomingLinks && r.path !== 'index')
     .map(r => r.path)
-  
+
   // Get top missing terms
   const topMissingTerms = Array.from(missingTermCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 20)
     .map(([term, count]) => ({ term, count }))
-  
+
   // Calculate summary
   const allMissingLinks = fileReports.flatMap(r => r.missingLinks)
   const summary = {
@@ -162,38 +160,38 @@ async function analyzeWikiLinks(): Promise<AnalysisReport> {
     orphanedFiles: orphanedFiles.length,
     highConfidenceLinks: allMissingLinks.filter(l => l.confidence === 'high').length,
     mediumConfidenceLinks: allMissingLinks.filter(l => l.confidence === 'medium').length,
-    lowConfidenceLinks: allMissingLinks.filter(l => l.confidence === 'low').length
+    lowConfidenceLinks: allMissingLinks.filter(l => l.confidence === 'low').length,
   }
-  
+
   return {
     summary,
     fileReports: fileReports.filter(r => r.missingLinks.length > 0 || !r.hasIncomingLinks),
     orphanedFiles,
-    topMissingTerms
+    topMissingTerms,
   }
 }
 
 function getReasonForSuggestion(term: string, confidence: string): string {
   const reasons: Record<string, string> = {
-    'Crucible': 'Core platform name should always be linked',
-    'METR': 'Organization name should be linked for context',
-    'Docker': 'Key technology - link to Docker documentation',
-    'Kubernetes': 'Important future platform - link to K8s docs',
-    'gVisor': 'Critical security component - link to setup guide',
+    Crucible: 'Core platform name should always be linked',
+    METR: 'Organization name should be linked for context',
+    Docker: 'Key technology - link to Docker documentation',
+    Kubernetes: 'Important future platform - link to K8s docs',
+    gVisor: 'Critical security component - link to setup guide',
     'Container Isolation': 'Core security concept - must be linked',
-    'AWS': 'Primary cloud platform - link to AWS docs',
-    'EC2': 'Deployment target - link to EC2 guide',
-    'FastAPI': 'Backend framework - link to API docs',
+    AWS: 'Primary cloud platform - link to AWS docs',
+    EC2: 'Deployment target - link to EC2 guide',
+    FastAPI: 'Backend framework - link to API docs',
     'Next.js': 'Frontend framework - link to frontend docs',
-    'TypeScript': 'Primary language - link to type safety docs'
+    TypeScript: 'Primary language - link to type safety docs',
   }
-  
+
   return reasons[term] || `${confidence} priority term for wiki linking`
 }
 
 function generateMarkdownReport(report: AnalysisReport): string {
   const now = new Date().toISOString()
-  
+
   let markdown = `# Wiki Missing Links Analysis Report
 
 Generated: ${now}
@@ -227,30 +225,30 @@ ${report.orphanedFiles.map(f => `- \`${f}\` - Consider linking from related docu
 ## Missing Links by File
 
 `
-  
+
   // Group by high priority files first
   const highPriorityFiles = report.fileReports
     .filter(r => r.missingLinks.some(l => l.confidence === 'high'))
     .sort((a, b) => b.missingLinks.length - a.missingLinks.length)
-  
+
   const otherFiles = report.fileReports
     .filter(r => !r.missingLinks.some(l => l.confidence === 'high'))
     .sort((a, b) => b.missingLinks.length - a.missingLinks.length)
-  
+
   if (highPriorityFiles.length > 0) {
     markdown += `### 🔴 High Priority Files\n\n`
     highPriorityFiles.forEach(file => {
       markdown += formatFileReport(file, true)
     })
   }
-  
+
   if (otherFiles.length > 0) {
     markdown += `### Other Files\n\n`
     otherFiles.forEach(file => {
       markdown += formatFileReport(file, false)
     })
   }
-  
+
   markdown += `
 ## Recommendations
 
@@ -281,33 +279,33 @@ For links with custom text:
 Our [[Container Isolation|isolation strategy]] prevents escapes.
 \`\`\`
 `
-  
+
   return markdown
 }
 
 function formatFileReport(file: FileReport, showAll: boolean): string {
   let output = `#### \`${file.path}\`\n\n`
-  
+
   if (!file.hasIncomingLinks) {
     output += `⚠️ **No incoming links** - This document is orphaned\n\n`
   }
-  
+
   if (file.missingLinks.length > 0) {
     const links = showAll ? file.missingLinks : file.missingLinks.slice(0, 5)
     const confidence = { high: '🔴', medium: '🟡', low: '🟢' }
-    
+
     output += `| Line | Text | Suggested Link | Priority |\n`
     output += `|------|------|----------------|----------|\n`
-    
+
     links.forEach(link => {
       output += `| ${link.line} | "${link.text}" | [[${link.suggestedLink}]] | ${confidence[link.confidence]} |\n`
     })
-    
+
     if (file.missingLinks.length > links.length) {
       output += `\n*... and ${file.missingLinks.length - links.length} more missing links*\n`
     }
   }
-  
+
   output += '\n'
   return output
 }
@@ -315,7 +313,7 @@ function formatFileReport(file: FileReport, showAll: boolean): string {
 function getTermPriority(term: string): string {
   const highPriority = ['Crucible', 'METR', 'Docker', 'gVisor', 'Container Isolation']
   const mediumPriority = ['AWS', 'EC2', 'Kubernetes', 'FastAPI', 'Next.js']
-  
+
   if (highPriority.includes(term)) return '🔴 High'
   if (mediumPriority.includes(term)) return '🟡 Medium'
   return '🟢 Low'
@@ -326,18 +324,17 @@ async function main() {
   try {
     const report = await analyzeWikiLinks()
     const markdown = generateMarkdownReport(report)
-    
+
     // Save report
     const outputPath = path.join(process.cwd(), 'docs', 'wiki-missing-links-report.md')
     writeFileSync(outputPath, markdown)
-    
-    console.log(`\n✅ Analysis complete!`)
-    console.log(`📄 Report saved to: ${outputPath}`)
-    console.log(`\n📊 Summary:`)
-    console.log(`   - ${report.summary.totalMissingLinks} missing link opportunities found`)
-    console.log(`   - ${report.summary.orphanedFiles} orphaned documents detected`)
-    console.log(`   - ${report.summary.highConfidenceLinks} high-priority links to add`)
-    
+
+    console.info(`\n✅ Analysis complete!`)
+    console.info(`📄 Report saved to: ${outputPath}`)
+    console.info(`\n📊 Summary:`)
+    console.info(`   - ${report.summary.totalMissingLinks} missing link opportunities found`)
+    console.info(`   - ${report.summary.orphanedFiles} orphaned documents detected`)
+    console.info(`   - ${report.summary.highConfidenceLinks} high-priority links to add`)
   } catch (error) {
     console.error('❌ Error analyzing wiki links:', error)
     process.exit(1)

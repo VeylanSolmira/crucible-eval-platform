@@ -1,7 +1,7 @@
 ---
-title: "Development Setup"
+title: 'Development Setup'
 order: 4
-tags: ["setup", "development", "docker"]
+tags: ['setup', 'development', 'docker']
 ---
 
 # Development Setup

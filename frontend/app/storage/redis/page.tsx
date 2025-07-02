@@ -20,7 +20,7 @@ export default function RedisPage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json() as RedisDetails
+      const data = (await response.json()) as RedisDetails
       setDetails(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch Redis details')
@@ -92,7 +92,10 @@ export default function RedisPage() {
             <h2 className="text-lg font-semibold mb-4 text-gray-900">Cached Keys</h2>
             <div className="space-y-2">
               {details.info.keys.map(key => (
-                <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                <div
+                  key={key}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
+                >
                   <span className="font-mono text-sm">{key}</span>
                   <button className="text-blue-600 hover:text-blue-800 text-sm">
                     View Value →
@@ -111,7 +114,8 @@ export default function RedisPage() {
           <h2 className="text-lg font-semibold mb-4 text-gray-900">Redis Information</h2>
           <div className="bg-gray-50 rounded-md p-4">
             <p className="text-sm text-gray-600 mb-4">
-              Redis provides high-performance caching for frequently accessed data and pub/sub messaging for real-time updates.
+              Redis provides high-performance caching for frequently accessed data and pub/sub
+              messaging for real-time updates.
             </p>
             <div className="space-y-2">
               <div>
@@ -126,9 +130,15 @@ export default function RedisPage() {
               <div className="mt-4">
                 <span className="font-medium text-gray-700">Key Patterns:</span>
                 <ul className="mt-1 ml-5 list-disc text-sm text-gray-600">
-                  <li><code className="bg-gray-200 px-1">pending:eval_*</code> - Pending evaluations</li>
-                  <li><code className="bg-gray-200 px-1">cache:result:*</code> - Cached results</li>
-                  <li><code className="bg-gray-200 px-1">session:*</code> - User sessions</li>
+                  <li>
+                    <code className="bg-gray-200 px-1">pending:eval_*</code> - Pending evaluations
+                  </li>
+                  <li>
+                    <code className="bg-gray-200 px-1">cache:result:*</code> - Cached results
+                  </li>
+                  <li>
+                    <code className="bg-gray-200 px-1">session:*</code> - User sessions
+                  </li>
                 </ul>
               </div>
             </div>
@@ -139,7 +149,8 @@ export default function RedisPage() {
         <div className="bg-blue-50 rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-2 text-blue-900">Coming Soon</h2>
           <p className="text-sm text-blue-700">
-            Future enhancements will include real-time key monitoring, memory usage graphs, and TTL management.
+            Future enhancements will include real-time key monitoring, memory usage graphs, and TTL
+            management.
           </p>
         </div>
       </div>

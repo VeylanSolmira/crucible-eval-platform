@@ -36,7 +36,8 @@
   margin-bottom: 1.25rem;
 }
 
-.prose ul, .prose ol {
+.prose ul,
+.prose ol {
   margin-top: 1.25rem;
   margin-bottom: 1.25rem;
   padding-left: 1.625rem;
@@ -130,20 +131,23 @@
   .prose {
     color: #e5e7eb;
   }
-  
-  .prose h1, .prose h2, .prose h3, .prose strong {
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose strong {
     color: #f3f4f6;
   }
-  
+
   .prose code:not(pre code) {
     background-color: #374151;
     color: #e5e7eb;
   }
-  
+
   .prose blockquote {
     color: #9ca3af;
   }
-  
+
   .mermaid-diagram {
     background: #1f2937;
   }

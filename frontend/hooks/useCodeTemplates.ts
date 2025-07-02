@@ -26,14 +26,17 @@ export function useCodeTemplates() {
   }
 
   const getTemplatesByCategory = () => {
-    return templates.reduce((acc, template) => {
-      const category = template.category
-      if (!acc[category]) {
-        acc[category] = []
-      }
-      acc[category]!.push(template)
-      return acc
-    }, {} as Record<string, CodeTemplate[]>)
+    return templates.reduce(
+      (acc, template) => {
+        const category = template.category
+        if (!acc[category]) {
+          acc[category] = []
+        }
+        acc[category]!.push(template)
+        return acc
+      },
+      {} as Record<string, CodeTemplate[]>
+    )
   }
 
   return {
@@ -41,6 +44,6 @@ export function useCodeTemplates() {
     templatesByCategory: getTemplatesByCategory(),
     loading,
     error,
-    refetch: fetchTemplates
+    refetch: fetchTemplates,
   }
 }

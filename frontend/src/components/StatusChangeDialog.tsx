@@ -12,14 +12,14 @@ interface StatusChangeDialogProps {
 const statusOptions = [
   { value: 'failed', label: 'Failed', description: 'Mark as failed due to error or timeout' },
   { value: 'completed', label: 'Completed', description: 'Mark as successfully completed' },
-  { value: 'cancelled', label: 'Cancelled', description: 'Mark as cancelled by user or admin' }
+  { value: 'cancelled', label: 'Cancelled', description: 'Mark as cancelled by user or admin' },
 ]
 
 export function StatusChangeDialog({
   isOpen,
   currentStatus,
   onConfirm,
-  onCancel
+  onCancel,
 }: StatusChangeDialogProps) {
   const [selectedStatus, setSelectedStatus] = useState('failed')
   const [reason, setReason] = useState('')
@@ -57,8 +57,18 @@ export function StatusChangeDialog({
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto flex-1">
             <div className="sm:flex sm:items-start">
               <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="h-6 w-6 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
@@ -72,11 +82,9 @@ export function StatusChangeDialog({
 
                   {/* Status Selection */}
                   <div className="space-y-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      New Status
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">New Status</label>
                     <div className="space-y-2">
-                      {statusOptions.map((option) => (
+                      {statusOptions.map(option => (
                         <label
                           key={option.value}
                           className={`relative flex cursor-pointer rounded-lg border p-4 shadow-sm focus:outline-none ${
@@ -90,7 +98,7 @@ export function StatusChangeDialog({
                             name="status"
                             value={option.value}
                             checked={selectedStatus === option.value}
-                            onChange={(e) => setSelectedStatus(e.target.value)}
+                            onChange={e => setSelectedStatus(e.target.value)}
                             className="sr-only"
                           />
                           <div className="flex flex-1">
@@ -132,7 +140,7 @@ export function StatusChangeDialog({
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       placeholder="Provide additional context for this status change..."
                       value={reason}
-                      onChange={(e) => setReason(e.target.value)}
+                      onChange={e => setReason(e.target.value)}
                     />
                   </div>
                 </div>

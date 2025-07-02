@@ -4,18 +4,19 @@ Celery configuration for the evaluation worker.
 This configuration supports both development and production environments
 with sensible defaults and security best practices.
 """
+
 import os
 from kombu import Queue, Exchange
 
 # Broker settings
-broker_url = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
-result_backend = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/1')
+broker_url = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+result_backend = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
 
 # Task settings
-task_serializer = 'json'
-result_serializer = 'json'
-accept_content = ['json']  # Security: Only accept JSON
-timezone = 'UTC'
+task_serializer = "json"
+result_serializer = "json"
+accept_content = ["json"]  # Security: Only accept JSON
+timezone = "UTC"
 enable_utc = True
 
 # Task execution settings
@@ -30,39 +31,39 @@ result_expires = 3600  # Results expire after 1 hour
 result_persistent = True  # Persist results across restarts
 
 # Queue configuration
-default_exchange = Exchange('crucible', type='direct')
+default_exchange = Exchange("crucible", type="direct")
 
 task_queues = (
-    Queue('evaluation', default_exchange, routing_key='evaluation', priority=5),
-    Queue('high_priority', default_exchange, routing_key='high_priority', priority=10),
-    Queue('batch', default_exchange, routing_key='batch', priority=1),
-    Queue('maintenance', default_exchange, routing_key='maintenance', priority=0),
+    Queue("evaluation", default_exchange, routing_key="evaluation", priority=5),
+    Queue("high_priority", default_exchange, routing_key="high_priority", priority=10),
+    Queue("batch", default_exchange, routing_key="batch", priority=1),
+    Queue("maintenance", default_exchange, routing_key="maintenance", priority=0),
 )
 
 # Default queue
-task_default_queue = 'evaluation'
-task_default_exchange = 'crucible'
-task_default_routing_key = 'evaluation'
+task_default_queue = "evaluation"
+task_default_exchange = "crucible"
+task_default_routing_key = "evaluation"
 
 # Task routing
 task_routes = {
-    'tasks.evaluate_code': {'queue': 'evaluation'},
-    'tasks.evaluate_code_high_priority': {'queue': 'high_priority'},
-    'tasks.batch_evaluation': {'queue': 'batch'},
-    'tasks.cleanup_old_evaluations': {'queue': 'maintenance'},
+    "tasks.evaluate_code": {"queue": "evaluation"},
+    "tasks.evaluate_code_high_priority": {"queue": "high_priority"},
+    "tasks.batch_evaluation": {"queue": "batch"},
+    "tasks.cleanup_old_evaluations": {"queue": "maintenance"},
 }
 
 # Worker settings
 worker_max_tasks_per_child = 100  # Restart worker after 100 tasks (memory leaks)
 worker_disable_rate_limits = False
-worker_concurrency = int(os.environ.get('CELERY_CONCURRENCY', 4))
+worker_concurrency = int(os.environ.get("CELERY_CONCURRENCY", 4))
 
 # Beat schedule (for scheduled tasks)
 beat_schedule = {
-    'cleanup-old-evaluations': {
-        'task': 'tasks.cleanup_old_evaluations',
-        'schedule': 3600.0,  # Every hour
-        'options': {'queue': 'maintenance'}
+    "cleanup-old-evaluations": {
+        "task": "tasks.cleanup_old_evaluations",
+        "schedule": 3600.0,  # Every hour
+        "options": {"queue": "maintenance"},
     },
 }
 
@@ -72,26 +73,28 @@ task_send_sent_event = True
 
 # Security
 worker_hijack_root_logger = False
-worker_log_format = '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s'
-worker_task_log_format = '[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s'
+worker_log_format = "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s"
+worker_task_log_format = (
+    "[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s"
+)
 
 # Development settings (override in production)
-if os.environ.get('CELERY_DEVELOPMENT', 'false').lower() == 'true':
+if os.environ.get("CELERY_DEVELOPMENT", "false").lower() == "true":
     task_always_eager = False  # Set True for synchronous execution in tests
     task_eager_propagates = True
     worker_log_color = True
-    
+
 # Redis connection pool settings
 broker_connection_retry_on_startup = True
 broker_connection_retry = True
 broker_connection_max_retries = 10
 broker_pool_limit = 10
 broker_transport_options = {
-    'visibility_timeout': 3600,  # 1 hour
-    'fanout_prefix': True,
-    'fanout_patterns': True,
-    'socket_keepalive': True,
-    'socket_connect_timeout': 30,
-    'retry_on_timeout': True,
-    'max_retries': 3
+    "visibility_timeout": 3600,  # 1 hour
+    "fanout_prefix": True,
+    "fanout_patterns": True,
+    "socket_keepalive": True,
+    "socket_connect_timeout": 30,
+    "retry_on_timeout": True,
+    "max_retries": 3,
 }

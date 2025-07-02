@@ -13,7 +13,7 @@ const SlidesContainer = dynamic(() => import('./SlidesContainer'), {
         <p className="mt-2 text-gray-600">Loading slides...</p>
       </div>
     </div>
-  )
+  ),
 })
 
 interface SlidesPageClientProps {

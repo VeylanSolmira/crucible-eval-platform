@@ -17,8 +17,8 @@ type SlideRequestBody = CreateSlideBody | SaveSlideBody
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as SlideRequestBody
-    
+    const body = (await request.json()) as SlideRequestBody
+
     if (body.action === 'create') {
       const { title, tags } = body
       const newSlide = await createSlide(title, tags)
@@ -28,10 +28,7 @@ export async function POST(request: NextRequest) {
       await saveSlide(slide)
       return NextResponse.json({ success: true })
     } else {
-      return NextResponse.json(
-        { error: 'Invalid action' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
   } catch (error) {
     console.error('Error in slides API:', error)
@@ -46,14 +43,11 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const slideId = searchParams.get('id')
-    
+
     if (!slideId) {
-      return NextResponse.json(
-        { error: 'Slide ID is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Slide ID is required' }, { status: 400 })
     }
-    
+
     await deleteSlide(slideId)
     return NextResponse.json({ success: true })
   } catch (error) {

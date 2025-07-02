@@ -16,12 +16,10 @@ export default function NotFound() {
         </div>
 
         {/* Error Message */}
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Page Not Found
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Page Not Found</h1>
         <p className="text-lg text-gray-600 mb-8">
-          Sorry, we couldn&apos;t find the page you&apos;re looking for. 
-          It might have been moved, deleted, or never existed.
+          Sorry, we couldn&apos;t find the page you&apos;re looking for. It might have been moved,
+          deleted, or never existed.
         </p>
 
         {/* Helpful Links */}
@@ -65,18 +63,21 @@ export default function NotFound() {
           {/* Search Suggestion */}
           <div className="mt-8 p-6 bg-white rounded-lg shadow-sm border border-gray-200">
             <p className="text-gray-700 mb-2">
-              💡 <strong>Tip:</strong> If you&apos;re looking for specific documentation, 
-              try browsing our <Link href="/docs" className="text-blue-600 hover:text-blue-700">docs index</Link> or 
-              use the search feature.
+              💡 <strong>Tip:</strong> If you&apos;re looking for specific documentation, try
+              browsing our{' '}
+              <Link href="/docs" className="text-blue-600 hover:text-blue-700">
+                docs index
+              </Link>{' '}
+              or use the search feature.
             </p>
           </div>
         </div>
 
         {/* Optional: Report Issue */}
         <div className="mt-12 text-sm text-gray-500">
-          Think this is a mistake? 
-          <a 
-            href="https://github.com/your-repo/issues" 
+          Think this is a mistake?
+          <a
+            href="https://github.com/your-repo/issues"
             className="text-blue-600 hover:text-blue-700 ml-1"
             target="_blank"
             rel="noopener noreferrer"

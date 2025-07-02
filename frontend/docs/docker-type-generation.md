@@ -13,12 +13,14 @@ When building a frontend Docker image, you might want to generate TypeScript typ
 ### 1. Generate Types Locally, Commit to Repo (Recommended)
 
 **Pros:**
+
 - Simple and reliable
 - Types are versioned with your code
 - No runtime dependencies during build
 - CI/CD can verify types match
 
 **Process:**
+
 ```bash
 # Locally with services running
 npm run generate-types
@@ -29,6 +31,7 @@ git commit -m "Update API types"
 ```
 
 **Dockerfile:**
+
 ```dockerfile
 # Types are already in the repo, just copy them
 COPY types ./types
@@ -37,10 +40,12 @@ COPY types ./types
 ### 2. Generate Types in CI/CD Pipeline
 
 **Pros:**
+
 - Always fresh types
 - Can fail build if API contract changed
 
 **GitHub Actions Example:**
+
 ```yaml
 - name: Start services
   run: docker-compose up -d api-service
@@ -58,15 +63,18 @@ COPY types ./types
 ### 3. Multi-Stage Build with Network (Complex)
 
 **Pros:**
+
 - Self-contained build
 - Always uses latest API
 
 **Cons:**
+
 - Complex Docker setup
 - Requires Docker BuildKit
 - Build depends on external service
 
 **Example:**
+
 ```dockerfile
 # This requires BuildKit and special build commands
 FROM node:20 AS types
@@ -76,14 +84,17 @@ RUN --network=host npm run generate-types:docker
 ### 4. Generate During Container Startup (Not Recommended)
 
 **Pros:**
+
 - Always matches running API
 
 **Cons:**
+
 - Slower startup
 - Runtime dependency
 - Can fail in production
 
 **Example:**
+
 ```dockerfile
 # In entrypoint script
 npm run generate-types:docker && npm start
@@ -94,11 +105,13 @@ npm run generate-types:docker && npm start
 The `generate-types:docker` variant is useful when:
 
 1. **Development in Containers**: If you develop inside a container:
+
    ```bash
    docker exec frontend-dev npm run generate-types:docker
    ```
 
 2. **Docker Compose Override**: For local development:
+
    ```yaml
    # docker-compose.override.yml
    services:

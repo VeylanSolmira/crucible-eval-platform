@@ -1,28 +1,28 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 
 interface ParsedError {
-  type: string;
-  message: string;
+  type: string
+  message: string
   traceback?: Array<{
-    file: string;
-    line: number;
-    function: string;
-    code?: string;
-  }>;
-  lineNumber?: number;
-  columnNumber?: number;
+    file: string
+    line: number
+    function: string
+    code?: string
+  }>
+  lineNumber?: number
+  columnNumber?: number
 }
 
 interface ErrorDisplayProps {
-  error: string;
-  code?: string;
-  onLineClick?: (lineNumber: number) => void;
+  error: string
+  code?: string
+  onLineClick?: (lineNumber: number) => void
 }
 
 const COMMON_ERRORS = {
-  'SyntaxError': {
+  SyntaxError: {
     explanation: 'Your code contains invalid Python syntax.',
     tips: [
       'Check for missing colons after if/for/while statements',
@@ -30,135 +30,131 @@ const COMMON_ERRORS = {
       'Look for unclosed brackets, quotes, or parentheses',
     ],
   },
-  'IndentationError': {
+  IndentationError: {
     explanation: 'Python uses indentation to define code blocks.',
     tips: [
       'Use consistent indentation (4 spaces recommended)',
-      'Don\'t mix tabs and spaces',
+      "Don't mix tabs and spaces",
       'Ensure all code in a block has the same indentation',
     ],
   },
-  'NameError': {
-    explanation: 'You\'re trying to use a variable or function that doesn\'t exist.',
+  NameError: {
+    explanation: "You're trying to use a variable or function that doesn't exist.",
     tips: [
       'Check spelling of variable/function names',
       'Ensure variables are defined before use',
       'Import required modules',
     ],
   },
-  'TypeError': {
-    explanation: 'You\'re using an operation on the wrong type of data.',
+  TypeError: {
+    explanation: "You're using an operation on the wrong type of data.",
     tips: [
       'Check data types match expected operations',
       'Convert types if needed (e.g., str() or int())',
       'Verify function arguments',
     ],
   },
-  'ImportError': {
-    explanation: 'The module you\'re trying to import cannot be found.',
+  ImportError: {
+    explanation: "The module you're trying to import cannot be found.",
     tips: [
       'Standard library modules are available',
       'External packages may not be installed',
       'Check module name spelling',
     ],
   },
-  'ZeroDivisionError': {
-    explanation: 'You\'re trying to divide by zero.',
+  ZeroDivisionError: {
+    explanation: "You're trying to divide by zero.",
     tips: [
       'Add checks before division operations',
       'Use try/except blocks for safe division',
       'Consider edge cases in your logic',
     ],
   },
-  'IndexError': {
-    explanation: 'You\'re trying to access an index that doesn\'t exist.',
+  IndexError: {
+    explanation: "You're trying to access an index that doesn't exist.",
     tips: [
       'Check list/string length before accessing',
       'Remember indices start at 0',
       'Use negative indices carefully',
     ],
   },
-};
+}
 
-export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
-  error,
-  code,
-  onLineClick,
-}) => {
-  const [showDetails, setShowDetails] = useState(true);
-  const [showEnvironment, setShowEnvironment] = useState(false);
+export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, code, onLineClick }) => {
+  const [showDetails, setShowDetails] = useState(true)
+  const [showEnvironment, setShowEnvironment] = useState(false)
 
   const parseError = (errorText: string): ParsedError => {
-    const lines = errorText.split('\n');
+    const lines = errorText.split('\n')
     const parsed: ParsedError = {
       type: 'Unknown Error',
       message: errorText,
       traceback: [],
-    };
+    }
 
     // Extract error type and message
-    const errorMatch = errorText.match(/(\w+Error): (.+)/);
+    const errorMatch = errorText.match(/(\w+Error): (.+)/)
     if (errorMatch && errorMatch[1] && errorMatch[2]) {
-      parsed.type = errorMatch[1];
-      parsed.message = errorMatch[2];
+      parsed.type = errorMatch[1]
+      parsed.message = errorMatch[2]
     }
 
     // Parse traceback
-    let inTraceback = false;
+    let inTraceback = false
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      
+      const line = lines[i]
+      if (!line) continue
+
       if (line.includes('Traceback (most recent call last)')) {
-        inTraceback = true;
-        continue;
+        inTraceback = true
+        continue
       }
 
       if (inTraceback && line.match(/^\s*File "(.+)", line (\d+), in (.+)$/)) {
-        const match = line.match(/^\s*File "(.+)", line (\d+), in (.+)$/);
+        const match = line.match(/^\s*File "(.+)", line (\d+), in (.+)$/)
         if (match && match[1] && match[2] && match[3]) {
           const frame = {
             file: match[1],
             line: parseInt(match[2]),
             function: match[3],
             code: '',
-          };
-
-          // Get the code line if available
-          const nextLine = lines[i + 1];
-          if (nextLine && nextLine.match(/^\s{4}/)) {
-            frame.code = nextLine.trim();
           }
 
-          parsed.traceback?.push(frame);
+          // Get the code line if available
+          const nextLine = lines[i + 1]
+          if (nextLine && nextLine.match(/^\s{4}/)) {
+            frame.code = nextLine.trim()
+          }
+
+          parsed.traceback?.push(frame)
         }
       }
 
       // Extract line number from syntax errors
       if (parsed.type === 'SyntaxError') {
-        const lineMatch = errorText.match(/line (\d+)/);
+        const lineMatch = errorText.match(/line (\d+)/)
         if (lineMatch && lineMatch[1]) {
-          parsed.lineNumber = parseInt(lineMatch[1]);
+          parsed.lineNumber = parseInt(lineMatch[1])
         }
       }
     }
 
-    return parsed;
-  };
+    return parsed
+  }
 
-  const parsedError = parseError(error);
-  const errorInfo = COMMON_ERRORS[parsedError.type as keyof typeof COMMON_ERRORS];
+  const parsedError = parseError(error)
+  const errorInfo = COMMON_ERRORS[parsedError.type as keyof typeof COMMON_ERRORS]
 
   const getCodeLines = () => {
-    if (!code) return [];
-    return code.split('\n');
-  };
+    if (!code) return []
+    return code.split('\n')
+  }
 
   const handleLineClick = (lineNumber: number) => {
     if (onLineClick) {
-      onLineClick(lineNumber);
+      onLineClick(lineNumber)
     }
-  };
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -188,7 +184,9 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
               <h4 className="font-medium text-blue-900 mb-1">Common fixes:</h4>
               <ul className="list-disc list-inside space-y-1">
                 {errorInfo.tips.map((tip, idx) => (
-                  <li key={idx} className="text-blue-800">{tip}</li>
+                  <li key={idx} className="text-blue-800">
+                    {tip}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -231,23 +229,29 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
             <div className="mb-6">
               <h3 className="font-medium text-gray-900 mb-3">Code Context:</h3>
               <div className="bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm overflow-auto">
-                {getCodeLines().map((line, idx) => {
-                  const lineNumber = idx + 1;
-                  const isErrorLine = lineNumber === parsedError.lineNumber;
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex ${isErrorLine ? 'bg-red-900 bg-opacity-30' : ''}`}
-                    >
-                      <span className="select-none text-gray-500 mr-4 text-right" style={{ width: '3em' }}>
-                        {lineNumber}
-                      </span>
-                      <span className={isErrorLine ? 'text-red-300' : ''}>
-                        {line || ' '}
-                      </span>
-                    </div>
-                  );
-                }).slice(Math.max(0, (parsedError.lineNumber || 1) - 4), (parsedError.lineNumber || 1) + 3)}
+                {getCodeLines()
+                  .map((line, idx) => {
+                    const lineNumber = idx + 1
+                    const isErrorLine = lineNumber === parsedError.lineNumber
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex ${isErrorLine ? 'bg-red-900 bg-opacity-30' : ''}`}
+                      >
+                        <span
+                          className="select-none text-gray-500 mr-4 text-right"
+                          style={{ width: '3em' }}
+                        >
+                          {lineNumber}
+                        </span>
+                        <span className={isErrorLine ? 'text-red-300' : ''}>{line || ' '}</span>
+                      </div>
+                    )
+                  })
+                  .slice(
+                    Math.max(0, (parsedError.lineNumber || 1) - 4),
+                    (parsedError.lineNumber || 1) + 3
+                  )}
               </div>
             </div>
           )}
@@ -298,5 +302,5 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         </>
       )}
     </div>
-  );
-};
+  )
+}

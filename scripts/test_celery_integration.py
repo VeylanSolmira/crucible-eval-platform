@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Test Celery integration"""
+
 from celery import Celery
 
 # Create Celery app with same config as worker
-app = Celery('test', broker='redis://localhost:6380/0')
+app = Celery("test", broker="redis://localhost:6380/0")
 
 # Test 1: Check if we can connect
 try:
@@ -21,9 +22,9 @@ except Exception as e:
 
 # Test 2: Submit a health check task
 try:
-    result = app.send_task('tasks.health_check')
+    result = app.send_task("tasks.health_check")
     print(f"✅ Submitted health check task: {result.id}")
-    
+
     # Wait for result (max 5 seconds)
     health = result.get(timeout=5)
     print(f"✅ Health check result: {health}")

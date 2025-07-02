@@ -37,11 +37,14 @@ Create or update `.eslintrc.json`:
     "@typescript-eslint/no-unsafe-member-access": "error",
     "@typescript-eslint/no-unsafe-call": "error",
     "@typescript-eslint/no-unsafe-return": "error",
-    "@typescript-eslint/no-unused-vars": ["error", { 
-      "argsIgnorePattern": "^_",
-      "varsIgnorePattern": "^_"
-    }],
-    
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+
     // Match tsconfig.json strictness
     "@typescript-eslint/strict-boolean-expressions": "error",
     "@typescript-eslint/no-unnecessary-condition": "error",
@@ -79,12 +82,7 @@ For real-time error detection in VS Code, create `.vscode/settings.json`:
 
 ```json
 {
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": true
@@ -132,13 +130,11 @@ npm install --save-dev husky lint-staged
 ```
 
 Add to `package.json`:
+
 ```json
 {
   "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "bash -c 'tsc --noEmit'"
-    ]
+    "*.{ts,tsx}": ["eslint --fix", "bash -c 'tsc --noEmit'"]
   }
 }
 ```

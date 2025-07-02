@@ -1,10 +1,11 @@
 ---
-title: "Title & Vision"
+title: 'Title & Vision'
 duration: 2
-tags: ["intro", "vision"]
+tags: ['intro', 'vision']
 ---
 
 # Crucible Platform: The Complete Journey
+
 ## From Extreme MVP to Production-Ready AI Safety Infrastructure
 
 ---
@@ -18,4 +19,4 @@ tags: ["intro", "vision"]
 - Maintain security standards
 - Open and extensible platform
 
-*Why "Crucible"? Where materials are tested under extreme conditions*
+_Why "Crucible"? Where materials are tested under extreme conditions_

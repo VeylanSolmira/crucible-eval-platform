@@ -1,15 +1,17 @@
 ---
-title: "Chapter 3: Modularization"
+title: 'Chapter 3: Modularization'
 duration: 2
-tags: ["architecture", "components"]
+tags: ['architecture', 'components']
 ---
 
 ## Chapter 3: Modularization
+
 ### Problem: Single file becoming unmaintainable
 
 **Before: Monolithic extreme_mvp_advanced.py (500+ lines)**
 
 **After: Component Architecture**
+
 ```
 execution_engine/
 ├── base.py          # Abstract interfaces
@@ -27,6 +29,7 @@ queue/
 ```
 
 **Why this matters:**
+
 - Test each component independently
 - Swap implementations easily
 - Clear separation of concerns

@@ -1,7 +1,7 @@
 ---
-title: "Type Generation Strategy"
+title: 'Type Generation Strategy'
 order: 3
-tags: ["typescript", "build", "docker"]
+tags: ['typescript', 'build', 'docker']
 ---
 
 # Type Generation Strategy
@@ -20,7 +20,7 @@ tags: ["typescript", "build", "docker"]
 ```json
 {
   "scripts": {
-    "build": "next build",  // For Docker
+    "build": "next build", // For Docker
     "build:local": "npm run generate-types && next build",
     "build:ci": "npm run generate-types && next build"
   }

@@ -11,29 +11,28 @@ interface SlideListProps {
   selectedSlideId?: string
 }
 
-export function SlideList({ 
-  slides, 
-  onSelectSlide, 
-  onEditSlide, 
+export function SlideList({
+  slides,
+  onSelectSlide,
+  onEditSlide,
   onDeleteSlide,
-  selectedSlideId 
+  selectedSlideId,
 }: SlideListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   // Get all unique tags
-  const allTags = Array.from(
-    new Set(slides.flatMap(slide => slide.tags))
-  ).sort()
+  const allTags = Array.from(new Set(slides.flatMap(slide => slide.tags))).sort()
 
   // Filter slides based on search and tag
   const filteredSlides = slides.filter(slide => {
-    const matchesSearch = searchQuery === '' || 
+    const matchesSearch =
+      searchQuery === '' ||
       slide.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       slide.content.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesTag = selectedTag === null || slide.tags.includes(selectedTag)
-    
+
     return matchesSearch && matchesTag
   })
 
@@ -45,18 +44,18 @@ export function SlideList({
           type="text"
           placeholder="Search slides..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={e => setSearchQuery(e.target.value)}
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        
+
         {/* Tag filters */}
         {allTags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedTag(null)}
               className={`px-3 py-1 rounded-full text-sm ${
-                selectedTag === null 
-                  ? 'bg-blue-500 text-white' 
+                selectedTag === null
+                  ? 'bg-blue-500 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
@@ -67,8 +66,8 @@ export function SlideList({
                 key={tag}
                 onClick={() => setSelectedTag(tag)}
                 className={`px-3 py-1 rounded-full text-sm ${
-                  selectedTag === tag 
-                    ? 'bg-blue-500 text-white' 
+                  selectedTag === tag
+                    ? 'bg-blue-500 text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
@@ -82,9 +81,7 @@ export function SlideList({
       {/* Slide list */}
       <div className="flex-1 overflow-y-auto">
         {filteredSlides.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No slides found
-          </div>
+          <div className="p-8 text-center text-gray-500">No slides found</div>
         ) : (
           <div className="divide-y">
             {filteredSlides.map((slide, index) => (
@@ -101,9 +98,7 @@ export function SlideList({
                       {index + 1}. {slide.title}
                     </h3>
                     {slide.description && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        {slide.description}
-                      </p>
+                      <p className="text-sm text-gray-600 mt-1">{slide.description}</p>
                     )}
                     <div className="flex gap-2 mt-2">
                       {slide.tags.map(tag => (
@@ -116,10 +111,10 @@ export function SlideList({
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-2 ml-4">
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation()
                         onEditSlide(slide)
                       }}
@@ -129,7 +124,7 @@ export function SlideList({
                     </button>
                     {onDeleteSlide && (
                       <button
-                        onClick={(e) => {
+                        onClick={e => {
                           e.stopPropagation()
                           if (confirm(`Delete slide "${slide.title}"?`)) {
                             onDeleteSlide(slide.id)

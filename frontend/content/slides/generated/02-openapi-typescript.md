@@ -1,7 +1,7 @@
 ---
-title: "OpenAPI + TypeScript Integration"
+title: 'OpenAPI + TypeScript Integration'
 order: 2
-tags: ["typescript", "openapi", "api"]
+tags: ['typescript', 'openapi', 'api']
 ---
 
 # OpenAPI + TypeScript Integration
@@ -16,7 +16,7 @@ const response = await fetch('/api/eval-status/123')
 const data = await response.json()
 
 // Will this work? Who knows!
-console.log(data.result.output)  // Maybe it's data.output?
+console.log(data.result.output) // Maybe it's data.output?
 ```
 
 ---
@@ -29,7 +29,7 @@ With OpenAPI + TypeScript:
 // TypeScript knows EXACTLY what the API returns
 const { data } = await apiClient.getEvaluationStatus('123')
 if (data) {
-  console.log(data.output)   // ✅ TypeScript knows this exists
+  console.log(data.output) // ✅ TypeScript knows this exists
   console.log(data.resultado) // ❌ Type error!
 }
 ```
@@ -43,6 +43,7 @@ if (data) {
    - Auto-generated from FastAPI
 
 2. **Frontend generates types**
+
    ```bash
    npm run generate-types
    ```

@@ -17,18 +17,19 @@ export function useRunningEvaluations() {
         throw new Error('Failed to fetch running evaluations')
       }
       const data = await response.json()
-      
+
       // Transform evaluations to match expected format
-      const runningEvals = data.evaluations?.map((ev: any) => ({
-        eval_id: ev.id || ev.eval_id,
-        status: ev.status,
-        created_at: ev.created_at,
-        executor_id: ev.executor_id || 'unknown',
-        container_id: ev.container_id || 'unknown',
-        started_at: ev.started_at || ev.created_at || new Date().toISOString(),
-        timeout: ev.timeout || 30
-      })) || []
-      
+      const runningEvals =
+        data.evaluations?.map((ev: any) => ({
+          eval_id: ev.id || ev.eval_id,
+          status: ev.status,
+          created_at: ev.created_at,
+          executor_id: ev.executor_id || 'unknown',
+          container_id: ev.container_id || 'unknown',
+          started_at: ev.started_at || ev.created_at || new Date().toISOString(),
+          timeout: ev.timeout || 30,
+        })) || []
+
       return { evaluations: runningEvals }
     },
     refetchInterval: 2000, // Poll every 2 seconds

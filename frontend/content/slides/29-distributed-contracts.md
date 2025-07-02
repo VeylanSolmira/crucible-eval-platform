@@ -26,7 +26,7 @@ if (data.status === 'pending' || data.status === 'running') {
 }
 
 // Backend returns
-status: "queued"  // Not "pending"!
+status: 'queued' // Not "pending"!
 ```
 
 <div class="fragment" style="margin-top: 40px; color: #ff6b6b;">
@@ -41,6 +41,7 @@ Services speaking different languages!
 <div class="column">
 
 ### Monolith
+
 ```python
 # Everything in one place
 STATUS_QUEUED = "queued"
@@ -53,6 +54,7 @@ STATUS_RUNNING = "running"
 <div class="column">
 
 ### Microservices
+
 ```python
 # API Service
 status = "queued"
@@ -112,6 +114,7 @@ components:
 <div style="font-size: 0.9em;">
 
 **Python (Backend)**:
+
 ```python
 class EvaluationStatus(str, Enum):
     QUEUED = "queued"
@@ -121,12 +124,13 @@ class EvaluationStatus(str, Enum):
 ```
 
 **TypeScript (Frontend)**:
+
 ```typescript
 export enum EvaluationStatus {
-  Queued = "queued",
-  Running = "running",
-  Completed = "completed",
-  Failed = "failed"
+  Queued = 'queued',
+  Running = 'running',
+  Completed = 'completed',
+  Failed = 'failed',
 }
 ```
 

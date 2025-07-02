@@ -1,6 +1,6 @@
 /**
  * Optimized Document Loading Strategy
- * 
+ *
  * Current: Static generation at build time
  * Future: Can migrate to API-based loading without changing components
  */
@@ -30,11 +30,12 @@ class StaticDocumentLoader implements DocumentLoader {
   async searchDocuments(query: string): Promise<Doc[]> {
     const allDocs = await this.loadAllDocuments()
     const lowerQuery = query.toLowerCase()
-    
-    return allDocs.filter(doc => 
-      doc.title.toLowerCase().includes(lowerQuery) ||
-      doc.content.toLowerCase().includes(lowerQuery) ||
-      (doc.description && doc.description.toLowerCase().includes(lowerQuery))
+
+    return allDocs.filter(
+      doc =>
+        doc.title.toLowerCase().includes(lowerQuery) ||
+        doc.content.toLowerCase().includes(lowerQuery) ||
+        (doc.description && doc.description.toLowerCase().includes(lowerQuery))
     )
   }
 }
@@ -46,7 +47,7 @@ class DynamicDocumentLoader implements DocumentLoader {
 
   async loadDocument(slug: string[]): Promise<Doc | null> {
     const key = slug.join('/')
-    
+
     // Check cache
     if (this.cache.has(key)) {
       return this.cache.get(key)!
@@ -56,13 +57,13 @@ class DynamicDocumentLoader implements DocumentLoader {
     try {
       const response = await fetch(`/api/docs/${key}`)
       if (!response.ok) return null
-      
-      const doc = await response.json()
+
+      const doc = (await response.json()) as Doc
       this.cache.set(key, doc)
-      
+
       // Clear cache after timeout
       setTimeout(() => this.cache.delete(key), this.cacheTimeout)
-      
+
       return doc
     } catch (error) {
       console.error('Error loading document:', error)
@@ -72,12 +73,12 @@ class DynamicDocumentLoader implements DocumentLoader {
 
   async loadAllDocuments(): Promise<Doc[]> {
     const response = await fetch('/api/docs')
-    return response.json()
+    return response.json() as Promise<Doc[]>
   }
 
   async searchDocuments(query: string): Promise<Doc[]> {
     const response = await fetch(`/api/docs/search?q=${encodeURIComponent(query)}`)
-    return response.json()
+    return response.json() as Promise<Doc[]>
   }
 }
 
@@ -85,12 +86,12 @@ class DynamicDocumentLoader implements DocumentLoader {
 class HybridDocumentLoader implements DocumentLoader {
   private static = new StaticDocumentLoader()
   private dynamic = new DynamicDocumentLoader()
-  
+
   async loadDocument(slug: string[]): Promise<Doc | null> {
     // Try static first (fast)
     const staticDoc = await this.static.loadDocument(slug)
     if (staticDoc) return staticDoc
-    
+
     // Fall back to dynamic (for new docs)
     return this.dynamic.loadDocument(slug)
   }
@@ -109,7 +110,7 @@ class HybridDocumentLoader implements DocumentLoader {
 // Factory function - returns appropriate loader based on config
 export function createDocumentLoader(): DocumentLoader {
   const config = getDocsConfig()
-  
+
   switch (config.loadingStrategy) {
     case 'dynamic':
       return new DynamicDocumentLoader()

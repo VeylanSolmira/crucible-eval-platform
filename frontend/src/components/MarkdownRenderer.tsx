@@ -14,10 +14,10 @@ interface MarkdownRendererProps {
   enableMermaid?: boolean
 }
 
-export function MarkdownRenderer({ 
-  content, 
+export function MarkdownRenderer({
+  content,
   className = '',
-  enableMermaid = true 
+  enableMermaid = true,
 }: MarkdownRendererProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -27,7 +27,7 @@ export function MarkdownRenderer({
     if (enableMermaid && contentRef.current) {
       // Dynamically import mermaid only when needed
       void import('mermaid').then(({ default: mermaid }) => {
-        mermaid.initialize({ 
+        mermaid.initialize({
           startOnLoad: true,
           theme: 'default',
           themeVariables: {
@@ -37,38 +37,39 @@ export function MarkdownRenderer({
             lineColor: '#6b7280',
             secondaryColor: '#f3f4f6',
             tertiaryColor: '#e5e7eb',
-          }
+          },
         })
 
         // Process mermaid blocks after markdown rendering
         const processedNodes = new Set<Element>()
-        
+
         const processMermaidBlocks = () => {
           const codeBlocks = contentRef.current!.querySelectorAll('code')
-          codeBlocks.forEach((block) => {
+          codeBlocks.forEach(block => {
             // Check if this is a mermaid block and hasn't been processed
-            if (block.textContent?.startsWith('graph') || 
-                block.textContent?.startsWith('sequenceDiagram') ||
-                block.textContent?.startsWith('classDiagram')) {
-              
+            if (
+              block.textContent?.startsWith('graph') ||
+              block.textContent?.startsWith('sequenceDiagram') ||
+              block.textContent?.startsWith('classDiagram')
+            ) {
               const parent = block.parentElement
               if (parent && !processedNodes.has(parent)) {
                 processedNodes.add(parent)
-                
+
                 try {
                   const graphDefinition = block.textContent || ''
                   const graphId = `mermaid-${Date.now()}-${Math.random()}`
-                  
+
                   // Create a div to hold the rendered diagram
                   const div = document.createElement('div')
                   div.id = graphId
                   div.className = 'mermaid-diagram my-4 flex justify-center'
-                  
+
                   // Replace the code block with the div
                   parent.replaceWith(div)
-                  
+
                   // Render the diagram
-                  void mermaid.render(graphId, graphDefinition).then((result) => {
+                  void mermaid.render(graphId, graphDefinition).then(result => {
                     div.innerHTML = result.svg
                   })
                 } catch (error) {
@@ -78,7 +79,7 @@ export function MarkdownRenderer({
             }
           })
         }
-        
+
         // Small delay to ensure React has rendered
         setTimeout(processMermaidBlocks, 100)
       })
@@ -90,34 +91,37 @@ export function MarkdownRenderer({
       <ReactMarkdown
         remarkPlugins={[
           remarkGfm,
-          [remarkWikiLink, {
-            pageResolver: (name: string) => [
-              name.toLowerCase().replace(/\s+/g, '-')
-            ],
-            hrefTemplate: (permalink: string) => `/docs/${permalink}`,
-            wikiLinkClassName: 'wiki-link',
-            newClassName: 'wiki-link-new'
-          }]
+          [
+            remarkWikiLink,
+            {
+              pageResolver: (name: string) => [name.toLowerCase().replace(/\s+/g, '-')],
+              hrefTemplate: (permalink: string) => `/docs/${permalink}`,
+              wikiLinkClassName: 'wiki-link',
+              newClassName: 'wiki-link-new',
+            },
+          ],
         ]}
         components={{
-          a: ({ href, children, className, ...props }: { 
-            href?: string; 
-            children?: React.ReactNode; 
-            className?: string;
-            [key: string]: any;
+          a: ({
+            href,
+            children,
+            className,
+          }: {
+            href?: string
+            children?: React.ReactNode
+            className?: string
           }) => {
             // Handle wiki links
             if (className?.includes('wiki-link')) {
               const isNew = className.includes('wiki-link-new')
               return (
                 <a
-                  href={href}
+                  href={href || '#'}
                   className={`${isNew ? 'text-red-600 hover:text-red-700' : 'text-blue-600 hover:text-blue-700'} underline font-medium`}
-                  onClick={(e) => {
+                  onClick={e => {
                     e.preventDefault()
-                    router.push(href)
+                    if (href) router.push(href)
                   }}
-                  {...props}
                 >
                   {children}
                   {isNew && <span className="text-xs ml-1">[?]</span>}
@@ -126,25 +130,23 @@ export function MarkdownRenderer({
             }
             // Regular links
             return (
-              <a
-                href={href}
-                className="text-blue-600 hover:text-blue-700 underline"
-                {...props}
-              >
+              <a href={href || '#'} className="text-blue-600 hover:text-blue-700 underline">
                 {children}
               </a>
             )
           },
-          code({ node, inline, className, children, ...props }: {
-            node?: any;
-            inline?: boolean;
-            className?: string;
-            children?: React.ReactNode;
-            [key: string]: any;
+          code({
+            inline,
+            className,
+            children,
+          }: {
+            inline?: boolean
+            className?: string
+            children?: React.ReactNode
           }) {
             const match = /language-(\w+)/.exec(className || '')
             const language = match ? match[1] : ''
-            
+
             // Special handling for mermaid
             if (language === 'mermaid' && enableMermaid) {
               return (
@@ -153,14 +155,9 @@ export function MarkdownRenderer({
                 </code>
               )
             }
-            
+
             return !inline && match ? (
-              <SyntaxHighlighter
-                language={language}
-                style={vscDarkPlus}
-                PreTag="div"
-                {...props}
-              >
+              <SyntaxHighlighter language={language} style={vscDarkPlus} PreTag="div" {...props}>
                 {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
             ) : (
@@ -168,7 +165,7 @@ export function MarkdownRenderer({
                 {children}
               </code>
             )
-          }
+          },
         }}
       >
         {content}

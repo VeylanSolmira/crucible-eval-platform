@@ -7,18 +7,22 @@ Dependabot is GitHub's automated dependency update tool that keeps your project 
 ## How It Works
 
 ### Monitoring
+
 - Checks `package.json` on a schedule (we use weekly)
 - Scans for security vulnerabilities 24/7
 - Compares your versions to latest releases
 
 ### Automated PRs
+
 Every Monday, Dependabot will:
+
 1. Check all npm packages for updates
 2. Create pull requests for outdated packages
 3. Run CI/CD tests automatically
 4. Group related updates (e.g., all TypeScript types)
 
 ### Example PR
+
 ```
 Title: chore(deps): Bump next from 14.2.30 to 14.2.31
 
@@ -33,6 +37,7 @@ Signed-off-by: dependabot[bot]
 ## Security Updates
 
 **Critical Difference**: Security updates don't wait for Monday!
+
 - Created immediately when vulnerability detected
 - Labeled with `security` tag
 - Should be reviewed and merged ASAP
@@ -40,6 +45,7 @@ Signed-off-by: dependabot[bot]
 ## Alerts and Notifications
 
 ### Do you get pager alerts?
+
 **No**, Dependabot doesn't page you at 3am. Instead:
 
 1. **GitHub Notifications** - You'll get GitHub notifications for PRs
@@ -48,6 +54,7 @@ Signed-off-by: dependabot[bot]
 4. **Slack Integration** - Can configure GitHub → Slack for team alerts
 
 For true pager-level alerts, you'd need:
+
 ```yaml
 # Example: PagerDuty integration via GitHub Actions
 name: Security Alert
@@ -65,23 +72,26 @@ jobs:
 ```
 
 ### Auto-merge?
+
 **Not by default**, but you can enable it:
 
 #### Option 1: GitHub Auto-merge (Safest)
+
 ```yaml
 # In dependabot.yml
 updates:
-  - package-ecosystem: "npm"
+  - package-ecosystem: 'npm'
     # ... other config ...
     # Only auto-merge patch updates
     allow:
-      - dependency-type: "production"
-        update-types: ["patch"]
+      - dependency-type: 'production'
+        update-types: ['patch']
 ```
 
 Then enable auto-merge in repo settings for Dependabot PRs.
 
 #### Option 2: GitHub Actions (More Control)
+
 ```yaml
 name: Auto-merge Dependabot
 on: pull_request
@@ -100,6 +110,7 @@ jobs:
 ```
 
 #### Auto-merge Best Practices
+
 1. **Only auto-merge patch versions** (1.2.3 → 1.2.4)
 2. **Never auto-merge major versions** (1.x.x → 2.x.x)
 3. **Require CI passing** before auto-merge
@@ -111,22 +122,23 @@ jobs:
 # frontend/.github/dependabot.yml
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/frontend"
+  - package-ecosystem: 'npm'
+    directory: '/frontend'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     open-pull-requests-limit: 5
     groups:
       typescript:
-        patterns: ["@types/*", "typescript"]
+        patterns: ['@types/*', 'typescript']
       react:
-        patterns: ["react", "react-dom", "@types/react*"]
+        patterns: ['react', 'react-dom', '@types/react*']
 ```
 
 ## Weekly Workflow
 
 ### Monday Morning Routine
+
 1. Check GitHub for Dependabot PRs
 2. Review changes (especially breaking changes)
 3. Ensure CI is green
@@ -134,6 +146,7 @@ updates:
 5. Test locally if concerned
 
 ### Priority Order
+
 1. 🚨 **Security updates** - Merge immediately
 2. 🐛 **Bug fixes** - Merge soon
 3. ✨ **Features** - Review carefully
@@ -150,12 +163,14 @@ updates:
 ## Troubleshooting
 
 ### PR Conflicts
+
 ```bash
 # Rebase Dependabot PR
 @dependabot rebase
 ```
 
 ### Ignore Update
+
 ```bash
 # In PR comment
 @dependabot ignore this major version
@@ -163,6 +178,7 @@ updates:
 ```
 
 ### Re-create PR
+
 ```bash
 # Force recreation
 @dependabot recreate
@@ -171,6 +187,7 @@ updates:
 ## Summary
 
 Dependabot = Your automated dependency janitor
+
 - Won't wake you up at night
 - Can auto-merge (with careful configuration)
 - Keeps you secure without the hassle
