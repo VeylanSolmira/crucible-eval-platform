@@ -1,6 +1,9 @@
 #!/bin/bash
 # One-command startup script for Crucible Platform
-# Usage: ./start-platform.sh [dev|prod]
+# Usage: ./start-platform.sh [dev|prod|build]
+#   dev   - Start in development mode
+#   prod  - Start with production configuration
+#   build - Rebuild all images then start in dev mode
 
 set -e  # Exit on error
 
@@ -8,10 +11,19 @@ set -e  # Exit on error
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Default to development mode
+# Parse command
 MODE="${1:-dev}"
+
+if [ "$MODE" = "build" ]; then
+    echo -e "${BLUE}Rebuilding all services...${NC}"
+    REBUILD_ALL=true
+    MODE="dev"  # After building, start in dev mode
+else
+    REBUILD_ALL=false
+fi
 
 echo -e "${GREEN}Starting Crucible Platform in ${MODE} mode...${NC}"
 
@@ -27,80 +39,42 @@ if ! command -v docker compose &> /dev/null; then
     exit 1
 fi
 
-# Function to wait for service to be healthy
-wait_for_service() {
-    local service=$1
-    local max_attempts=30
-    local attempt=0
-    
-    echo -n "Waiting for $service to be healthy..."
-    
-    while [ $attempt -lt $max_attempts ]; do
-        # Check if service is healthy (not just running)
-        if docker compose ps "$service" 2>/dev/null | grep -q "(healthy)"; then
-            echo -e " ${GREEN}✓${NC}"
-            return 0
-        fi
-        # Also accept services without health checks as "ready"
-        if docker compose ps "$service" 2>/dev/null | grep -E "Up.*[^)]$" | grep -v "(health" > /dev/null; then
-            echo -e " ${GREEN}✓${NC} (no health check)"
-            return 0
-        fi
-        echo -n "."
-        sleep 3  # Increased from 2 to 3 seconds to better align with health check intervals
-        ((attempt++))
-    done
-    
-    echo -e " ${RED}✗${NC}"
-    echo -e "${RED}$service failed to become healthy${NC}"
-    echo "Recent logs:"
-    docker compose logs "$service" --tail=10
-    return 1
-}
 
 # Create necessary directories
 echo "Creating data directories..."
 mkdir -p data  # For file-based storage
 
-# Build base image first
-echo "Building base image..."
-docker compose build base
+# Build images
+if [ "$REBUILD_ALL" = true ]; then
+    echo -e "${BLUE}Building all images (this may take several minutes)...${NC}"
+    docker compose build --no-cache
+else
+    # Just build base image for normal startup
+    echo "Building base image..."
+    docker compose build base
+fi
 
-# Start services based on mode
+# Start services based on mode with --wait flag
 if [ "$MODE" = "prod" ]; then
     echo "Starting services with production configuration..."
     
     # Note: Production volumes are defined in docker-compose.prod.yml
     # They will be created automatically by Docker
     
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+    echo -e "\n${YELLOW}Starting all services (this may take a minute)...${NC}"
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --wait --wait-timeout 120
 else
     echo "Starting services in development mode..."
-    docker compose up -d
+    echo -e "\n${YELLOW}Starting all services (this may take a minute)...${NC}"
+    docker compose up -d --wait --wait-timeout 120
 fi
 
-# Wait for critical services needed for migrations
-echo -e "\n${YELLOW}Waiting for database to be ready...${NC}"
-wait_for_service "postgres"
-
-# Let Docker Compose handle the rest of the dependencies
-echo -e "\n${YELLOW}Waiting for all services to be healthy...${NC}"
-
-# Wait for all services to be healthy (not just started)
-max_wait=60
-waited=0
-while [ $waited -lt $max_wait ]; do
-    if ! docker compose ps | grep -E "\(health: starting\)|\(unhealthy\)|Restarting" > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ All services are healthy${NC}"
-        break
-    fi
-    echo -n "."
-    sleep 2
-    ((waited+=2))
-done
-
-if [ $waited -ge $max_wait ]; then
-    echo -e "\n${YELLOW}Some services are still starting. This may be normal.${NC}"
+# Check if the wait was successful
+if [ $? -eq 0 ]; then
+    echo -e "\n${GREEN}✓ All services are healthy!${NC}"
+else
+    echo -e "\n${YELLOW}⚠ Some services may still be starting. Checking status...${NC}"
+    docker compose ps
 fi
 
 # Check all services are up
@@ -133,6 +107,7 @@ echo -e "\n${GREEN}Useful commands:${NC}"
 echo "  View logs:      docker compose logs -f [service-name]"
 echo "  Stop platform:  docker compose down"
 echo "  Clean restart:  docker compose down -v && ./start-platform.sh"
+echo "  Rebuild all:    ./start-platform.sh build"
 
 # Check if all services are healthy
 if docker compose ps | grep -E "unhealthy|Exit|Restarting" > /dev/null 2>&1; then

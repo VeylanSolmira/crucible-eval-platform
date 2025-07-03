@@ -17,8 +17,8 @@ ENV PYTHONPATH=/app:$PYTHONPATH
 # Copy only the executor app
 COPY executor-service/app.py /app/
 
-# Update health check for executor service port
-RUN sed -i 's/localhost:8080/localhost:8083/g' /healthcheck.py
+# Set health check URL for executor service port
+ENV HEALTH_CHECK_URL=http://localhost:8083/health
 
 # Switch to non-root user
 USER appuser

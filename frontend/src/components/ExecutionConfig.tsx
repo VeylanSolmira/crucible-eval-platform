@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { memo } from 'react'
 
 export interface ExecutionConfigData {
   timeout: number
@@ -36,7 +36,7 @@ const PYTHON_VERSIONS = [
   { label: 'Python 3.8', value: '3.8' },
 ]
 
-export const ExecutionConfig: React.FC<ExecutionConfigProps> = ({
+const ExecutionConfigComponent: React.FC<ExecutionConfigProps> = ({
   config,
   onChange,
   disabled = false,
@@ -129,24 +129,32 @@ export const ExecutionConfig: React.FC<ExecutionConfigProps> = ({
               Skip ahead of normal evaluations (limited availability)
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => handleChange('priority', !config.priority)}
-            disabled={disabled}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-              config.priority ? 'bg-blue-600' : 'bg-gray-200'
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            role="switch"
-            aria-checked={config.priority}
-            aria-labelledby="priority"
-          >
-            <span
-              aria-hidden="true"
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                config.priority ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium ${config.priority ? 'text-gray-400' : 'text-gray-700'}`}>
+              Normal
+            </span>
+            <button
+              type="button"
+              onClick={() => handleChange('priority', !config.priority)}
+              disabled={disabled}
+              className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                config.priority ? 'bg-blue-600' : 'bg-gray-300'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              role="switch"
+              aria-checked={config.priority}
+              aria-labelledby="priority"
+            >
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  config.priority ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${config.priority ? 'text-blue-700' : 'text-gray-400'}`}>
+              Priority
+            </span>
+          </div>
         </div>
         {config.priority && (
           <div className="mt-2 text-xs text-blue-700">
@@ -169,3 +177,14 @@ export const ExecutionConfig: React.FC<ExecutionConfigProps> = ({
     </div>
   )
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const ExecutionConfig = memo(ExecutionConfigComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.config.timeout === nextProps.config.timeout &&
+    prevProps.config.memoryLimit === nextProps.config.memoryLimit &&
+    prevProps.config.pythonVersion === nextProps.config.pythonVersion &&
+    prevProps.config.priority === nextProps.config.priority &&
+    prevProps.disabled === nextProps.disabled
+  )
+})

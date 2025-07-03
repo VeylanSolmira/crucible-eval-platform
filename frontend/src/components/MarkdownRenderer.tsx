@@ -102,15 +102,8 @@ export function MarkdownRenderer({
           ],
         ]}
         components={{
-          a: ({
-            href,
-            children,
-            className,
-          }: {
-            href?: string
-            children?: React.ReactNode
-            className?: string
-          }) => {
+          a: (props) => {
+            const { href, children, className } = props
             // Handle wiki links
             if (className?.includes('wiki-link')) {
               const isNew = className.includes('wiki-link-new')
@@ -135,33 +128,27 @@ export function MarkdownRenderer({
               </a>
             )
           },
-          code({
-            inline,
-            className,
-            children,
-          }: {
-            inline?: boolean
-            className?: string
-            children?: React.ReactNode
-          }) {
+          code(props) {
+            const { className, children, ...rest } = props
             const match = /language-(\w+)/.exec(className || '')
             const language = match ? match[1] : ''
 
             // Special handling for mermaid
             if (language === 'mermaid' && enableMermaid) {
               return (
-                <code className={className} {...props}>
+                <code className={className} {...rest}>
                   {children}
                 </code>
               )
             }
 
-            return !inline && match ? (
-              <SyntaxHighlighter language={language} style={vscDarkPlus} PreTag="div" {...props}>
+            // If there's a language match, it's a code block
+            return match ? (
+              <SyntaxHighlighter language={language} style={vscDarkPlus} PreTag="div">
                 {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
             ) : (
-              <code className={className} {...props}>
+              <code className={className} {...rest}>
                 {children}
               </code>
             )

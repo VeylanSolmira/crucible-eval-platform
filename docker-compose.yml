@@ -68,7 +68,7 @@ services:
       # Celery configuration - 50% traffic split
       - CELERY_ENABLED=true
       - CELERY_BROKER_URL=redis://celery-redis:6379/0
-      - CELERY_PERCENTAGE=0.5  # 50% of traffic to Celery
+      - CELERY_PERCENTAGE=1.0  # 100% of traffic to Celery
     depends_on:
       base:
         condition: service_completed_successfully
@@ -76,11 +76,11 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-      queue:
-        condition: service_started
+      # queue:  # DEACTIVATED - using Celery
+      #   condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -155,6 +155,7 @@ services:
   # Queue Service - HTTP wrapper around existing TaskQueue
   # TODO: Remove after Celery migration complete (Day 7)
   # This modularizes our queue component for future Celery migration
+  # DEACTIVATED - All traffic now goes through Celery
   queue:
     build:
       context: .
@@ -172,7 +173,9 @@ services:
     depends_on:
       base:
         condition: service_completed_successfully
-    restart: unless-stopped
+    # restart: unless-stopped  # DEACTIVATED
+    profiles:
+      - legacy  # Only start with --profile legacy
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8081/health').raise_for_status()"]
       interval: 30s
@@ -189,6 +192,7 @@ services:
   # Queue Worker - Routes tasks from queue to executors
   # TODO: Remove after Celery migration complete (Day 7)
   # This will become Celery beat/scheduler in the future
+  # DEACTIVATED - All traffic now goes through Celery
   queue-worker:
     build:
       context: .
@@ -212,7 +216,9 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    # restart: unless-stopped  # DEACTIVATED
+    profiles:
+      - legacy  # Only start with --profile legacy
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://queue:8081/health', headers={'X-API-Key': '${INTERNAL_API_KEY:-dev-internal-api-key}'}).raise_for_status()"]
       interval: 30s
@@ -244,6 +250,7 @@ services:
       - DOCKER_HOST=tcp://docker-proxy:2375
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - HEALTH_CHECK_URL=http://localhost:8083/health
     depends_on:
       base:
         condition: service_completed_successfully
@@ -296,10 +303,10 @@ services:
       - REDIS_URL=redis://redis:6379
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
-      # Dynamic routing to executors 2 and 3 (executor-1 reserved for legacy queue)
-      - EXECUTOR_COUNT=2
+      # Dynamic routing to all executors (legacy queue deactivated)
+      - EXECUTOR_COUNT=3
       - EXECUTOR_BASE_URL=http://executor
-      - EXECUTOR_START_INDEX=2  # Start from executor-2 instead of executor-1
+      - EXECUTOR_START_INDEX=1  # Use all executors
     depends_on:
       base:
         condition: service_completed_successfully
@@ -339,10 +346,12 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5555/"]
+      # Flower 2.0+ provides a dedicated /healthcheck endpoint that doesn't require auth
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:5555/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
     mem_limit: 128m
     # Security hardening
     security_opt:
@@ -374,7 +383,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/health').read()"]
       interval: 30s
       timeout: 3s
       retries: 3

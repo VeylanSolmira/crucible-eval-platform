@@ -366,7 +366,7 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
             <ExecutionMonitor
               evalId={selectedExecution.eval_id}
               isRunning={selectedExecution.status === 'running'}
-              onKill={id => void handleKill(id)}
+              onKill={() => void handleKill()}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500">

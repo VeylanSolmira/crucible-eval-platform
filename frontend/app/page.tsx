@@ -19,8 +19,6 @@ export default function ResearcherUI() {
   // State
   const [code, setCode] = useState('')
   const [events, setEvents] = useState<EventMessage[]>([])
-  const [batchCount, setBatchCount] = useState<number>(5)
-  const [showBatchDialog, setShowBatchDialog] = useState(false)
   // Removed selectedRunningEvalId - now handled inside Executions component
 
   // Execution config
@@ -137,15 +135,15 @@ export default function ResearcherUI() {
     }
   }, [evaluation, evalId, isComplete, addEvent])
 
-  // Track polling activity
-  useEffect(() => {
-    if (isPolling && evalId) {
-      addEvent('polling', {
-        id: evalId,
-        evaluation_status: evaluation?.status || 'unknown',
-      })
-    }
-  }, [isPolling, evalId, evaluation?.status, addEvent])
+  // Track polling activity - commented out to reduce noise
+  // useEffect(() => {
+  //   if (isPolling && evalId) {
+  //     addEvent('polling', {
+  //       id: evalId,
+  //       evaluation_status: evaluation?.status || 'unknown',
+  //     })
+  //   }
+  // }, [isPolling, evalId, evaluation?.status, addEvent])
 
   // Removed auto-scroll to prevent focus stealing
 
@@ -254,6 +252,7 @@ export default function ResearcherUI() {
               value={code}
               onChange={setCode}
               onSubmit={() => void handleSubmit()}
+              onBatchSubmit={(count) => void handleBatchSubmit(count)}
               loading={isSubmitting || isRunning}
             />
           </div>
@@ -271,7 +270,7 @@ export default function ResearcherUI() {
             {/* Execution Config */}
             <ExecutionConfig
               config={execConfig}
-              onChange={setExecConfig}
+              onChange={useCallback((newConfig: ExecutionConfigData) => setExecConfig(newConfig), [])}
               disabled={isSubmitting || isRunning}
             />
 

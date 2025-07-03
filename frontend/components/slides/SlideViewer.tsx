@@ -63,9 +63,11 @@ export function SlideViewer({ slides, theme = 'black', transition = 'slide' }: S
       revealRef.current = deck
 
       // Listen for slide changes
-      deck.on('slidechanged', (event: { indexh: number }) => {
-        setCurrentSlideIndex(event.indexh)
-      })
+      const handleSlideChange = (event: Event) => {
+        const customEvent = event as CustomEvent<{ indexh: number }>
+        setCurrentSlideIndex(customEvent.detail.indexh)
+      }
+      deck.addEventListener('slidechanged', handleSlideChange)
     })
 
     return () => {

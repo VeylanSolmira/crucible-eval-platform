@@ -75,8 +75,9 @@ export async function loadSlide(id: string): Promise<Slide | null> {
     }
 
     // Only add description if it exists
-    if (metadata.description || data.description) {
-      slide.description = (data.description as string) || metadata.description
+    const description = (data.description as string) || metadata.description
+    if (description) {
+      slide.description = description
     }
 
     return slide

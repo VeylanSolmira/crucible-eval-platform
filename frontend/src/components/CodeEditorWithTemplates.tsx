@@ -24,11 +24,13 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
   const [isExpanded, setIsExpanded] = useState(false)
   const [showBatchDialog, setShowBatchDialog] = useState(false)
   const [batchCount, setBatchCount] = useState(5)
+  const [batchDialogPosition, setBatchDialogPosition] = useState({ top: 0, left: 0 })
   const [recentCodes, setRecentCodes] = useState<Array<{ code: string; timestamp: string }>>([])
   const { templates, templatesByCategory, loading: templatesLoading } = useCodeTemplates()
   const hasLoadedInitialData = useRef(false)
   const onChangeRef = useRef(onChange)
   const initialValue = useRef(value)
+  const batchButtonRef = useRef<HTMLButtonElement>(null)
 
   // Keep onChange ref up to date
   useEffect(() => {
@@ -92,7 +94,7 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
       {/* Editor container */}
       <div className={`bg-white rounded-lg shadow-sm p-6 transition-all ${
         isExpanded 
-          ? 'fixed top-4 left-4 right-4 bottom-4 z-50 overflow-auto' 
+          ? 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1/2 max-w-4xl h-5/6 max-h-[90vh] z-50 overflow-auto shadow-2xl' 
           : ''
       }`}>
       <div className="flex justify-between items-center mb-4">
@@ -210,7 +212,17 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
 
         {onBatchSubmit && (
           <button
-            onClick={() => setShowBatchDialog(true)}
+            ref={batchButtonRef}
+            onClick={() => {
+              if (batchButtonRef.current) {
+                const rect = batchButtonRef.current.getBoundingClientRect()
+                setBatchDialogPosition({
+                  top: rect.bottom + 8, // 8px below the button
+                  left: rect.left
+                })
+              }
+              setShowBatchDialog(true)
+            }}
             disabled={loading || !value.trim()}
             className="px-4 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
           >
@@ -239,7 +251,13 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
     {showBatchDialog && onBatchSubmit && (
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowBatchDialog(false)} />
-        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 z-50 min-w-[300px]">
+        <div 
+          className="fixed bg-white rounded-lg shadow-xl p-6 z-50 min-w-[300px]"
+          style={{ 
+            top: `${batchDialogPosition.top}px`, 
+            left: `${batchDialogPosition.left}px`,
+            maxWidth: '400px'
+          }}>
           <h3 className="text-lg font-semibold mb-4">Run Multiple Evaluations</h3>
           <p className="text-sm text-gray-600 mb-4">
             Submit {batchCount} copies of the current code for evaluation.

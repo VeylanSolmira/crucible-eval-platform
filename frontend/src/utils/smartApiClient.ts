@@ -22,15 +22,15 @@ type EvaluationRequest = components['schemas']['EvaluationRequest']
  * 3. Dynamically adjust rate limit based on 429 responses
  */
 
-interface QueuedRequest<T> {
+interface QueuedRequest {
   execute: () => Promise<Response>
-  resolve: (value: T) => void
+  resolve: (value: unknown) => void
   reject: (error: unknown) => void
   retries: number
 }
 
 export class SmartApiClient {
-  private queue: QueuedRequest<unknown>[] = []
+  private queue: QueuedRequest[] = []
   private processing = false
   private tokensAvailable: number
   private lastRefill: number = Date.now()
@@ -56,10 +56,14 @@ export class SmartApiClient {
    * Make an API request with smart rate limiting
    */
   async fetch<T>(url: string, options?: RequestInit): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const request: QueuedRequest<T> = {
+    return new Promise<T>((resolve, reject) => {
+      const request: QueuedRequest = {
         execute: () => fetch(`${this.baseUrl}${url}`, options),
-        resolve,
+        resolve: (value: unknown) => {
+          // Type safety: We trust that processQueue will pass the correct type
+          // This is enforced by the fact that execute() and resolve() are paired
+          resolve(value as T)
+        },
         reject,
         retries: 0,
       }
@@ -133,7 +137,7 @@ export class SmartApiClient {
   /**
    * Handle 429 rate limit response
    */
-  private handleRateLimit<T>(request: QueuedRequest<T>, response: Response) {
+  private handleRateLimit(request: QueuedRequest, response: Response) {
     this.consecutiveRateLimits++
 
     // Get retry-after header if available
@@ -293,7 +297,7 @@ export class SmartApiClient {
   }
 
   async checkStatus(evalId: string): Promise<EvaluationResult> {
-    return this.fetch(`/api/eval-status/${evalId}`)
+    return this.fetch(`/api/eval/${evalId}`)
   }
 
   /**

@@ -321,6 +321,33 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - [ ] Have architecture diagrams handy
 - [ ] Show confidence in the platform
 
+## Next Steps & Optimizations
+
+### Build Performance with BuildKit
+Enable Docker BuildKit for 30-50% faster builds:
+```bash
+# Add to .env or shell
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Then build with parallelism
+docker-compose build --parallel
+```
+
+Benefits for our multi-service architecture:
+- Parallel stage execution in multi-stage Dockerfiles
+- Smarter layer caching across services
+- Skip unused build stages automatically
+- Better progress output during builds
+
+### Other Future Optimizations
+- [ ] Implement distributed tracing (OpenTelemetry)
+- [ ] Add Prometheus metrics collection
+- [ ] Set up log aggregation (ELK stack)
+- [ ] Implement auto-scaling for executors
+- [ ] Add GPU support for ML workloads
+- [ ] Migrate to Kubernetes for production scale
+
 ## Success Metrics
 
 By end of Week 4:
@@ -417,3 +444,32 @@ When asked about Kubernetes:
 > "We're using Docker Compose for this demo, but the architecture is Kubernetes-ready. Each service has health checks, follows 12-factor principles, and we've documented the k8s deployment strategy. Docker Compose gives us faster iteration during development."
 
 Remember: It's better to have fewer features working perfectly than many features working poorly. Focus on polish and professionalism.
+
+## Future Improvements & Technical Debt
+
+### Monitoring & Observability
+- **Flower Health Checks**: Currently using the `/healthcheck` endpoint (discovered in Flower 2.0+). Initially attempted complex auth-based health checks before finding this simpler solution. See `/docs/architecture/monitoring/flower-health-check-limitations.md` for full analysis.
+- **Alternative to Flower**: Consider Prometheus + Grafana for production, as Flower lacks granular permissions and proper RBAC.
+
+### Infrastructure
+- **Health Check Standardization**: All services use different health check approaches (curl, httpx, urllib, nc). Should standardize on a single method.
+- **Service Dependencies**: Some health checks could be more sophisticated (e.g., checking broker connectivity, not just port availability).
+
+### Security
+- **Secrets Management**: Currently using environment variables and docker-compose. Production should use proper secrets management (Vault, K8s secrets, AWS Secrets Manager).
+- **Non-root Users**: Some containers still run as root. Should create dedicated users for each service.
+
+### Code Quality
+- **TypeScript Strictness**: Successfully enforced strict typing with no `any` types, but some `unknown` types remain at API boundaries (intentionally).
+- **Python Type Hints**: Add mypy strict mode across all Python services.
+
+### Performance
+- **Connection Pooling**: Redis and PostgreSQL connections could benefit from proper pooling configuration.
+- **Caching Layer**: No caching strategy implemented yet (Redis is available but underutilized).
+
+### Developer Experience
+- **Hot Reload**: Frontend has it, but Python services require container restart.
+- **Debugging**: No remote debugging setup for containerized services.
+- **Development Seeds**: No sample data or development fixtures.
+
+These items are documented here rather than as TODOs in code to keep the codebase clean for demo purposes.
