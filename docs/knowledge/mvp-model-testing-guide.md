@@ -121,40 +121,110 @@ This guide covers practical options for testing open-source language models in a
 
 ## Best Models for Local Adversarial Testing
 
-### Llama 3.2 (1B or 3B)
-- Modern architecture with recent safety training
-- Good baseline for testing transfer attacks
-- Reasonable hardware requirements
-- Well-documented, active community
+### Ultra-Small Models (<100M parameters) - Perfect for Hello World
 
-### Phi-3-mini (3.8B)
-- Excellent performance/size ratio
-- Trained with more sophisticated methods
-- Good for testing if attacks scale down
-- Runs well on consumer hardware
+#### DistilGPT2 (82M)
+- **Best for quick start**: Pre-trained, works out of the box
+- Only ~300MB download, runs on CPU
+- Faster than GPT-2 with similar quality
+- Perfect for learning and prototyping
+```python
+from transformers import pipeline
+generator = pipeline('text-generation', model='distilgpt2')
+generator("Hello, I'm a language model", max_length=30)
+```
 
-### Mistral-7B-Instruct
-- Popular open model with known vulnerabilities
-- Large enough for complex behaviors
-- Extensive community testing history
-- Good benchmark for adversarial robustness
+#### nanoGPT (Customizable)
+- **Best for education**: See exactly how GPTs work
+- Train from scratch in minutes
+- ~600 lines of readable code total
+- Can train on Shakespeare in 3 minutes on A100
 
-### GPT-2 (124M or 355M)
+### Small Models (100M-1B parameters)
+
+#### SmolLM Series (135M, 360M)
+- Modern architecture, better than older models of similar size
+- SmolLM-135M: Runs on any hardware
+- SmolLM-360M: Good quality/size balance
+- State-of-the-art for their size class
+
+#### GPT-2 (124M)
 - Classic baseline, well-understood
 - Fast iteration cycles
 - Many existing attack implementations
 - Good for gradient-based attacks
 
+### Medium Models (1B-4B parameters)
+
+#### Llama 3.2 (1B or 3B)
+- Modern architecture with recent safety training
+- Good baseline for testing transfer attacks
+- Reasonable hardware requirements
+- Well-documented, active community
+
+#### SmolLM2-1.7B
+- State-of-the-art small model
+- Trained on curated open datasets
+- Better performance than older 3B models
+
+#### Phi-3.5-mini (3.8B)
+- Excellent performance/size ratio
+- Trained with sophisticated methods
+- Good for testing if attacks scale down
+- Runs well on consumer hardware
+
+### Larger Models (7B+)
+
+#### Mistral-7B-Instruct
+- Popular open model with known vulnerabilities
+- Large enough for complex behaviors
+- Extensive community testing history
+- Good benchmark for adversarial robustness
+
+#### Qwen2.5-1.5B to 7B
+- Modern multilingual models
+- Good safety training to test against
+- Efficient architectures
+
+## Quick Start: Hello World with DistilGPT2
+
+For absolute beginners or resource-constrained systems, start with DistilGPT2:
+
+```python
+# Install (one-time)
+pip install transformers torch
+
+# Run your first model (hello_world_distilgpt2.py)
+from transformers import pipeline
+
+# This downloads ~300MB on first run
+generator = pipeline('text-generation', model='distilgpt2')
+
+# Generate text!
+result = generator("Hello world, AI is", max_length=50)
+print(result[0]['generated_text'])
+```
+
+**Why DistilGPT2 for Hello World?**
+- Only 82M parameters (vs 124M for GPT-2)
+- Runs on CPU - no GPU needed
+- ~300MB download vs gigabytes for larger models
+- Still exhibits interesting behaviors for testing
+- Can be adversarially attacked just like larger models
+
+See `templates/hello_world_distilgpt2.py` for a complete example with different generation strategies.
+
 ## Development Strategy for Limited Hardware
 
 Given a 2020 MacBook Air or similar constraints:
 
-1. **Start with Colab Free** - Test your adversarial framework
-2. **Local development** - Write/debug code on MacBook, test prompts with API models
-3. **Scale to RunPod/Lambda** - Once you need persistent environments
-4. **Consider Modal.com** - Serverless GPU, pay per second, great for batch jobs
+1. **Start locally with DistilGPT2** - Test basic concepts on CPU
+2. **Move to Colab Free** - Test your adversarial framework with GPU
+3. **Local development** - Write/debug code on MacBook, test prompts with small models
+4. **Scale to RunPod/Lambda** - Once you need persistent environments or larger models
+5. **Consider Modal.com** - Serverless GPU, pay per second, great for batch jobs
 
-For MVP, Colab free tier + occasional RunPod sessions (~$20-40 total) should suffice.
+For MVP, local DistilGPT2 + Colab free tier + occasional RunPod sessions (~$20-40 total) should suffice.
 
 ## Security Considerations for Model Testing
 
