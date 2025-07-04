@@ -28,6 +28,9 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - Celery integration (infrastructure created, needs integration)
 - Shared contracts implementation
 
+### ⚠️ Future Tasks (Post-Demo)
+- **Multiple Worker Support**: When scaling beyond single worker, implement atomic executor allocation (see `docs/architecture/celery-task-chaining-solution.md`)
+
 ### ❌ Not Started (Deferred to Future)
 - Authentication/authorization (will document the design only)
 - Kubernetes deployment (Docker Compose is sufficient for demo)
@@ -100,6 +103,14 @@ This week focuses on achieving demo-ready status with a polished, production-qua
   - [x] shared/ README (created to explain contracts/types)
   - [x] tests/ README (created comprehensive testing guide)
 - [x] Ensure consistent code style
+- [x] **Implement idempotent executor release** ✅
+  - [x] Fixed Celery link/link_error edge case where both callbacks could run
+  - [x] Implemented Redis Lua script for atomic operations
+  - [x] Added metrics tracking to detect double releases
+  - [x] Created comprehensive documentation:
+    - Technical solution: [Idempotent Executor Release](../../docs/architecture/idempotent-executor-release.md)
+    - Journey narrative: [Celery Idempotency Journey](../../docs/narrative/celery-idempotency-journey.md)
+    - Presentation: [Slide 30: Celery Idempotency](../../frontend/content/slides/30-celery-idempotency.md)
 
 ### Afternoon (4 hours): Critical Testing
 - [x] Integration tests for core flows
@@ -113,9 +124,15 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - [x] Create automated test script for demo (run_demo_tests.py)
 - [ ] Verify the above testing protocols perform and cover as expected/desired
 - [ ] Analyze and adapt legacy test code
-  - [ ] Review tests/legacy components for useful patterns
-  - [ ] Adapt tests/security_scanner for current architecture
+  - [x] Review tests/legacy components for useful patterns
+  - [x] Adapt tests/security_scanner for current architecture
   - [ ] Document migration plan for valuable test cases
+- [ ] Fix API input validation issues discovered by security tests
+  - [ ] Reject oversized payloads (currently accepts 6MB code)
+  - [ ] Validate language parameter (currently accepts invalid languages)
+  - [ ] Reject negative timeout values (currently accepts -1)
+  - [ ] Set maximum timeout limit (currently accepts 3600s/1 hour)
+  - [ ] Document payload size limits and validation rules
 
 **Deliverables:**
 - Clean codebase passing all linters
@@ -348,6 +365,22 @@ Benefits for our multi-service architecture:
 - [ ] Add GPU support for ML workloads
 - [ ] Migrate to Kubernetes for production scale
 
+### Nice to Have - End of Week 4
+- [ ] **Investigate React Query invalidation patterns** - Current polling + cache invalidation causes request storms with many concurrent evaluations. See `docs/react-query-invalidation-patterns.md` for approaches.
+- [ ] **Consider WebSockets/SSE** - Replace polling with real-time updates to eliminate cache invalidation complexity entirely
+- [ ] **Improve batch submission** - Current implementation lacks rate limiting for large batches. See `docs/batch-submission-patterns.md` for better patterns using React Query
+- [ ] **Fix type generation architecture** - Currently takes 45 minutes to modify a shared type due to indirect TypeScript generation through OpenAPI. Need direct YAML→TypeScript generation. See `docs/proposals/type-separation-architecture.md`
+
+### Next Steps - Executor Capacity Management
+
+- [ ] **Implement atomic executor allocation** - With multiple Celery workers, we need to handle race conditions when checking executor capacity. Current implementation uses optimistic concurrency. See `docs/architecture/executor-capacity-management.md` for the recommended approach:
+  1. Let multiple workers race to claim executors
+  2. Executor service returns 503 when at capacity
+  3. Only set "provisioning" status after receiving 200 response
+  4. Failed workers retry with exponential backoff
+  
+  This follows the "let the service be the source of truth" principle and avoids complex distributed locking.
+
 ## Success Metrics
 
 By end of Week 4:
@@ -422,18 +455,26 @@ These are documented as "future enhancements":
    - Type-safe frontend/backend integration
    - Comprehensive error handling
    - Security-first design
+   - **Idempotent operations for distributed reliability**
 
 3. **Platform Maturity**
    - Wiki-style documentation
    - One-command deployment
    - Monitoring and observability
    - Clean, maintainable code
+   - **Defensive programming for framework edge cases**
 
 4. **Security Awareness**
    - "We've implemented security headers and rate limiting"
    - "Authentication is fully designed in SECURITY.md"
    - "The architecture supports multi-tenant isolation"
    - "Here's how JWT auth would integrate..." [show diagram]
+
+5. **Distributed Systems Expertise**
+   - "We discovered and handled Celery's edge cases with idempotent operations"
+   - "Our executor pool uses atomic Redis operations to prevent race conditions"
+   - "We implemented comprehensive metrics to detect and debug distributed issues"
+   - "Task chaining solved resource allocation challenges elegantly"
 
 ## Demo Talking Points for Missing Features
 
@@ -471,5 +512,10 @@ Remember: It's better to have fewer features working perfectly than many feature
 - **Hot Reload**: Frontend has it, but Python services require container restart.
 - **Debugging**: No remote debugging setup for containerized services.
 - **Development Seeds**: No sample data or development fixtures.
+
+### Distributed Systems Challenges
+- **Celery Edge Cases**: Implemented idempotent executor release to handle rare cases where both link and link_error callbacks execute. This required Redis Lua scripts for atomicity. See [Celery Idempotency Journey](../narrative/celery-idempotency-journey.md) for the full story.
+- **Task Chaining**: Used Celery task chaining to separate resource allocation from execution, avoiding retry limitations. See [Celery Task Chaining Solution](../architecture/celery-task-chaining-solution.md).
+- **Framework Limitations**: Working with Celery taught us valuable lessons about defensive programming and the importance of idempotency in distributed systems.
 
 These items are documented here rather than as TODOs in code to keep the codebase clean for demo purposes.
