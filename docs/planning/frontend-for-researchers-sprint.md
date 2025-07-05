@@ -24,20 +24,19 @@
   - [x] Code folding and minimap
   - [x] Find/replace functionality
   - [x] Multiple cursor support
-- [ ] Add code templates dropdown
+- [x] Add code templates dropdown
   - [x] "Hello World" example
-  - [ ] "Fibonacci calculation"
   - [x] "Network request example"
   - [x] "File I/O example"
   - [x] "Resource-intensive computation" (CPU-intensive task)
-- [x] Implement code persistence
+- [-] Implement code persistence
   - [x] Auto-save to localStorage
   - [x] "Recent submissions" dropdown
   - [ ] Named templates users can save
   - [ ] Import/export code snippets
 
 ### Afternoon (4 hours): Submission Configuration
-- [x] Add execution configuration panel
+- [-] Add execution configuration panel
   - [x] Timeout slider (30s - 5min)
   - [x] Memory limit selector (256MB - 2GB)
   - [ ] CPU limit selector (0.5 - 2 cores)

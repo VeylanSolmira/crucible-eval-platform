@@ -33,6 +33,18 @@ COPY infrastructure/**/*.md ./infrastructure/
 # Run preprocessing
 RUN npm install gray-matter && node scripts/preprocess-docs.js
 
+# Stage 2.6: Shared Types Generator
+FROM node:20-alpine AS shared-types-generator
+WORKDIR /app
+# Copy package files for js-yaml dependency
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+# Copy shared types and scripts
+COPY shared/types ./shared/types
+COPY shared/scripts ./shared/scripts
+# Generate TypeScript types from YAML
+RUN NODE_PATH=./node_modules node shared/scripts/generate-typescript-types.js
+
 # Stage 3: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -48,6 +60,9 @@ COPY infrastructure/**/*.md ./infrastructure/
 
 # Copy generated types from type-generator stage
 COPY --from=type-generator /app/types/generated ./types/generated
+
+# Copy shared generated types from shared-types-generator stage
+COPY --from=shared-types-generator /app/shared/generated/typescript ./shared/generated/typescript
 
 # Copy preprocessed docs cache from docs-processor stage
 COPY --from=docs-processor /app/.docs-cache ./.docs-cache

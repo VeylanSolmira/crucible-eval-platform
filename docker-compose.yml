@@ -251,6 +251,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - HEALTH_CHECK_URL=http://localhost:8083/health
+      - MAX_CONCURRENT_EXECUTIONS=1  # Each executor can handle 1 task at a time
     depends_on:
       base:
         condition: service_completed_successfully
@@ -303,6 +304,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
+      # Match concurrency to executor count to prevent over-provisioning
+      - CELERY_CONCURRENCY=${EXECUTOR_COUNT:-3}
       # Dynamic routing to all executors (legacy queue deactivated)
       - EXECUTOR_COUNT=3
       - EXECUTOR_BASE_URL=http://executor
@@ -319,8 +322,9 @@ services:
       storage-service:
         condition: service_healthy
     restart: unless-stopped
-    # Run 2 worker processes
-    command: ["celery", "-A", "tasks", "worker", "--loglevel=info", "--concurrency=2"]
+    # Run worker processes to match executor count
+    # This prevents over-provisioning with prefetch_multiplier=1
+    command: ["sh", "-c", "celery -A tasks worker --loglevel=info --concurrency=${EXECUTOR_COUNT:-3}"]
     healthcheck:
       test: ["CMD", "celery", "-A", "tasks", "inspect", "ping"]
       interval: 30s

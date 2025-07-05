@@ -1,17 +1,18 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useKillEvaluation, useEvaluationHistory } from '@/hooks/useEvaluation'
 import { useRunningEvaluations } from '@/hooks/useRunningEvaluations'
 import { ExecutionMonitor } from './ExecutionMonitor'
 import { log } from '@/src/utils/logger'
 import { formatDistanceToNow } from 'date-fns'
+import { EvaluationStatus } from '@/shared/generated/typescript/evaluation-status'
 
-type StatusFilter = 'all' | 'running' | 'completed' | 'failed'
+type StatusFilter = 'all' | EvaluationStatus
 
 interface Execution {
   eval_id: string
-  status: 'running' | 'completed' | 'failed' | 'queued'
+  status: EvaluationStatus | string
   created_at: string
   started_at?: string
   completed_at?: string
@@ -30,11 +31,28 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
   const [selectedExecId, setSelectedExecId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [currentPage, setCurrentPage] = useState(0)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const pageSize = 100
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Fetch data from various sources
   const { data: runningData } = useRunningEvaluations()
-  const { data: historyData, refetch: refetchHistory } = useEvaluationHistory(currentPage, pageSize)
+  const { data: historyData, refetch: refetchHistory } = useEvaluationHistory(
+    currentPage, 
+    pageSize,
+    statusFilter === 'all' ? undefined : statusFilter
+  )
   const killMutation = useKillEvaluation()
 
   // Refetch history when new evaluations are submitted
@@ -55,7 +73,7 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
     // Transform running evaluations to common format
     const runningExecs: Execution[] = running.map(e => ({
       eval_id: e.eval_id,
-      status: 'running' as const,
+      status: EvaluationStatus.RUNNING, // Running endpoint only returns currently running evaluations
       created_at: e.started_at || new Date().toISOString(),
       started_at: e.started_at,
       executor_id: e.executor_id,
@@ -66,9 +84,9 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
       const exec: Execution = {
         eval_id: e.eval_id,
         // Validate status is one of our known values, default to 'queued' if unknown
-        status: (['running', 'completed', 'failed', 'queued'].includes(e.status)
-          ? e.status
-          : 'queued') as 'running' | 'completed' | 'failed' | 'queued',
+        status: Object.values(EvaluationStatus).includes(e.status as EvaluationStatus)
+          ? (e.status as EvaluationStatus)
+          : EvaluationStatus.QUEUED,
         created_at: e.created_at || new Date().toISOString(),
       }
 
@@ -101,8 +119,8 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
 
     // Sort by status (running first) then by time
     return Array.from(uniqueMap.values()).sort((a, b) => {
-      if (a.status === 'running' && b.status !== 'running') return -1
-      if (a.status !== 'running' && b.status === 'running') return 1
+      if (a.status === EvaluationStatus.RUNNING && b.status !== EvaluationStatus.RUNNING) return -1
+      if (a.status !== EvaluationStatus.RUNNING && b.status === EvaluationStatus.RUNNING) return 1
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
   }, [runningData, historyData])
@@ -131,7 +149,7 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
 
     // Check if the evaluation is actually running
     const execution = allExecutions.find(e => e.eval_id === selectedExecId)
-    if (!execution || execution.status !== 'running') {
+    if (!execution || execution.status !== EvaluationStatus.RUNNING) {
       alert('This evaluation is not currently running')
       return
     }
@@ -169,22 +187,15 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
 
   const getStatusBadge = (status: string) => {
     const configs = {
-      running: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500', label: 'Running' },
-      completed: {
-        bg: 'bg-green-100',
-        text: 'text-green-700',
-        dot: 'bg-green-500',
-        label: 'Completed',
-      },
-      failed: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500', label: 'Failed' },
-      queued: {
-        bg: 'bg-yellow-100',
-        text: 'text-yellow-700',
-        dot: 'bg-yellow-500',
-        label: 'Queued',
-      },
+      [EvaluationStatus.SUBMITTED]: { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500', label: 'Submitted' },
+      [EvaluationStatus.QUEUED]: { bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500', label: 'Queued' },
+      [EvaluationStatus.PROVISIONING]: { bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500', label: 'Provisioning' },
+      [EvaluationStatus.RUNNING]: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500', label: 'Running' },
+      [EvaluationStatus.COMPLETED]: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500', label: 'Completed' },
+      [EvaluationStatus.FAILED]: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500', label: 'Failed' },
+      [EvaluationStatus.CANCELLED]: { bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-500', label: 'Cancelled' },
     }
-    return configs[status as keyof typeof configs] || configs.queued
+    return configs[status as keyof typeof configs] || configs[EvaluationStatus.QUEUED]
   }
 
   return (
@@ -201,29 +212,84 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
               </span>
             </div>
 
-            {/* Status Filter Tabs */}
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-              {(['all', 'running', 'completed', 'failed'] as StatusFilter[]).map(filter => {
-                const count =
-                  filter === 'all'
-                    ? allExecutions.length
-                    : allExecutions.filter(e => e.status === filter).length
+            {/* Status Filter - Primary buttons + Dropdown */}
+            <div className="flex items-center gap-2">
+              {/* Primary status filters */}
+              <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                {(['all', EvaluationStatus.RUNNING, EvaluationStatus.FAILED, EvaluationStatus.COMPLETED] as StatusFilter[]).map(filter => {
+                  const count =
+                    filter === 'all'
+                      ? allExecutions.length
+                      : allExecutions.filter(e => e.status === filter).length
 
-                return (
-                  <button
-                    key={filter}
-                    onClick={() => setStatusFilter(filter)}
-                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                      statusFilter === filter
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                    {count > 0 && <span className="ml-1 text-xs">({count})</span>}
-                  </button>
-                )
-              })}
+                  const label = filter === 'all' ? 'All' : getStatusBadge(filter).label
+
+                  return (
+                    <button
+                      key={filter}
+                      onClick={() => setStatusFilter(filter)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        statusFilter === filter
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {label}
+                      {count > 0 && <span className="ml-1 text-xs">({count})</span>}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Dropdown for other statuses */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {!['all', EvaluationStatus.RUNNING, EvaluationStatus.FAILED, EvaluationStatus.COMPLETED].includes(statusFilter) && (
+                    <span className="text-blue-600">{getStatusBadge(statusFilter).label}</span>
+                  )}
+                  {['all', EvaluationStatus.RUNNING, EvaluationStatus.FAILED, EvaluationStatus.COMPLETED].includes(statusFilter) && (
+                    <span>More</span>
+                  )}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showDropdown && (
+                  <div className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                    <div className="py-1">
+                      {Object.values(EvaluationStatus)
+                        .filter(status => ![EvaluationStatus.RUNNING, EvaluationStatus.FAILED, EvaluationStatus.COMPLETED].includes(status))
+                        .map(status => {
+                          const count = allExecutions.filter(e => e.status === status).length
+                          const badge = getStatusBadge(status)
+                          
+                          return (
+                            <button
+                              key={status}
+                              onClick={() => {
+                                setStatusFilter(status)
+                                setShowDropdown(false)
+                              }}
+                              className="flex w-full items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className={`inline-flex h-2 w-2 rounded-full ${badge.dot}`} />
+                                {badge.label}
+                              </span>
+                              {count > 0 && (
+                                <span className="text-xs text-gray-500">({count})</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -265,7 +331,7 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
                             <span
                               className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${status.bg} ${status.text}`}
                             >
-                              {execution.status === 'running' && (
+                              {execution.status === EvaluationStatus.RUNNING && (
                                 <span
                                   className={`w-1.5 h-1.5 ${status.dot} rounded-full animate-pulse mr-1`}
                                 />
@@ -365,7 +431,7 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
           {selectedExecution ? (
             <ExecutionMonitor
               evalId={selectedExecution.eval_id}
-              isRunning={selectedExecution.status === 'running'}
+              isRunning={selectedExecution.status === EvaluationStatus.RUNNING}
               onKill={() => void handleKill()}
             />
           ) : (

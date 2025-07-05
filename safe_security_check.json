@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-07-04T03:23:03.096212",
+  "environment": {
+    "in_container": false,
+    "container_type": "none",
+    "hostname": "unknown",
+    "user": "501:20"
+  },
+  "security_features": {
+    "running_as_root": false,
+    "can_read_docker_socket": false,
+    "can_read_proc_1": false,
+    "has_network": "no ip command",
+    "filesystem_writable": "/etc:readonly, /root:readonly, /var:readonly, /tmp:writable",
+    "resource_limits": "memory:unlimited, processes:4000"
+  }
+}

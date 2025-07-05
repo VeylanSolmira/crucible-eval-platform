@@ -82,3 +82,11 @@ For production systems, consider:
 
 - [Flower GitHub Issue #945](https://github.com/mher/flower/issues/945) - Open feature request for health check endpoint
 - [Celery Monitoring Guide](https://docs.celeryq.dev/en/stable/userguide/monitoring.html)
+
+## Related Issues
+
+### Frontend Cache Coherency
+- **Issue**: Running evaluations list doesn't update immediately when evaluation completes
+- **Cause**: React Query cache invalidation timing with polling intervals
+- **Solution**: Added invalidation in `useEvaluationLogs` when `is_running` becomes false
+- **See**: `/frontend/hooks/useEvaluation.ts`

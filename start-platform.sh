@@ -1,9 +1,11 @@
 #!/bin/bash
 # One-command startup script for Crucible Platform
-# Usage: ./start-platform.sh [dev|prod|build]
-#   dev   - Start in development mode
+# Usage: ./start-platform.sh [dev|prod|build] [--skip-tests|--no-browser]
+#   dev   - Start in development mode (default)
 #   prod  - Start with production configuration
 #   build - Rebuild all images then start in dev mode
+#   --skip-tests - Skip running tests after startup
+#   --no-browser - Don't open browser after startup
 
 set -e  # Exit on error
 
@@ -14,8 +16,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Parse command
+# Parse arguments
 MODE="${1:-dev}"
+SKIP_TESTS=false
+NO_BROWSER=false
+
+# Check for additional flags
+for arg in "$@"; do
+    case $arg in
+        --skip-tests)
+            SKIP_TESTS=true
+            ;;
+        --no-browser)
+            NO_BROWSER=true
+            ;;
+    esac
+done
 
 if [ "$MODE" = "build" ]; then
     echo -e "${BLUE}Rebuilding all services...${NC}"
@@ -35,7 +51,7 @@ fi
 
 # Check Docker Compose is available
 if ! command -v docker compose &> /dev/null; then
-    echo -e "${RED}dockercompose is not installed. Please install it first.${NC}"
+    echo -e "${RED}docker compose is not installed. Please install it first.${NC}"
     exit 1
 fi
 
@@ -124,8 +140,35 @@ else
     echo -e "\n${GREEN}✓ All services started successfully!${NC}"
 fi
 
-# Optional: Open browser (add --no-browser flag to skip)
-if [[ "$2" != "--no-browser" ]]; then
+# Run tests unless skipped
+if [ "$SKIP_TESTS" = false ]; then
+    echo -e "\n${YELLOW}Running platform tests...${NC}"
+    
+    # Wait a bit for services to stabilize
+    sleep 5
+    
+    # Check if Python virtual environment exists
+    if [ -d "venv" ]; then
+        # Activate venv and run tests
+        source venv/bin/activate
+        python tests/run_tests.py
+        TEST_RESULT=$?
+        deactivate
+    else
+        # Try running with system Python
+        python3 tests/run_tests.py
+        TEST_RESULT=$?
+    fi
+    
+    if [ $TEST_RESULT -ne 0 ]; then
+        echo -e "${YELLOW}⚠ Tests did not pass. Platform may not be fully functional.${NC}"
+    fi
+else
+    echo -e "\n${YELLOW}Skipping tests (--skip-tests flag provided)${NC}"
+fi
+
+# Optional: Open browser
+if [ "$NO_BROWSER" = false ]; then
     if command -v open &> /dev/null; then
         # macOS
         open http://localhost &

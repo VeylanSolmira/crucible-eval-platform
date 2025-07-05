@@ -10,8 +10,28 @@ components:
       type: string
       description: The status of an evaluation throughout its lifecycle
       enum:
-        - queued    # Evaluation has been submitted and is waiting to be processed
-        - running   # Evaluation is currently being executed
-        - completed # Evaluation finished successfully
-        - failed    # Evaluation failed due to error or timeout
-        - cancelled # Evaluation was cancelled by user request
+        - submitted    # API has acknowledged the evaluation request
+        - queued       # Evaluation has been submitted to Celery and is waiting to be processed
+        - provisioning # Evaluation has been picked up and resources are being allocated
+        - running      # Evaluation is currently being executed
+        - completed    # Evaluation finished successfully
+        - failed       # Evaluation failed due to error or timeout
+        - cancelled    # Evaluation was cancelled by user request
+    
+    # Define terminal states as a subset of EvaluationStatus
+    TerminalStates:
+      type: array
+      description: List of terminal states where no further processing occurs
+      items:
+        $ref: '#/components/schemas/EvaluationStatus'
+      default:
+        - completed
+        - failed
+        - cancelled
+      x-terminal-states:
+        - completed
+        - failed  
+        - cancelled
+      x-comment: |
+        These are the only states from which an evaluation cannot transition.
+        They must be valid values from the EvaluationStatus enum.

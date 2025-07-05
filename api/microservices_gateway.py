@@ -17,19 +17,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import shared types
-from shared.generated.python import EvaluationStatus
+from shared.generated.python import EvaluationStatus, EvaluationResponse as EvaluationDetailResponse
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import uvicorn
 
 # Import Redis for event publishing
 import redis.asyncio as redis
 
 # Import Celery client for dual-write
-from api.app.celery_client import submit_evaluation_to_celery
+from api.app.celery_client import submit_evaluation_to_celery, CELERY_ENABLED, cancel_celery_task
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -109,6 +109,8 @@ class EvaluationStatusResponse(BaseModel):
     success: bool = False
 
 
+
+
 class QueueStatusResponse(BaseModel):
     queued: int = 0
     processing: int = 0
@@ -154,13 +156,8 @@ async def check_service_health():
     """Periodic health check of downstream services"""
     while True:
         async with create_http_client(timeout=5.0) as health_client:
-            try:
-                # Check queue service
-                response = await health_client.get(f"{QUEUE_SERVICE_URL}/health")
-                service_health["queue"] = response.status_code == 200
-            except Exception as e:
-                logger.error(f"Queue health check failed: {e}")
-                service_health["queue"] = False
+            # Queue service deactivated - all traffic through Celery
+            service_health["queue"] = True  # Always healthy since we're using Celery
 
             try:
                 # Check storage service
@@ -196,13 +193,8 @@ async def check_service_health():
 async def check_service_health_once():
     """Run a single health check of all services"""
     async with create_http_client(timeout=5.0) as health_client:
-        try:
-            # Check queue service
-            response = await health_client.get(f"{QUEUE_SERVICE_URL}/health")
-            service_health["queue"] = response.status_code == 200
-        except Exception as e:
-            logger.error(f"Queue health check failed: {e}")
-            service_health["queue"] = False
+        # Queue service deactivated - all traffic through Celery
+        service_health["queue"] = True  # Always healthy since we're using Celery
 
         try:
             # Check storage service
@@ -309,17 +301,17 @@ async def health():
     }
 
 
-@app.post("/api/eval", response_model=EvaluationResponse)
-async def evaluate(request: EvaluationRequest):
-    """Submit code for evaluation"""
+async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] = None) -> EvaluationResponse:
+    """Core evaluation submission logic - shared between single and batch endpoints"""
     if not service_health["queue"]:
         raise HTTPException(status_code=503, detail="Queue service unavailable")
 
-    # Generate eval ID
-    eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+    # Generate eval ID if not provided
+    if not eval_id:
+        eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
 
     try:
-        # Publish event for storage worker to handle
+        # Publish event for storage worker to handle - this is now "queued" since we're submitting to Celery
         await publish_evaluation_event(
             "evaluation:queued",
             {
@@ -334,76 +326,35 @@ async def evaluate(request: EvaluationRequest):
             },
         )
 
-        # TODO: Remove traffic split after Celery migration is complete (Day 7)
-        # Traffic split: 50% to Celery, 50% to legacy queue
-        import random
-
-        use_celery = os.getenv(
-            "CELERY_ENABLED", "false"
-        ).lower() == "true" and random.random() < float(os.getenv("CELERY_PERCENTAGE", "0.5"))
-
-        if use_celery:
-            # Submit to Celery
-            celery_task_id = submit_evaluation_to_celery(
-                eval_id=eval_id,
-                code=request.code,
-                language=request.language,
-                priority=request.priority,
-            )
-            if celery_task_id:
-                logger.info(f"Submitted evaluation {eval_id} to Celery: {celery_task_id}")
-            else:
-                # Fallback to legacy queue if Celery submission fails
-                logger.warning(
-                    f"Celery submission failed for {eval_id}, falling back to legacy queue"
-                )
-                async with create_http_client() as queue_client:
-                    response = await queue_client.post(
-                        f"{QUEUE_SERVICE_URL}/tasks",
-                        json={
-                            "eval_id": eval_id,
-                            "code": request.code,
-                            "language": request.language,
-                            "engine": request.engine,
-                            "timeout": request.timeout,
-                            "priority": 10 if request.priority else 1,
-                        },
-                    )
-                    response.raise_for_status()
+        # Submit to Celery (100% traffic now)
+        celery_task_id = submit_evaluation_to_celery(
+            eval_id=eval_id,
+            code=request.code,
+            language=request.language,
+            priority=request.priority,
+        )
+        if celery_task_id:
+            logger.info(f"Submitted evaluation {eval_id} to Celery: {celery_task_id}")
         else:
-            # Submit to legacy queue
-            async with create_http_client() as queue_client:
-                response = await queue_client.post(
-                    f"{QUEUE_SERVICE_URL}/tasks",
-                    json={
-                        "eval_id": eval_id,
-                        "code": request.code,
-                        "language": request.language,
-                        "engine": request.engine,
-                        "timeout": request.timeout,
-                        "priority": 10 if request.priority else 1,
-                    },
-                )
-                response.raise_for_status()
-                logger.info(f"Submitted evaluation {eval_id} to legacy queue")
+            logger.error(f"Failed to submit evaluation {eval_id} to Celery")
+            raise HTTPException(status_code=503, detail="Failed to submit evaluation to processing queue")
 
-        # Set a pending key in Redis with 60s TTL
+        # Set a pending key in Redis with longer TTL to prevent race conditions
+        # This ensures the key exists long enough for the database to be updated
         try:
-            await redis_client.setex(f"pending:{eval_id}", 60, "queued")
+            await redis_client.setex(f"pending:{eval_id}", 600, "queued")  # 10 minutes
             logger.info(f"Set pending key for {eval_id}")
         except Exception as e:
             logger.error(f"Failed to set pending key for {eval_id}: {e}")
 
-        # Get queue status for position
-        async with create_http_client() as queue_client:
-            queue_status = await queue_client.get(f"{QUEUE_SERVICE_URL}/status")
-            queue_data = queue_status.json() if queue_status.status_code == 200 else {}
+        # Queue position not available with Celery yet
+        queue_position = None
 
         return EvaluationResponse(
             eval_id=eval_id,
             status=EvaluationStatus.QUEUED,
             message="Evaluation queued successfully",
-            queue_position=queue_data.get("queued", 0),
+            queue_position=queue_position,
         )
 
     except httpx.HTTPError as e:
@@ -413,107 +364,160 @@ async def evaluate(request: EvaluationRequest):
         raise HTTPException(status_code=502, detail="Failed to queue evaluation")
 
 
-@app.post("/api/eval-batch", response_model=BatchEvaluationResponse)
-async def evaluate_batch(request: BatchEvaluationRequest):
-    """Submit multiple evaluations as a batch"""
+@app.post("/api/eval", response_model=EvaluationResponse)
+async def evaluate(request: EvaluationRequest):
+    """Submit code for evaluation"""
     if not service_health["queue"]:
         raise HTTPException(status_code=503, detail="Queue service unavailable")
 
-    results = []
-    queued_count = 0
-    failed_count = 0
-
-    # Get current queue status for position calculation
+    # Generate eval ID and immediately acknowledge with "submitted" status
+    eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+    
+    # Publish submitted event first
+    await publish_evaluation_event(
+        "evaluation:submitted",
+        {
+            "eval_id": eval_id,
+            "code": request.code,
+            "language": request.language,
+            "engine": request.engine,
+            "metadata": {
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
+                "timeout": request.timeout,
+            },
+        },
+    )
+    
+    # Now attempt to queue in Celery
     try:
-        async with create_http_client() as queue_client:
-            queue_status = await queue_client.get(f"{QUEUE_SERVICE_URL}/status")
-            queue_data = queue_status.json() if queue_status.status_code == 200 else {}
-            current_queue_size = queue_data.get("queued", 0)
+        return await _submit_evaluation(request, eval_id)
     except Exception as e:
-        logger.warning(f"Failed to get queue status: {e}")
-        current_queue_size = 0
+        # If submission fails, update status to failed
+        await publish_evaluation_event(
+            "evaluation:failed", 
+            {"eval_id": eval_id, "error": str(e), "failed_at": "submission"}
+        )
+        raise
 
-    # Process each evaluation
-    for idx, eval_request in enumerate(request.evaluations):
-        eval_id = (
-            f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+
+async def _process_batch_async(evaluations: List[EvaluationRequest], eval_ids: List[str]):
+    """Process batch evaluations asynchronously in the background"""
+    # Rate limiting configuration
+    BATCH_SIZE = 5  # Process 5 at a time
+    BASE_DELAY = 0.1  # 100ms between items (10/second baseline)
+    BATCH_DELAY = 0.5  # 500ms between batches
+    MAX_RETRIES = 3
+    BACKOFF_FACTOR = 2.0  # Exponential backoff multiplier
+
+    # Process evaluations in sub-batches with rate limiting
+    for batch_idx in range(0, len(evaluations), BATCH_SIZE):
+        batch = evaluations[batch_idx:batch_idx + BATCH_SIZE]
+        batch_eval_ids = eval_ids[batch_idx:batch_idx + BATCH_SIZE]
+        
+        for item_idx, (eval_request, eval_id) in enumerate(zip(batch, batch_eval_ids)):
+            # Retry loop with exponential backoff
+            retry_count = 0
+            delay = BASE_DELAY
+            
+            while retry_count <= MAX_RETRIES:
+                try:
+                    # Submit to Celery
+                    await _submit_evaluation(eval_request, eval_id)
+                    break  # Success, exit retry loop
+
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count <= MAX_RETRIES:
+                        backoff_delay = delay * (BACKOFF_FACTOR ** (retry_count - 1))
+                        logger.warning(
+                            f"Error submitting {eval_id}: {e}, "
+                            f"retry {retry_count}/{MAX_RETRIES} in {backoff_delay:.2f}s"
+                        )
+                        await asyncio.sleep(backoff_delay)
+                        continue
+                    else:
+                        # Max retries exceeded - publish failure event
+                        logger.error(f"Failed to queue {eval_id} after {MAX_RETRIES} retries: {e}")
+                        await publish_evaluation_event(
+                            "evaluation:failed",
+                            {
+                                "eval_id": eval_id, 
+                                "error": str(e), 
+                                "failed_at": "batch_submission"
+                            },
+                        )
+                        break  # Exit retry loop
+            
+            # Rate limit between items in batch
+            if item_idx < len(batch) - 1:
+                await asyncio.sleep(delay)
+        
+        # Delay between batches
+        if batch_idx + BATCH_SIZE < len(evaluations):
+            await asyncio.sleep(BATCH_DELAY)
+
+
+@app.post("/api/eval-batch", response_model=BatchEvaluationResponse, status_code=202)
+async def evaluate_batch(request: BatchEvaluationRequest, response: Response):
+    """Submit multiple evaluations as a batch - returns immediately with 202 Accepted"""
+    # Validate batch size
+    MAX_BATCH_SIZE = 100
+    if len(request.evaluations) > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Batch size {len(request.evaluations)} exceeds maximum of {MAX_BATCH_SIZE}"
         )
 
-        try:
-            # Publish event for storage worker
-            await publish_evaluation_event(
-                "evaluation:queued",
-                {
-                    "eval_id": eval_id,
-                    "code": eval_request.code,
-                    "language": eval_request.language,
-                    "engine": eval_request.engine,
-                    "metadata": {
-                        "submitted_at": datetime.now(timezone.utc).isoformat(),
-                        "timeout": eval_request.timeout,
-                        "batch": True,
-                        "batch_index": idx,
-                    },
+    # Generate eval IDs and publish submitted events for all evaluations
+    results = []
+    eval_ids = []
+    
+    for eval_request in request.evaluations:
+        eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        eval_ids.append(eval_id)
+        
+        # Publish submitted event
+        await publish_evaluation_event(
+            "evaluation:submitted",
+            {
+                "eval_id": eval_id,
+                "code": eval_request.code,
+                "language": eval_request.language,
+                "engine": eval_request.engine,
+                "metadata": {
+                    "submitted_at": datetime.now(timezone.utc).isoformat(),
+                    "timeout": eval_request.timeout,
+                    "batch": True,
                 },
+            },
+        )
+        
+        # Add to results with submitted status
+        results.append(
+            EvaluationResponse(
+                eval_id=eval_id,
+                status=EvaluationStatus.SUBMITTED,
+                message="Evaluation accepted for processing",
+                queue_position=None,
             )
-
-            # Forward to queue service
-            async with create_http_client() as queue_client:
-                response = await queue_client.post(
-                    f"{QUEUE_SERVICE_URL}/tasks",
-                    json={
-                        "eval_id": eval_id,
-                        "code": eval_request.code,
-                        "language": eval_request.language,
-                        "engine": eval_request.engine,
-                        "timeout": eval_request.timeout,
-                        "priority": 1,
-                    },
-            )
-            response.raise_for_status()
-
-            # Set a pending key in Redis with 60s TTL
-            await redis_client.setex(f"pending:{eval_id}", 60, "queued")
-
-            results.append(
-                EvaluationResponse(
-                    eval_id=eval_id,
-                    status=EvaluationStatus.QUEUED,
-                    message="Evaluation queued successfully",
-                    queue_position=current_queue_size + queued_count + 1,
-                )
-            )
-            queued_count += 1
-
-        except Exception as e:
-            logger.error(f"Failed to queue evaluation {idx}: {e}")
-            results.append(
-                EvaluationResponse(
-                    eval_id=eval_id,
-                    status=EvaluationStatus.FAILED,
-                    message=f"Failed to queue: {str(e)}",
-                    queue_position=None,
-                )
-            )
-            failed_count += 1
-
-            # Publish failure event
-            await publish_evaluation_event(
-                "evaluation:failed",
-                {"eval_id": eval_id, "error": str(e), "batch": True, "batch_index": idx},
-            )
-
+        )
+    
+    # Process batch asynchronously in background
+    asyncio.create_task(_process_batch_async(request.evaluations, eval_ids))
+    
+    # Return 202 Accepted immediately
+    response.status_code = 202
     return BatchEvaluationResponse(
         evaluations=results,
         total=len(request.evaluations),
-        queued=queued_count,
-        failed=failed_count,
+        queued=0,  # None queued yet, all are submitted
+        failed=0,  # No failures yet
     )
 
 
 
 @app.get(
-    "/api/eval/{eval_id}",
+    "/api/eval/{eval_id}/status",
     response_model=EvaluationStatusResponse,
     responses={
         200: {
@@ -528,11 +532,12 @@ async def evaluate_batch(request: BatchEvaluationRequest):
         503: {"description": "Storage service unavailable"},
     },
 )
-async def get_evaluation(eval_id: str, response: Response):
+async def get_evaluation_status(eval_id: str, response: Response):
     """
     Get evaluation status - checks Redis first for real-time status, falls back to DB.
     This provides instant status updates for running evaluations.
     """
+    logger.info(f"Getting evaluation status for {eval_id}")
     try:
         # First, try to get running info from Redis (real-time)
         try:
@@ -560,6 +565,7 @@ async def get_evaluation(eval_id: str, response: Response):
             # If 404, evaluation is not in Redis (not running), continue to DB
         
         # Fall back to database for completed/failed evaluations
+        logger.info(f"Evaluation {eval_id} not in Redis, checking database")
         async with create_http_client() as db_client:
             response = await db_client.get(
                 f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}"
@@ -590,9 +596,64 @@ async def get_evaluation(eval_id: str, response: Response):
             
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
+            logger.warning(f"Evaluation {eval_id} not found in database")
             raise HTTPException(status_code=404, detail="Evaluation not found")
         logger.error(f"Error fetching evaluation {eval_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch evaluation")
+    except Exception as e:
+        logger.error(f"Unexpected error fetching evaluation {eval_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get(
+    "/api/eval/{eval_id}",
+    response_model=EvaluationDetailResponse,
+    responses={
+        200: {
+            "model": EvaluationDetailResponse,
+            "description": "Full evaluation details including code",
+        },
+        404: {"description": "Evaluation not found"},
+        503: {"description": "Storage service unavailable"},
+    },
+)
+async def get_evaluation(eval_id: str):
+    """
+    Get full evaluation details including code, output, and all metadata.
+    This endpoint returns comprehensive evaluation data from the storage service.
+    """
+    logger.info(f"Getting full evaluation details for {eval_id}")
+    try:
+        async with create_http_client() as client:
+            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            response.raise_for_status()
+            
+            eval_data = response.json()
+            
+            # Map storage service response to our detail response
+            return EvaluationDetailResponse(
+                eval_id=eval_data.get("id", eval_id),
+                code=eval_data.get("code", ""),
+                language=eval_data.get("language", "python"),
+                status=eval_data.get("status", "unknown"),
+                created_at=eval_data.get("created_at"),
+                started_at=eval_data.get("started_at"),
+                completed_at=eval_data.get("completed_at"),
+                output=eval_data.get("output", ""),
+                error=eval_data.get("error", ""),
+                exit_code=eval_data.get("exit_code"),
+                runtime_ms=eval_data.get("runtime_ms"),
+                output_truncated=eval_data.get("output_truncated", False),
+                error_truncated=eval_data.get("error_truncated", False),
+                metadata=eval_data.get("metadata", {}),
+            )
+            
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            logger.warning(f"Evaluation {eval_id} not found")
+            raise HTTPException(status_code=404, detail="Evaluation not found")
+        logger.error(f"Error fetching evaluation {eval_id}: {e}")
+        raise HTTPException(status_code=503, detail="Storage service unavailable")
     except Exception as e:
         logger.error(f"Unexpected error fetching evaluation {eval_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -713,8 +774,6 @@ async def cancel_evaluation(eval_id: str, terminate: bool = False):
     Different from /kill which stops the Docker container execution.
     """
     # First check if Celery is enabled
-    from app.celery_client import CELERY_ENABLED, cancel_celery_task
-
     if not CELERY_ENABLED:
         return JSONResponse(
             content={"error": "Celery not enabled - using legacy queue system"}, status_code=503
@@ -847,18 +906,16 @@ async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[st
 
 @app.get("/api/queue-status", response_model=QueueStatusResponse)
 async def get_queue_status():
-    """Get queue status"""
-    try:
-        async with create_http_client() as queue_client:
-            response = await queue_client.get(f"{QUEUE_SERVICE_URL}/status")
-            response.raise_for_status()
-            data = response.json()
-            return QueueStatusResponse(**data)
-    except Exception as e:
-        logger.error(f"Failed to get queue status: {e}")
-        return QueueStatusResponse(
-            error="Queue service unavailable", queued=0, processing=0, queue_length=0, total_tasks=0
-        )
+    """Get queue status - now returns Celery status since legacy queue is deactivated"""
+    # Legacy queue deactivated - return empty status
+    # TODO: Replace with Celery queue metrics
+    return QueueStatusResponse(
+        queued=0,
+        processing=0,
+        queue_length=0,
+        total_tasks=0,
+        error=None
+    )
 
 
 @app.get("/api/celery-status")

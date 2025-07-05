@@ -76,7 +76,7 @@ class StorageWorker:
         """Start listening for events"""
         # Subscribe to relevant channels
         await self.pubsub.subscribe(
-            "evaluation:queued", "evaluation:running", "evaluation:completed", "evaluation:failed"
+            "evaluation:submitted", "evaluation:queued", "evaluation:running", "evaluation:completed", "evaluation:failed"
         )
 
         # Subscribe to log channels using pattern
@@ -104,7 +104,9 @@ class StorageWorker:
             else:
                 logger.info(f"Received event on {channel}: {data.get('eval_id', 'unknown')}")
 
-                if channel == "evaluation:queued":
+                if channel == "evaluation:submitted":
+                    await self.handle_evaluation_submitted(data)
+                elif channel == "evaluation:queued":
                     await self.handle_evaluation_queued(data)
                 elif channel == "evaluation:running":
                     await self.handle_evaluation_running(data)
@@ -196,42 +198,75 @@ class StorageWorker:
         except Exception as e:
             logger.error(f"Error flushing logs for {eval_id}: {e}")
 
-    async def handle_evaluation_queued(self, data: Dict[str, Any]):
-        """Handle evaluation queued event"""
+    async def handle_evaluation_submitted(self, data: Dict[str, Any]):
+        """Handle evaluation submitted event - create initial record"""
         eval_id = data.get("eval_id")
         code = data.get("code")
 
         if not eval_id or not code:
-            logger.error(f"Missing required fields in queued event: {data}")
+            logger.error(f"Missing required fields in submitted event: {data}")
             return
 
         try:
-            # Call storage service API to create evaluation
+            # Call storage service API to create evaluation with submitted status
             response = await self.client.post(
                 f"{self.storage_url}/evaluations",
                 json={
                     "id": eval_id,
                     "code": code,
                     "language": data.get("language", "python"),
+                    "status": EvaluationStatus.SUBMITTED.value,
+                    "metadata": data.get("metadata", {}),
+                },
+            )
+
+            if response.status_code == 200:
+                logger.info(f"Stored submitted evaluation {eval_id}")
+                # Publish confirmation event (other services can listen)
+                await self.redis.publish(
+                    "storage:evaluation:submitted",
+                    json.dumps(
+                        {"eval_id": eval_id, "timestamp": datetime.now(timezone.utc).isoformat()}
+                    ),
+                )
+            else:
+                logger.error(f"Failed to store submitted evaluation {eval_id}: {response.status_code}")
+
+        except Exception as e:
+            logger.error(f"Error storing submitted evaluation {eval_id}: {e}")
+
+    async def handle_evaluation_queued(self, data: Dict[str, Any]):
+        """Handle evaluation queued event - update status from submitted to queued"""
+        eval_id = data.get("eval_id")
+
+        if not eval_id:
+            logger.error(f"Missing eval_id in queued event: {data}")
+            return
+
+        try:
+            # Update evaluation status to queued (it should already exist with submitted status)
+            response = await self.client.put(
+                f"{self.storage_url}/evaluations/{eval_id}",
+                json={
                     "status": EvaluationStatus.QUEUED.value,
                     "metadata": data.get("metadata", {}),
                 },
             )
 
             if response.status_code == 200:
-                logger.info(f"Stored queued evaluation {eval_id}")
+                logger.info(f"Updated evaluation {eval_id} to queued status")
                 # Publish confirmation event (other services can listen)
                 await self.redis.publish(
-                    "storage:evaluation:created",
+                    "storage:evaluation:queued",
                     json.dumps(
                         {"eval_id": eval_id, "timestamp": datetime.now(timezone.utc).isoformat()}
                     ),
                 )
             else:
-                logger.error(f"Failed to store queued evaluation {eval_id}: {response.status_code}")
+                logger.error(f"Failed to update evaluation {eval_id} to queued: {response.status_code}")
 
         except Exception as e:
-            logger.error(f"Error storing queued evaluation {eval_id}: {e}")
+            logger.error(f"Error updating evaluation {eval_id} to queued: {e}")
 
     async def handle_evaluation_running(self, data: Dict[str, Any]):
         """Handle evaluation running event - store executor assignment in Redis"""
@@ -296,6 +331,8 @@ class StorageWorker:
             logger.error(f"Missing eval_id in completed event: {data}")
             return
 
+        logger.info(f"Storage-worker handling completed event for {eval_id}")
+
         try:
             # Call storage service API to update evaluation
             response = await self.client.put(
@@ -309,11 +346,12 @@ class StorageWorker:
             )
 
             if response.status_code == 200:
-                logger.info(f"Updated completed evaluation {eval_id}")
+                logger.info(f"Updated completed evaluation {eval_id} in database")
 
                 # Clean up Redis running info
                 await self.redis.delete(f"eval:{eval_id}:running")
                 await self.redis.srem("running_evaluations", eval_id)
+                logger.info(f"Cleaned up Redis running info for {eval_id}")
 
                 # Flush any remaining logs
                 if eval_id in self.log_buffers:

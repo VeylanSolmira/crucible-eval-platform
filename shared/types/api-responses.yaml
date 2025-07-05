@@ -1,0 +1,87 @@
+# Common API response patterns
+openapi: 3.1.0
+info:
+  title: Common API Responses
+  version: 1.0.0
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        detail:
+          type: string
+          description: Detailed error information
+        code:
+          type: string
+          description: Error code for programmatic handling
+        path:
+          type: string
+          description: API path where error occurred
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred
+      example:
+        error: "Evaluation not found"
+        detail: "No evaluation with ID 'eval_xyz' exists"
+        code: "EVALUATION_NOT_FOUND"
+        path: "/api/eval/eval_xyz"
+        
+    PaginatedResponse:
+      type: object
+      description: Standard pagination wrapper
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          description: Array of items for this page
+          items:
+            type: object
+        total:
+          type: integer
+          description: Total number of items across all pages
+        limit:
+          type: integer
+          description: Maximum items per page
+        offset:
+          type: integer
+          description: Number of items skipped
+        has_more:
+          type: boolean
+          description: Whether more pages exist
+          
+    CreateResponse:
+      type: object
+      description: Standard response after creating a resource
+      required:
+        - id
+        - status
+        - message
+      properties:
+        id:
+          type: string
+          description: ID of created resource
+        status:
+          type: string
+          description: Initial status
+        message:
+          type: string
+          description: Human-readable status message
+        queue_position:
+          type: integer
+          description: Position in queue (if applicable)
+      example:
+        id: "eval_123abc"
+        status: "queued"
+        message: "Evaluation queued for processing"
+        queue_position: 5

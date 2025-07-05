@@ -160,6 +160,23 @@ async def health():
     }
 
 
+@app.get("/capacity")
+async def capacity():
+    """Check if executor can accept new tasks - Kubernetes readiness probe pattern"""
+    max_concurrent = int(os.getenv("MAX_CONCURRENT_EXECUTIONS", "1"))
+    current_running = len(running_containers)
+    
+    can_accept = current_running < max_concurrent
+    
+    return {
+        "executor_id": executor_id,
+        "can_accept": can_accept,
+        "running": current_running,
+        "max_concurrent": max_concurrent,
+        "available_slots": max(0, max_concurrent - current_running)
+    }
+
+
 def start_container(eval_id: str, code: str, timeout: int) -> Dict:
     """Start code execution in an isolated container"""
     try:
@@ -305,9 +322,11 @@ async def stream_container_logs(eval_id: str):
                     break
 
                 # Get logs since last check
-                current_time = datetime.now(timezone.utc)
+                # Docker expects naive datetimes, not timezone-aware
+                current_time = datetime.now()
+                last_timestamp_naive = last_timestamp.replace(tzinfo=None) if last_timestamp.tzinfo else last_timestamp
                 logs = container.logs(
-                    stdout=True, stderr=True, since=last_timestamp, until=current_time
+                    stdout=True, stderr=True, since=last_timestamp_naive, until=current_time
                 )
                 if logs:
                     log_text = logs.decode("utf-8", errors="replace")
@@ -339,8 +358,8 @@ async def stream_container_logs(eval_id: str):
 
                             logger.debug(f"Published log chunk {seq} for {eval_id}")
 
-                        # Update last timestamp
-                        last_timestamp = current_time
+                        # Update last timestamp (keep as aware for storage)
+                        last_timestamp = datetime.now(timezone.utc)
                         container_log_timestamps[eval_id] = last_timestamp
 
             except Exception as e:

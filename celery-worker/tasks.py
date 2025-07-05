@@ -8,13 +8,14 @@ service for persistence.
 
 import os
 import logging
-from celery import Celery
+from celery import Celery, signature
 import httpx
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import redis
 import traceback
 from retry_config import get_retry_message, calculate_retry_delay, RETRYABLE_HTTP_CODES
 from dlq_config import DeadLetterQueue
+from executor_pool import ExecutorPool
 
 # Configure logging
 logging.basicConfig(
@@ -30,14 +31,143 @@ app.config_from_object("celeryconfig")
 STORAGE_SERVICE_URL = os.environ.get("STORAGE_SERVICE_URL", "http://storage-service:8082")
 EXECUTOR_SERVICE_URL = os.environ.get("EXECUTOR_SERVICE_URL", None)
 
-# Redis connection for DLQ
+# Redis connection for DLQ and executor pool
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 redis_client = redis.from_url(REDIS_URL)
 dlq = DeadLetterQueue(redis_client)
 
+# Initialize executor pool
+executor_pool = ExecutorPool(redis_client)
+
+# Initialize pool with available executors on startup
+# This should ideally be done by a separate initialization script
+EXECUTOR_COUNT = int(os.environ.get("EXECUTOR_COUNT", "3"))
+EXECUTOR_BASE_URL = os.environ.get("EXECUTOR_BASE_URL", "http://executor")
+executor_urls = [f"{EXECUTOR_BASE_URL}-{i+1}:8083" for i in range(EXECUTOR_COUNT)]
+
 # Import executor routing only if not using fixed executor
 if not EXECUTOR_SERVICE_URL:
-    from executor_router import get_executor_url
+    from executor_router import get_executor_url, get_available_executor_url
+    # Initialize the pool on worker startup
+    try:
+        executor_pool.initialize_pool(executor_urls)
+        logger.info(f"Initialized executor pool with {len(executor_urls)} executors")
+    except Exception as e:
+        logger.error(f"Failed to initialize executor pool: {e}")
+
+
+@app.task(bind=True, max_retries=30, result_expires=300)
+def assign_executor(self, eval_id: str, code: str, language: str = "python") -> Dict[str, Any]:
+    """
+    Lightweight task that finds an available executor and chains to evaluation.
+    This task can retry many times without issues since it does minimal work.
+    
+    Args:
+        eval_id: Unique evaluation identifier
+        code: Code to execute
+        language: Programming language
+        
+    Returns:
+        Task assignment result
+    """
+    logger.info(f"Assigning executor for evaluation {eval_id} (attempt {self.request.retries + 1})")
+    
+    try:
+        # Store assigner task ID for potential cancellation
+        redis_client.setex(f"assigner:{eval_id}", 300, self.request.id)
+        
+        # Try to claim an executor atomically
+        executor_url = executor_pool.claim_executor(eval_id, ttl=600)  # 10 min TTL
+        
+        if not executor_url:
+            # No executor available, retry with exponential backoff
+            retry_count = self.request.retries
+            if retry_count >= self.max_retries:
+                # Max retries exhausted
+                logger.error(f"No executor available for {eval_id} after {retry_count} attempts")
+                # Update status to failed
+                try:
+                    with httpx.Client() as client:
+                        client.put(
+                            f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
+                            json={
+                                "status": "failed",
+                                "error": f"No executor available after {retry_count} attempts"
+                            }
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to update status for {eval_id}: {e}")
+                
+                return {
+                    "eval_id": eval_id,
+                    "status": "failed", 
+                    "error": "No executor available",
+                    "attempts": retry_count
+                }
+            
+            # Calculate backoff delay (5s, 10s, 15s, ... max 30s)
+            countdown = min(5 * (retry_count + 1), 30)
+            logger.info(f"No executor available for {eval_id}, retrying in {countdown}s")
+            raise self.retry(countdown=countdown)
+        
+        # Executor claimed! Clean up assigner tracking
+        redis_client.delete(f"assigner:{eval_id}")
+        
+        logger.info(f"Assigned executor {executor_url} to evaluation {eval_id}")
+        
+        # Create the evaluation task with the assigned executor
+        eval_task = evaluate_code.si(
+            eval_id=eval_id,
+            code=code, 
+            language=language,
+            executor_url=executor_url
+        )
+        
+        # Create cleanup task that always runs after evaluation
+        cleanup_task = release_executor_task.si(executor_url)
+        
+        # Chain: evaluation -> cleanup (on success)
+        # Link error: cleanup (on failure)
+        eval_task.link(cleanup_task)
+        eval_task.link_error(cleanup_task)
+        
+        # Start the evaluation chain
+        result = eval_task.apply_async()
+        
+        return {
+            "eval_id": eval_id,
+            "status": "assigned",
+            "executor": executor_url,
+            "task_id": result.id,
+            "message": f"Evaluation assigned to {executor_url}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Unexpected error in assign_executor for {eval_id}: {e}")
+        # Clean up assigner tracking
+        redis_client.delete(f"assigner:{eval_id}")
+        raise
+
+
+@app.task
+def release_executor_task(executor_url: str) -> Dict[str, Any]:
+    """
+    Cleanup task that releases an executor back to the pool.
+    This always runs after evaluation (success or failure).
+    
+    Args:
+        executor_url: URL of the executor to release
+        
+    Returns:
+        Release status
+    """
+    try:
+        executor_pool.release_executor(executor_url)
+        logger.info(f"Released executor {executor_url} back to pool")
+        return {"status": "released", "executor": executor_url}
+    except Exception as e:
+        logger.error(f"Failed to release executor {executor_url}: {e}")
+        return {"status": "error", "executor": executor_url, "error": str(e)}
 
 
 @app.task(
@@ -49,7 +179,7 @@ if not EXECUTOR_SERVICE_URL:
     retry_backoff_max=600,  # Max 10 minutes between retries
     retry_jitter=True,  # Add randomness to prevent thundering herd
 )
-def evaluate_code(self, eval_id: str, code: str, language: str = "python") -> Dict[str, Any]:
+def evaluate_code(self, eval_id: str, code: str, language: str = "python", executor_url: Optional[str] = None) -> Dict[str, Any]:
     """
     Main task for evaluating code submissions.
 
@@ -57,29 +187,38 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python") -> Di
         eval_id: Unique evaluation identifier
         code: Code to execute
         language: Programming language (currently only python)
+        executor_url: Pre-assigned executor URL (from task chaining)
 
     Returns:
         Evaluation result dictionary
     """
-    logger.info(f"Starting evaluation {eval_id}")
+    logger.info(f"Starting evaluation {eval_id} with executor_url={executor_url}")
 
     try:
-        # Update status to running
-        with httpx.Client() as client:
-            storage_response = client.put(
-                f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}", json={"status": "running"}
-            )
-            storage_response.raise_for_status()
-
-        # Execute code via executor service
-        if EXECUTOR_SERVICE_URL:
+        # Check if executor_url was provided (from task chaining)
+        if executor_url:
+            # Use the pre-assigned executor
+            logger.info(f"Using pre-assigned executor: {executor_url}")
+        elif EXECUTOR_SERVICE_URL:
             # Use fixed executor URL
             executor_url = EXECUTOR_SERVICE_URL
             logger.info(f"Using fixed executor: {executor_url}")
         else:
-            # Use dynamic routing
-            executor_url = get_executor_url()
-            logger.info(f"Routing evaluation {eval_id} to {executor_url}")
+            # Legacy path: find available executor (should not be reached with task chaining)
+            logger.warning(f"evaluate_code called without executor_url for {eval_id} - using legacy path")
+            executor_url = get_available_executor_url()
+            if not executor_url:
+                # No executor available, retry the task
+                logger.info(f"No executor available for {eval_id}, retrying in 5 seconds")
+                raise self.retry(countdown=5, max_retries=None)  # Keep retrying until executor available
+            logger.info(f"Found available executor for {eval_id}: {executor_url}")
+
+        # Now that we have an executor, update status to provisioning
+        with httpx.Client() as client:
+            storage_response = client.put(
+                f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}", json={"status": "provisioning"}
+            )
+            storage_response.raise_for_status()
 
         with httpx.Client(timeout=300.0) as client:  # 5 minute timeout
             execution_response = client.post(
@@ -89,20 +228,22 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python") -> Di
             execution_response.raise_for_status()
             result = execution_response.json()
 
-        # Update storage with results
+        # Update storage with the executor's response
+        # The executor will publish evaluation:running event when container actually starts
         with httpx.Client() as client:
             storage_response = client.put(
                 f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
                 json={
-                    "status": "completed",
+                    "status": result.get("status", "provisioning"),  # Keep provisioning until executor says otherwise
                     "output": result.get("output", ""),
                     "error": result.get("error", ""),
-                    "execution_time": result.get("execution_time", 0),
+                    "executor_id": result.get("executor_id", ""),
+                    "container_id": result.get("container_id", ""),
                 },
             )
             storage_response.raise_for_status()
 
-        logger.info(f"Completed evaluation {eval_id}")
+        logger.info(f"Started evaluation {eval_id} on executor {result.get('executor_id')}")
         return result
 
     except httpx.HTTPError as e:
@@ -196,14 +337,22 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python") -> Di
         # Update storage with error status
         try:
             with httpx.Client() as client:
+                # Only mark as failed if we've exhausted retries
+                is_final_failure = self.request.retries >= self.max_retries
+                update_data = {
+                    "error": str(e),
+                    "retries": self.request.retries,
+                    "retry_message": f"Retry {self.request.retries + 1}/{self.max_retries} in {calculate_retry_delay(self.request.retries)}s" if not is_final_failure else None,
+                }
+                
+                # Only set status to failed on final failure
+                if is_final_failure:
+                    update_data["status"] = "failed"
+                    update_data["final_failure"] = True
+                
                 client.put(
                     f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
-                    json={
-                        "status": "failed",
-                        "error": str(e),
-                        "retries": self.request.retries,
-                        "final_failure": self.request.retries >= self.max_retries,
-                    },
+                    json=update_data,
                 )
         except Exception:
             pass  # Best effort storage update

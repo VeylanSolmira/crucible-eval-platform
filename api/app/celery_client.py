@@ -9,12 +9,26 @@ import os
 import logging
 from typing import Optional
 from celery import Celery
+import redis
+from .constants import TASK_MAPPING_TTL_SECONDS
 
 logger = logging.getLogger(__name__)
 
 # Celery configuration
 CELERY_ENABLED = os.environ.get("CELERY_ENABLED", "false").lower() == "true"
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://celery-redis:6379/0")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+
+# Redis client for task ID mappings
+redis_client = None
+if CELERY_ENABLED:
+    try:
+        redis_client = redis.from_url(REDIS_URL)
+        redis_client.ping()
+        logger.info("Redis client initialized for task mappings")
+    except Exception as e:
+        logger.error(f"Failed to connect to Redis for mappings: {e}")
+        redis_client = None
 
 # Create minimal Celery app for task submission only
 celery_app = None
@@ -53,22 +67,41 @@ def submit_evaluation_to_celery(
         return None
 
     try:
-        # Send task without importing the task function
-        # This allows API to submit tasks without having worker code
-        task_name = "tasks.evaluate_code"
+        # Use the new task chaining approach: assign_executor chains to evaluate_code
+        # This allows proper retry handling without Redis limitations
+        task_name = "tasks.assign_executor"
         queue = "high_priority" if priority else "evaluation"
 
         result = celery_app.send_task(
             task_name,
             args=[eval_id, code, language],
             queue=queue,
-            task_id=f"celery-{eval_id}",  # Predictable task ID
+            # Let Celery auto-generate unique task IDs to support retries
         )
+        
+        task_id = result.id
+        
+        # Store bidirectional mapping between eval_id and task_id
+        if redis_client:
+            try:
+                # TTL from constants - configurable for longer evaluations
+                ttl = TASK_MAPPING_TTL_SECONDS
+                # eval_id -> task_id (for cancellation/status checks)
+                redis_client.setex(f"task_mapping:{eval_id}", ttl, task_id)
+                # task_id -> eval_id (for reverse lookups if needed)
+                redis_client.setex(f"eval_mapping:{task_id}", ttl, eval_id)
+                logger.debug(f"Stored mapping: {eval_id} <-> {task_id}")
+            except Exception as e:
+                # Log but don't fail - the task will still run
+                logger.error(f"Failed to store task mapping: {e}")
 
         logger.info(
-            f"Submitted evaluation {eval_id} to Celery queue '{queue}', task_id: {result.id}"
+            f"Submitted evaluation {eval_id} to Celery queue '{queue}', assigner_task_id: {task_id}"
         )
-        return result.id
+        logger.debug(
+            f"Task will chain: assign_executor -> evaluate_code -> release_executor"
+        )
+        return task_id
 
     except Exception as e:
         logger.error(f"Failed to submit task to Celery: {e}")
@@ -110,8 +143,45 @@ def cancel_celery_task(eval_id: str, terminate: bool = False) -> dict:
         return {"cancelled": False, "reason": "Celery not enabled"}
 
     try:
-        # Use predictable task ID format
-        task_id = f"celery-{eval_id}"
+        # Look up the actual task ID from our mapping
+        task_id = None
+        assigner_task_id = None
+        if redis_client:
+            try:
+                # First check for the main task mapping
+                task_id = redis_client.get(f"task_mapping:{eval_id}")
+                if task_id:
+                    task_id = task_id.decode('utf-8')
+                
+                # Also check for assigner task (if still in assignment phase)
+                assigner_task_id = redis_client.get(f"assigner:{eval_id}")
+                if assigner_task_id:
+                    assigner_task_id = assigner_task_id.decode('utf-8')
+            except Exception as e:
+                logger.error(f"Failed to look up task mapping for {eval_id}: {e}")
+        
+        # If we have an assigner task, cancel it first
+        if assigner_task_id:
+            try:
+                from celery.result import AsyncResult
+                assigner_result = AsyncResult(assigner_task_id, app=celery_app)
+                assigner_result.revoke()
+                logger.info(f"Cancelled assigner task {assigner_task_id} for {eval_id}")
+            except Exception as e:
+                logger.error(f"Failed to cancel assigner task: {e}")
+        
+        if not task_id:
+            if assigner_task_id:
+                return {
+                    "cancelled": True, 
+                    "reason": "Cancelled during assignment phase", 
+                    "message": f"Cancelled assigner task for evaluation {eval_id}"
+                }
+            return {
+                "cancelled": False, 
+                "reason": "Task not found", 
+                "message": f"No Celery task found for evaluation {eval_id}"
+            }
 
         # Get task result to check state
         from celery.result import AsyncResult
@@ -174,7 +244,22 @@ def get_celery_task_info(eval_id: str) -> dict:
         return {"error": "Celery not enabled"}
 
     try:
-        task_id = f"celery-{eval_id}"
+        # Look up the actual task ID from our mapping
+        task_id = None
+        if redis_client:
+            try:
+                task_id = redis_client.get(f"task_mapping:{eval_id}")
+                if task_id:
+                    task_id = task_id.decode('utf-8')
+            except Exception as e:
+                logger.error(f"Failed to look up task mapping for {eval_id}: {e}")
+        
+        if not task_id:
+            return {
+                "error": "Task not found",
+                "message": f"No Celery task found for evaluation {eval_id}"
+            }
+
         from celery.result import AsyncResult
 
         result = AsyncResult(task_id, app=celery_app)

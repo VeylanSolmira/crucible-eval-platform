@@ -102,3 +102,34 @@ components:
         executor_id:
           type: string
           description: ID of executor if failure occurred during execution
+          
+    # Generic evaluation event - For audit trail and history
+    EvaluationEvent:
+      type: object
+      description: Generic event in evaluation lifecycle
+      required:
+        - evaluation_id
+        - timestamp
+        - event_type
+        - message
+      properties:
+        id:
+          type: integer
+          description: Event ID (if stored in database)
+        evaluation_id:
+          type: string
+          description: The evaluation this event belongs to
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+        event_type:
+          type: string
+          description: Type of event (e.g., status_change, output_update)
+        message:
+          type: string
+          description: Human-readable event message
+        metadata:
+          type: object
+          description: Additional event-specific data
+          additionalProperties: true

@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""
+Security tests for input validation and sanitization.
+Tests that the API properly rejects dangerous or malformed inputs.
+
+WARNING: These tests intentionally send malformed and oversized requests to test
+the API's resilience. This may:
+- Generate large error logs
+- Consume temporary memory/disk space
+- Trigger rate limiting if enabled
+- Impact API performance during test execution
+
+It's recommended to run these tests against a dedicated test environment.
+"""
+
+import pytest
+import requests
+import json
+from typing import Dict, Any
+
+# Import shared test configuration
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from conftest import get_api_url, get_request_config
+
+
+class TestInputValidation:
+    """Test that dangerous inputs are properly rejected"""
+
+    def test_code_size_limit(self):
+        """Verify oversized code submissions are rejected to prevent DoS"""
+        # WARNING: This creates a ~6MB payload
+        # Adjust size if this causes issues in your environment
+        large_code = "x = 1\n" * 1_000_000  # ~6MB of code
+        
+        response = requests.post(
+            f"{get_api_url()}/eval",
+            json={
+                "code": large_code,
+                "language": "python",
+                "timeout": 30
+            },
+            **get_request_config()
+        )
+        
+        # Should reject with 413 or 400
+        assert response.status_code in [400, 413], "Large payloads should be rejected"
+
+    def test_malformed_json_rejected(self):
+        """Verify malformed JSON is properly rejected"""
+        # Send invalid JSON
+        response = requests.post(
+            f"{get_api_url()}/eval",
+            data='{"code": "print(\"test\")',  # Missing closing brace
+            headers={"Content-Type": "application/json"},
+            **get_request_config()
+        )
+        
+        assert response.status_code == 400, "Malformed JSON should return 400"
+
+    def test_missing_required_fields(self):
+        """Verify requests missing required fields are rejected"""
+        # Missing 'code' field
+        response = requests.post(
+            f"{get_api_url()}/eval",
+            json={
+                "language": "python",
+                "timeout": 30
+            },
+            **get_request_config()
+        )
+        
+        assert response.status_code == 422, "Missing required fields should return 422"
+
+    def test_invalid_language_rejected(self):
+        """Verify only supported languages are accepted"""
+        response = requests.post(
+            f"{get_api_url()}/eval",
+            json={
+                "code": "print('test')",
+                "language": "malicious-lang",
+                "timeout": 30
+            },
+            **get_request_config()
+        )
+        
+        assert response.status_code in [400, 422], "Invalid language should be rejected"
+
+    def test_negative_timeout_rejected(self):
+        """Verify invalid timeout values are rejected"""
+        response = requests.post(
+            f"{get_api_url()}/eval",
+            json={
+                "code": "print('test')",
+                "language": "python",
+                "timeout": -1
+            },
+            **get_request_config()
+        )
+        
+        assert response.status_code in [400, 422], "Negative timeout should be rejected"
+
+    def test_excessive_timeout_rejected(self):
+        """Verify excessively long timeouts are rejected"""
+        response = requests.post(
+            f"{get_api_url()}/eval",
+            json={
+                "code": "print('test')",
+                "language": "python",
+                "timeout": 3600  # 1 hour
+            },
+            **get_request_config()
+        )
+        
+        assert response.status_code in [400, 422], "Excessive timeout should be rejected"
+
+    def test_null_byte_injection(self):
+        """Verify null bytes in input are handled safely"""
+        response = requests.post(
+            f"{get_api_url()}/eval",
+            json={
+                "code": "print('test\\x00'); import os",
+                "language": "python",
+                "timeout": 30
+            },
+            **get_request_config()
+        )
+        
+        # Should either reject or handle safely
+        if response.status_code == 200:
+            # If accepted, verify null byte doesn't cause issues
+            result = response.json()
+            assert "eval_id" in result
+
+    def test_unicode_handling(self):
+        """Verify Unicode edge cases are handled properly"""
+        # Various Unicode edge cases
+        test_cases = [
+            "print('emoji: 😈')",  # Emoji
+            "print('זה טקסט בעברית')",  # RTL text
+            "print('\u202e\u202dmalicious')",  # Unicode direction override
+            "x = '\\ufeff'"  # Zero-width no-break space
+        ]
+        
+        for code in test_cases:
+            response = requests.post(
+                f"{get_api_url()}/eval",
+                json={
+                    "code": code,
+                    "language": "python",
+                    "timeout": 30
+                },
+                **get_request_config()
+            )
+            
+            # Should handle gracefully (accept or reject consistently)
+            assert response.status_code in [200, 400, 422]
+
+
+if __name__ == "__main__":
+    # Run basic validation test
+    print("Testing input validation...")
+    
+    # Simple test that can run without pytest
+    response = requests.post(
+        f"{get_api_url()}/eval",
+        json={
+            "code": "x" * 1_000_000,  # 1MB of code
+            "language": "python",
+            "timeout": 30
+        },
+        **get_request_config()
+    )
+    
+    if response.status_code in [400, 413]:
+        print("✅ PASS: Large payload rejected")
+    else:
+        print(f"❌ FAIL: Large payload accepted with status {response.status_code}")

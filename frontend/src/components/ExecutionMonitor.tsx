@@ -5,6 +5,7 @@ import {
   useEvaluationLogs,
   useUpdateEvaluationStatus,
   useKillEvaluation,
+  useEvaluation,
 } from '@/hooks/useEvaluation'
 import { Toast } from './Toast'
 
@@ -32,6 +33,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
   const [showKillConfirm, setShowKillConfirm] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
+  const [showSubmittedCode, setShowSubmittedCode] = useState(false)
   const [selectedStatus, setSelectedStatus] = useState<string>('')
   const [toast, setToast] = useState<{
     message: string
@@ -53,6 +55,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
 
   // Fetch real logs from the API
   const { data: logs } = useEvaluationLogs(evalId)
+  const { data: evaluation } = useEvaluation(evalId)
   const updateStatusMutation = useUpdateEvaluationStatus()
   const killMutation = useKillEvaluation()
 
@@ -281,6 +284,34 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
                 Cancel
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Submitted Code Section */}
+        {evaluation?.code && (
+          <div className="mb-4">
+            <button
+              onClick={() => setShowSubmittedCode(!showSubmittedCode)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              <svg 
+                className={`w-4 h-4 transition-transform ${showSubmittedCode ? 'rotate-90' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Submitted Code
+            </button>
+            
+            {showSubmittedCode && (
+              <div className="mt-2 bg-gray-50 rounded-lg p-4">
+                <pre className="text-xs font-mono text-gray-800 overflow-x-auto whitespace-pre-wrap">
+                  {evaluation.code}
+                </pre>
+              </div>
+            )}
           </div>
         )}
 

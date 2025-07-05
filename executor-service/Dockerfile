@@ -12,7 +12,7 @@ COPY shared/generated /app/shared/generated
 COPY shared/constants /app/shared/constants
 
 # Set PYTHONPATH to include the app directory
-ENV PYTHONPATH=/app:$PYTHONPATH
+ENV PYTHONPATH=/app
 
 # Copy only the executor app
 COPY executor-service/app.py /app/

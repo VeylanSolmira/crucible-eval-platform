@@ -108,6 +108,9 @@ class EvaluationUpdate(BaseModel):
     celery_task_id: Optional[str] = Field(None, description="Celery task ID if using Celery")
     retries: Optional[int] = Field(None, description="Number of retry attempts")
     final_failure: Optional[bool] = Field(None, description="Whether task failed after all retries")
+    # Executor fields for real-time tracking
+    executor_id: Optional[str] = Field(None, description="ID of executor running this evaluation")
+    container_id: Optional[str] = Field(None, description="Docker container ID")
 
 
 class EvaluationResponse(BaseModel):
@@ -283,6 +286,29 @@ async def update_evaluation(eval_id: str, update: EvaluationUpdate):
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update evaluation")
+
+    # Publish state change events for storage-worker
+    if redis_client and update.status:
+        try:
+            if update.status == "running":
+                await redis_client.publish(
+                    "evaluation:running",
+                    json.dumps({
+                        "eval_id": eval_id,
+                        "executor_id": update_data.get("executor_id", ""),
+                        "container_id": update_data.get("container_id", ""),
+                        "timeout": update_data.get("timeout", 30)
+                    })
+                )
+                logger.info(f"Published evaluation:running event for {eval_id}")
+            
+            # NOTE: We don't publish completed/failed events here anymore
+            # The executor is the source of truth for these events
+            # This prevents duplicate event processing in storage-worker
+                
+        except Exception as e:
+            # Log but don't fail the request if event publishing fails
+            logger.error(f"Failed to publish event for {eval_id}: {e}")
 
     # Return updated evaluation
     result = storage.get_evaluation(eval_id)

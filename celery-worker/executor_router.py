@@ -43,6 +43,32 @@ class ExecutorRouter:
             logger.debug(f"Health check failed for {executor_url}: {e}")
             return False
 
+    def check_capacity(self, executor_url: str) -> bool:
+        """Check if an executor can accept new tasks"""
+        try:
+            response = self.client.get(f"{executor_url}/capacity")
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("can_accept", False)
+            return False
+        except Exception as e:
+            logger.debug(f"Capacity check failed for {executor_url}: {e}")
+            return False
+
+    def get_available_executor(self) -> Optional[str]:
+        """Get an executor that is both healthy and has capacity"""
+        # Shuffle for load distribution
+        executors = list(self.executor_urls)
+        random.shuffle(executors)
+
+        for executor_url in executors:
+            if self.check_health(executor_url) and self.check_capacity(executor_url):
+                logger.debug(f"Selected available executor: {executor_url}")
+                return executor_url
+
+        logger.debug("No executors with available capacity")
+        return None
+
     def get_healthy_executor(self) -> Optional[str]:
         """Get a healthy executor using randomized selection"""
         # Shuffle for load distribution
@@ -73,3 +99,8 @@ def get_executor_url() -> str:
     if not url:
         raise RuntimeError("No healthy executor services available")
     return url
+
+
+def get_available_executor_url() -> Optional[str]:
+    """Get URL of an executor with available capacity"""
+    return router.get_available_executor()

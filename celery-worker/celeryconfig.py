@@ -24,7 +24,9 @@ task_track_started = True
 task_time_limit = 600  # 10 minutes hard limit
 task_soft_time_limit = 300  # 5 minutes soft limit
 task_acks_late = True  # Task acknowledged after completion
-worker_prefetch_multiplier = 1  # One task at a time for fairness
+worker_prefetch_multiplier = 1  # One task at a time per worker process
+# Note: With concurrency=3 and prefetch=1, up to 3 tasks can be "claimed" by this worker
+# This matches our executor count, preventing over-provisioning
 
 # Result backend settings
 result_expires = 3600  # Results expire after 1 hour
@@ -47,7 +49,9 @@ task_default_routing_key = "evaluation"
 
 # Task routing
 task_routes = {
+    "tasks.assign_executor": {"queue": "evaluation"},
     "tasks.evaluate_code": {"queue": "evaluation"},
+    "tasks.release_executor_task": {"queue": "evaluation"},
     "tasks.evaluate_code_high_priority": {"queue": "high_priority"},
     "tasks.batch_evaluation": {"queue": "batch"},
     "tasks.cleanup_old_evaluations": {"queue": "maintenance"},

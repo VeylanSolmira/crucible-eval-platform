@@ -94,51 +94,79 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
       {/* Editor container */}
       <div className={`bg-white rounded-lg shadow-sm p-6 transition-all ${
         isExpanded 
-          ? 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1/2 max-w-4xl h-5/6 max-h-[90vh] z-50 overflow-auto shadow-2xl' 
+          ? 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[75%] max-w-6xl h-5/6 max-h-[90vh] z-50 overflow-auto shadow-2xl' 
           : ''
       }`}>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Code Editor</h2>
         <div className="flex gap-2">
+          {/* File Operations Group */}
+          <div className="flex gap-1 border-r border-gray-200 pr-2">
+            <button
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              title="Templates"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+            
+            <label className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer" title="Load from file">
+              <input
+                type="file"
+                accept=".py,.txt"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    const reader = new FileReader()
+                    reader.onload = (event) => {
+                      const content = event.target?.result
+                      if (typeof content === 'string') {
+                        onChange(content)
+                      }
+                    }
+                    reader.readAsText(file)
+                  }
+                }}
+              />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </label>
+            
+            {value && (
+              <button
+                onClick={() => {
+                  localStorage.setItem('crucible-last-code', value)
+                  localStorage.setItem('crucible-last-saved', new Date().toISOString())
+                  // Optional: show a toast notification
+                }}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                title="Save to browser (Ctrl+S)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V2" />
+                </svg>
+              </button>
+            )}
+          </div>
+          
+          {/* View Options */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
             title={isExpanded ? "Collapse editor" : "Expand editor"}
           >
-            {isExpanded ? (
-              <>
-                <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Collapse
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-                Expand
-              </>
-            )}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {isExpanded ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              )}
+            </svg>
           </button>
-          <button
-            onClick={() => setShowTemplates(!showTemplates)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-          >
-            {showTemplates ? 'Hide Templates' : 'Show Templates'}
-          </button>
-          {value && (
-            <button
-              onClick={() => {
-                localStorage.setItem('crucible-last-code', value)
-                localStorage.setItem('crucible-last-saved', new Date().toISOString())
-              }}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              title="Save (Ctrl+S)"
-            >
-              💾 Save
-            </button>
-          )}
         </div>
       </div>
 

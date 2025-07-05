@@ -297,7 +297,7 @@ export class SmartApiClient {
   }
 
   async checkStatus(evalId: string): Promise<EvaluationResult> {
-    return this.fetch(`/api/eval/${evalId}`)
+    return this.fetch(`/api/eval/${evalId}/status`)
   }
 
   /**

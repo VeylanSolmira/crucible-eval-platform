@@ -28,11 +28,22 @@ python test_celery.py
 
 ## Architecture
 
+### Task Chaining Implementation
+As of the latest update, the platform uses a task chaining pattern to handle executor availability without hitting Celery + Redis retry limitations:
+
 ```
-API Service → Redis Queue → Celery Worker → Executor Service
-                                          ↓
-                                    Storage Service
+API Service → Redis Queue → assign_executor task → evaluate_code task → Executor Service
+                               (can retry)           (has executor)    ↓
+                                                                Storage Service
+                                                                      ↑
+                                                         release_executor_task
 ```
+
+The evaluation process is split into two chained tasks:
+1. **assign_executor**: Lightweight task that finds available executors (can retry indefinitely)
+2. **evaluate_code**: Performs actual code execution with pre-assigned executor
+
+This solves the "Can't retry" errors that occur with Celery + Redis when tasks need to wait for resources.
 
 ## Key Features
 
@@ -58,18 +69,37 @@ Key environment variables:
 
 ## Tasks
 
-### evaluate_code
-Main task for evaluating code submissions.
+### assign_executor
+Entry point task that finds an available executor and chains to evaluation.
 
 ```python
-from tasks import evaluate_code
+from tasks import assign_executor
 
-result = evaluate_code.delay(
+# This is called automatically by the API service
+result = assign_executor.delay(
     eval_id="abc123",
     code="print('Hello')",
     language="python"
 )
 ```
+
+### evaluate_code
+Main task for evaluating code submissions (now accepts pre-assigned executor).
+
+```python
+from tasks import evaluate_code
+
+# Usually called via task chaining from assign_executor
+result = evaluate_code.delay(
+    eval_id="abc123",
+    code="print('Hello')",
+    language="python",
+    executor_url="http://executor-2:8083"  # Pre-assigned
+)
+```
+
+### release_executor_task
+Cleanup task that returns executors to the pool after evaluation.
 
 ### cleanup_old_evaluations
 Scheduled task that runs hourly to cleanup old data.

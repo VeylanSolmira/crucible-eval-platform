@@ -1,0 +1,111 @@
+# Full evaluation response contract
+openapi: 3.1.0
+info:
+  title: Evaluation Response
+  version: 1.0.0
+components:
+  schemas:
+    EvaluationResponse:
+      type: object
+      description: Complete evaluation data including code, status, and results
+      required:
+        - eval_id
+        - status
+      properties:
+        eval_id:
+          type: string
+          description: Unique evaluation identifier
+        code:
+          type: string
+          description: The code that was evaluated
+        language:
+          type: string
+          description: Programming language used
+          default: python
+        status:
+          $ref: './evaluation-status.yaml#/components/schemas/EvaluationStatus'
+        created_at:
+          type: string
+          format: date-time
+          description: When the evaluation was created
+        started_at:
+          type: string
+          format: date-time
+          description: When execution started
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          description: When execution completed
+          nullable: true
+        output:
+          type: string
+          description: Standard output from the evaluation
+          default: ""
+          nullable: true
+        error:
+          type: string
+          description: Standard error or error messages
+          default: ""
+          nullable: true
+        exit_code:
+          type: integer
+          description: Process exit code
+          nullable: true
+        runtime_ms:
+          type: integer
+          description: Execution time in milliseconds
+          nullable: true
+        memory_used_mb:
+          type: integer
+          description: Peak memory usage in megabytes
+          nullable: true
+        output_truncated:
+          type: boolean
+          description: Whether output was truncated due to size
+          default: false
+        error_truncated:
+          type: boolean
+          description: Whether error was truncated due to size
+          default: false
+        metadata:
+          type: object
+          description: Additional metadata
+          additionalProperties: true
+          default: {}
+      example:
+        eval_id: "eval_123abc"
+        code: "print('Hello, World!')"
+        language: python
+        status: completed
+        created_at: "2024-01-01T00:00:00Z"
+        started_at: "2024-01-01T00:00:01Z"
+        completed_at: "2024-01-01T00:00:02Z"
+        output: "Hello, World!\n"
+        error: ""
+        exit_code: 0
+        runtime_ms: 1234
+        memory_used_mb: 50
+        
+    EvaluationSummary:
+      type: object
+      description: Summary view of evaluation for listing
+      required:
+        - eval_id
+        - status
+        - created_at
+      properties:
+        eval_id:
+          type: string
+          description: Unique evaluation identifier
+        status:
+          $ref: './evaluation-status.yaml#/components/schemas/EvaluationStatus'
+        created_at:
+          type: string
+          format: date-time
+        runtime_ms:
+          type: integer
+          description: Execution time in milliseconds
+        exit_code:
+          type: integer
+          description: Process exit code
