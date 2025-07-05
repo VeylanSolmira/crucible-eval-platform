@@ -127,7 +127,7 @@ export default function ResearcherUI() {
       addEvent('status_change', { id: evalId, status: evaluation.status })
 
       if (isComplete) {
-        addEvent('evaluation_complete', {
+        addEvent(`evaluation_${evaluation.status}`, {
           id: evalId,
           status: evaluation.status,
         })
@@ -287,13 +287,43 @@ export default function ResearcherUI() {
                         <span className="text-gray-400 mr-2">{event.timestamp}</span>
                         <span
                           className={`font-medium ${
-                            event.type === 'error'
-                              ? 'text-red-400'
-                              : event.type === 'submission'
-                                ? 'text-blue-400'
-                                : event.type === 'evaluation_complete'
-                                  ? 'text-green-400'
-                                  : 'text-gray-300'
+                            (() => {
+                              // Error events are always red
+                              if (event.type === 'error') return 'text-red-400'
+                              
+                              // Submission events are blue
+                              if (event.type === 'submission') return 'text-blue-400'
+                              
+                              // Terminal status events (evaluation_completed, evaluation_failed, etc.)
+                              if (event.type.startsWith('evaluation_')) {
+                                // Extract the status from event type (e.g., 'evaluation_failed' -> 'failed')
+                                const status = event.type.replace('evaluation_', '')
+                                
+                                // Define colors for known statuses
+                                const statusColors: Record<string, string> = {
+                                  'completed': 'text-green-400',
+                                  'failed': 'text-red-400',
+                                  'cancelled': 'text-yellow-400',
+                                }
+                                
+                                // Return specific color or gray as default for unknown statuses
+                                return statusColors[status] || 'text-gray-400'
+                              }
+                              
+                              // Status change events
+                              if (event.type === 'status_change') {
+                                const statusColors: Record<string, string> = {
+                                  'failed': 'text-red-400',
+                                  'running': 'text-blue-400',
+                                  'provisioning': 'text-purple-400',
+                                  'queued': 'text-yellow-400',
+                                }
+                                return statusColors[event.data.status as string] || 'text-gray-300'
+                              }
+                              
+                              // Default color for any other event types
+                              return 'text-gray-300'
+                            })()
                           }`}
                         >
                           [{event.type}]
