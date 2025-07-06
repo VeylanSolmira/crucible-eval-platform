@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-from ...base import StorageService
+from ..core.base import StorageService
 
 
 class FileStorage(StorageService):

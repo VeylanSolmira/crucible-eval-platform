@@ -7,13 +7,13 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
 from .base import StorageService
-from .backends.memory import InMemoryStorage
-from .backends.file import FileStorage
+from ..backends.memory import InMemoryStorage
+from ..backends.file import FileStorage
 from .config import StorageConfig
 
 # Conditional import for database
 try:
-    from .backends.database import DatabaseStorage
+    from ..backends.database import DatabaseStorage
 
     SQLALCHEMY_AVAILABLE = True
 except ImportError:
@@ -117,6 +117,7 @@ class FlexibleStorageManager:
 
         data = {
             "id": eval_id,
+            "code": code,  # Store the actual code
             "code_hash": self._compute_code_hash(code),
             "status": status,
             "timestamp": now.isoformat(),

@@ -2,8 +2,9 @@ export interface TemplateMetadata {
   id: string
   name: string
   description: string
-  category: 'Basic' | 'I/O' | 'Network' | 'Computation' | 'Advanced' | 'Error Handling'
+  category: 'Basic' | 'I/O' | 'Network' | 'Computation' | 'Advanced' | 'Error Handling' | 'ML'
   filename: string
+  requiresML?: boolean  // Indicates if this template needs ML libraries
 }
 
 export const templateMetadata: TemplateMetadata[] = [

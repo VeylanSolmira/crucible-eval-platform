@@ -16,3 +16,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# Custom markers
+markers = [
+    "destructive: marks tests that stop/restart services (deselect with '-m \"not destructive\"')",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]

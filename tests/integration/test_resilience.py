@@ -4,8 +4,12 @@ Service resilience testing.
 
 Tests the platform's ability to handle service restarts, failures,
 and recovery scenarios.
+
+These tests are marked as 'destructive' because they stop and restart services.
+Run with: pytest -m destructive tests/integration/test_resilience.py
 """
 
+import pytest
 import subprocess
 import time
 import requests
@@ -13,6 +17,9 @@ import json
 from typing import Dict, Any
 
 API_BASE_URL = "http://localhost:8000/api"
+
+# Mark all tests in this module as destructive and integration
+pytestmark = [pytest.mark.integration, pytest.mark.destructive]
 
 
 class ResilienceTest:
@@ -302,87 +309,40 @@ class NetworkPartitionTest(ResilienceTest):
         return self.passed
 
 
-def run_resilience_tests():
-    """Run all resilience tests."""
-    print("=" * 60)
-    print("SERVICE RESILIENCE TESTS")
-    print("=" * 60)
-    print()
-
-    # Check if services are running
+@pytest.fixture(scope="module")
+def check_services():
+    """Ensure services are running before destructive tests."""
     try:
         response = requests.get(f"{API_BASE_URL}/health", timeout=5)
         if response.status_code != 200:
-            print("ERROR: Services not healthy. Please ensure all services are running.")
-            return
+            pytest.skip("Services not healthy. Please ensure all services are running.")
     except (requests.RequestException, ConnectionError) as e:
-        print(f"ERROR: Cannot connect to API: {e}. Please ensure services are running.")
-        return
-
-    tests = [
-        ServiceRestartTest(),
-        CeleryWorkerFailureTest(),
-        StorageServiceFailureTest(),
-        NetworkPartitionTest(),
-    ]
-
-    results = []
-
-    for test in tests:
-        print(f"Running {test.name}...", end=" ", flush=True)
-
-        try:
-            test.run()
-            results.append(test)
-
-            if test.passed:
-                print(f"✅ PASSED ({test.duration:.2f}s)")
-            else:
-                print(f"❌ FAILED ({test.duration:.2f}s)")
-                if test.error:
-                    print(f"   Error: {test.error}")
-        except Exception as e:
-            test.error = str(e)
-            test.passed = False
-            results.append(test)
-            print(f"❌ FAILED with exception: {e}")
-
-    # Summary
-    print()
-    print("=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-
-    passed = sum(1 for t in results if t.passed)
-    failed = sum(1 for t in results if not t.passed)
-
-    print(f"Total Tests: {len(results)}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {failed}")
-
-    # Save results
-    with open("resilience_test_results.json", "w") as f:
-        json.dump(
-            {
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "summary": {"total": len(results), "passed": passed, "failed": failed},
-                "tests": [
-                    {
-                        "name": t.name,
-                        "passed": t.passed,
-                        "error": t.error,
-                        "duration": t.duration,
-                        "details": t.details,
-                    }
-                    for t in results
-                ],
-            },
-            f,
-            indent=2,
-        )
-
-    print("\nDetailed results saved to resilience_test_results.json")
+        pytest.skip(f"Cannot connect to API: {e}. Please ensure services are running.")
 
 
-if __name__ == "__main__":
-    run_resilience_tests()
+@pytest.mark.destructive
+def test_service_restart_recovery(check_services):
+    """Test evaluation continuity during service restarts."""
+    test = ServiceRestartTest()
+    assert test.run(), f"Test failed: {test.error}"
+
+
+@pytest.mark.destructive
+def test_celery_worker_failure_recovery(check_services):
+    """Test handling of Celery worker failures."""
+    test = CeleryWorkerFailureTest()
+    assert test.run(), f"Test failed: {test.error}"
+
+
+@pytest.mark.destructive
+def test_storage_service_failure_recovery(check_services):
+    """Test handling of storage service failures."""
+    test = StorageServiceFailureTest()
+    assert test.run(), f"Test failed: {test.error}"
+
+
+@pytest.mark.destructive
+def test_network_partition_recovery(check_services):
+    """Test handling of network partitions between services."""
+    test = NetworkPartitionTest()
+    assert test.run(), f"Test failed: {test.error}"

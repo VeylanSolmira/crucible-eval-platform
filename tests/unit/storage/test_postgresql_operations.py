@@ -19,7 +19,7 @@ class TestPostgreSQLOperations:
     
     def test_jsonb_field_operations(self, pg_session):
         """Test JSONB field queries work correctly."""
-        from storage.database.models import Evaluation
+        from storage.models.models import Evaluation
         
         # Create with JSON metadata
         eval = Evaluation(
@@ -44,7 +44,7 @@ class TestPostgreSQLOperations:
     
     def test_concurrent_updates(self, pg_session):
         """Test PostgreSQL handles concurrent updates correctly."""
-        from storage.database.models import Evaluation
+        from storage.models.models import Evaluation
         from sqlalchemy.exc import OperationalError
         
         # Create evaluation

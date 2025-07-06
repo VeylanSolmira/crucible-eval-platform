@@ -8,6 +8,15 @@ services:
       dockerfile: shared/docker/base.Dockerfile
     command: echo "Base image built successfully"
 
+  # Build executor-ml image (includes ML libraries)
+  # This is used by executor services for running evaluations
+  executor-ml-image:
+    image: executor-ml:latest
+    build:
+      context: .
+      dockerfile: docker/executor-ml/Dockerfile
+    command: echo "Executor ML image built successfully"
+
   # Docker Socket Proxy - Secure access to Docker API
   docker-proxy:
     image: tecnativa/docker-socket-proxy:0.1
@@ -146,7 +155,7 @@ services:
     environment:
       DATABASE_URL: postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
       PYTHONPATH: /app
-    working_dir: /app/storage/database/migrations
+    working_dir: /app/storage/models/migrations
     entrypoint: ["alembic"]
     command: ["upgrade", "head"]
     profiles:
@@ -252,8 +261,11 @@ services:
       - REDIS_PORT=6379
       - HEALTH_CHECK_URL=http://localhost:8083/health
       - MAX_CONCURRENT_EXECUTIONS=1  # Each executor can handle 1 task at a time
+      - EXECUTOR_IMAGE=executor-ml:latest  # Use ML-enabled executor image
     depends_on:
       base:
+        condition: service_completed_successfully
+      executor-ml-image:
         condition: service_completed_successfully
       docker-proxy:
         condition: service_started

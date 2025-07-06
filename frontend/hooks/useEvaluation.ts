@@ -13,6 +13,7 @@ import { isTerminalStatus, isActiveStatus } from '@/shared/generated/typescript/
 
 // Use OpenAPI generated types
 export type EvaluationRequest = components['schemas']['EvaluationRequest']
+export type EvaluationSubmitResponse = components['schemas']['EvaluationSubmitResponse']
 export type EvaluationResponse = components['schemas']['EvaluationResponse']
 export type EvaluationStatusResponse = components['schemas']['EvaluationStatusResponse']
 export type QueueStatusResponse = components['schemas']['QueueStatusResponse']
@@ -42,8 +43,8 @@ async function submitEvaluation(request: EvaluationRequest): Promise<{ eval_id: 
   return result
 }
 
-async function fetchEvaluation(evalId: string): Promise<EvaluationStatusResponse> {
-  log.debug('Fetching evaluation status', evalId)
+async function fetchEvaluation(evalId: string): Promise<EvaluationResponse> {
+  log.debug('Fetching evaluation details', evalId)
   const response = await fetch(`${appConfig.api.baseUrl}/api/eval/${evalId}`)
 
   if (!response.ok) {
@@ -52,7 +53,7 @@ async function fetchEvaluation(evalId: string): Promise<EvaluationStatusResponse
   }
 
   const result = await response.json()
-  log.debug('Evaluation status', evalId, result.status)
+  log.debug('Evaluation details', evalId, result.status)
   return result
 }
 

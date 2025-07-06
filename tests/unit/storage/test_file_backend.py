@@ -8,8 +8,8 @@ import shutil
 import json
 from pathlib import Path
 
-from ...tests.base_test import StorageServiceTestMixin
-from .file_storage import FileStorage
+from tests.unit.storage.base_storage_test import StorageServiceTestMixin
+from storage.backends.file import FileStorage
 
 
 class FileStorageTests(StorageServiceTestMixin, unittest.TestCase):

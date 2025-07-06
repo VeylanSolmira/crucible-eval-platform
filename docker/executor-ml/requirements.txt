@@ -1,0 +1,18 @@
+# ML executor dependencies
+# Pin all versions for reproducibility and security
+
+# Core ML frameworks
+torch==2.0.1 --index-url https://download.pytorch.org/whl/cpu
+transformers==4.35.0
+
+# Dependencies (will be installed automatically)
+# numpy==1.24.3
+# huggingface-hub==0.19.4
+# tokenizers==0.15.0
+# safetensors==0.4.0
+# tqdm==4.66.1
+# regex==2023.10.3
+# requests==2.31.0
+# packaging==23.2
+# filelock==3.13.1
+# typing-extensions==4.8.0

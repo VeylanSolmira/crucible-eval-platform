@@ -6,10 +6,10 @@ import os
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .flexible_manager import FlexibleStorageManager
-from .backends.database import DatabaseStorage
-from .backends.file import FileStorage
-from .backends.memory import InMemoryStorage
+from ..core.flexible_manager import FlexibleStorageManager
+from ..backends.database import DatabaseStorage
+from ..backends.file import FileStorage
+from ..backends.memory import InMemoryStorage
 
 
 def create_storage_manager(db_session: Optional[AsyncSession] = None) -> FlexibleStorageManager:

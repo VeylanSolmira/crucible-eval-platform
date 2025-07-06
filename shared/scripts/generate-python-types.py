@@ -6,7 +6,33 @@ This ensures all services use the same type definitions.
 
 import yaml
 from pathlib import Path
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, List, Set, Tuple, Optional
+
+
+def parse_ref(ref: str) -> Tuple[Optional[str], str]:
+    """Parse a $ref string into (module_name, type_name).
+    
+    Returns:
+        (module_name, type_name) where module_name is None for same-file refs
+    """
+    if ref.startswith("./") and "#" in ref:
+        # Cross-file reference: "./evaluation-status.yaml#/components/schemas/EvaluationStatus"
+        file_part, path_part = ref.split("#")
+        type_name = path_part.split("/")[-1]
+        module_name = file_part[2:].replace(".yaml", "").replace("-", "_")
+        return (module_name, type_name)
+    elif ref.startswith("#/"):
+        # Same-file reference: "#/components/schemas/SomeType"
+        type_name = ref.split("/")[-1]
+        return (None, type_name)
+    else:
+        # Fallback - just get the last part
+        return (None, ref.split("/")[-1])
+
+
+def escape_description(desc: str) -> str:
+    """Escape a description string for use in Python code."""
+    return desc.replace('"', '\\"')
 
 
 def main():
@@ -43,10 +69,18 @@ def main():
 
 def generate_from_yaml(yaml_file: Path, output_file: Path) -> List[str]:
     """Generate Python code from a single YAML file."""
-    with open(yaml_file, "r") as f:
-        spec = yaml.safe_load(f)
+    try:
+        with open(yaml_file, "r") as f:
+            spec = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        print(f"  ERROR: Invalid YAML in {yaml_file.name}: {e}")
+        return []
+    except IOError as e:
+        print(f"  ERROR: Cannot read {yaml_file.name}: {e}")
+        return []
     
     if not spec or "components" not in spec or "schemas" not in spec["components"]:
+        print(f"  WARNING: No schemas found in {yaml_file.name}")
         return []
     
     schemas = spec["components"]["schemas"]
@@ -83,7 +117,11 @@ def generate_from_yaml(yaml_file: Path, output_file: Path) -> List[str]:
         exports.append("EventChannels")
     
     # Write the generated code
-    output_file.write_text(code)
+    try:
+        output_file.write_text(code)
+    except IOError as e:
+        print(f"  ERROR: Cannot write to {output_file}: {e}")
+        return []
     
     return exports
 
@@ -105,22 +143,50 @@ def determine_imports(schemas: Dict[str, Any]) -> Set[str]:
     """Determine what imports are needed based on schemas."""
     imports = set()
     
-    for schema in schemas.values():
-        # Check if we need datetime
-        if has_datetime_fields(schema):
+    # Use a visitor pattern to analyze all schemas
+    def visit_schema(schema: Any) -> None:
+        if not isinstance(schema, dict):
+            return
+            
+        # Check schema type and format
+        schema_type = schema.get("type")
+        schema_format = schema.get("format")
+        
+        # Datetime check
+        if schema_format == "date-time":
             imports.add("datetime")
         
-        # Check if we need typing imports
-        if has_optional_fields(schema) or has_dict_fields(schema) or has_list_fields(schema):
-            imports.add("typing")
-        
-        # Check if we need pydantic
-        if schema.get("type") == "object" and "enum" not in schema:
-            imports.add("pydantic")
-        
-        # Check if we need enum
+        # Enum check
         if "enum" in schema:
             imports.add("enum")
+            
+        # Pydantic model check
+        if schema_type == "object" and "enum" not in schema:
+            imports.add("pydantic")
+            
+        # Check if we need typing (for complex types)
+        if schema_type in ["array", "object"] or "properties" in schema:
+            imports.add("typing")
+            
+        # Recurse into nested schemas
+        for key, value in schema.items():
+            if key == "properties" and isinstance(value, dict):
+                # Check for optional fields
+                required = schema.get("required", [])
+                if any(prop not in required for prop in value):
+                    imports.add("typing")
+                # Visit each property
+                for prop_schema in value.values():
+                    visit_schema(prop_schema)
+            elif key in ["items", "additionalProperties"]:
+                visit_schema(value)
+            elif isinstance(value, list):
+                for item in value:
+                    visit_schema(item)
+    
+    # Visit all schemas
+    for schema in schemas.values():
+        visit_schema(schema)
     
     return imports
 
@@ -129,25 +195,28 @@ def find_cross_file_dependencies(schemas: Dict[str, Any]) -> Set[str]:
     """Find dependencies on types from other files."""
     deps = set()
     
-    def check_schema(schema: Any):
-        if isinstance(schema, dict):
-            if "$ref" in schema:
-                # Parse refs like "./evaluation-status.yaml#/components/schemas/EvaluationStatus"
-                ref = schema["$ref"]
-                if ref.startswith("./") and "#" in ref:
-                    file_part, path_part = ref.split("#")
-                    type_name = path_part.split("/")[-1]
-                    module_name = file_part[2:].replace(".yaml", "").replace("-", "_")
-                    deps.add(f"{module_name}:{type_name}")
+    def visit_schema(schema: Any) -> None:
+        if not isinstance(schema, dict):
+            return
             
-            for value in schema.values():
-                check_schema(value)
-        elif isinstance(schema, list):
-            for item in schema:
-                check_schema(item)
+        # Check for cross-file references
+        if "$ref" in schema:
+            module_name, type_name = parse_ref(schema["$ref"])
+            if module_name:  # Only track cross-file deps
+                deps.add(f"{module_name}:{type_name}")
+            return  # Don't recurse into $ref
+        
+        # Recurse into nested schemas
+        for key, value in schema.items():
+            if isinstance(value, dict):
+                visit_schema(value)
+            elif isinstance(value, list):
+                for item in value:
+                    visit_schema(item)
     
+    # Visit all schemas
     for schema in schemas.values():
-        check_schema(schema)
+        visit_schema(schema)
     
     return deps
 
@@ -170,8 +239,7 @@ def generate_imports(imports: Set[str], cross_file_deps: Set[str]) -> str:
     
     if "enum" in imports:
         code += "from enum import Enum\n"
-        # For enum files, also import List for helper methods
-        code += "from typing import List\n"
+        # List is already imported in typing imports above
     
     # Import types from other files based on actual dependencies
     for dep in sorted(cross_file_deps):
@@ -186,6 +254,10 @@ def generate_imports(imports: Set[str], cross_file_deps: Set[str]) -> str:
 
 def generate_enum(name: str, schema: Dict[str, Any]) -> str:
     """Generate an Enum class."""
+    if "enum" not in schema or not schema["enum"]:
+        print(f"  WARNING: Enum {name} has no values")
+        return ""
+        
     code = f"\nclass {name}(str, Enum):\n"
     
     # Add docstring
@@ -279,15 +351,14 @@ def generate_field(name: str, schema: Dict[str, Any], is_required: bool, all_sch
             field_def = repr(default)
     
     # Add Field() wrapper if we have description or other metadata
-    if "description" in schema and field_def not in ["...", "None"] and not field_def.startswith("Field"):
-        desc = schema["description"].replace('"', '\\"')
-        field_def = f'Field({field_def}, description="{desc}")'
-    elif "description" in schema and field_def == "...":
-        desc = schema["description"].replace('"', '\\"')
-        field_def = f'Field(..., description="{desc}")'
-    elif "description" in schema and field_def == "None":
-        desc = schema["description"].replace('"', '\\"')
-        field_def = f'Field(None, description="{desc}")'
+    if "description" in schema:
+        desc = escape_description(schema["description"])
+        if field_def == "...":
+            field_def = f'Field(..., description="{desc}")'
+        elif field_def == "None":
+            field_def = f'Field(None, description="{desc}")'
+        elif not field_def.startswith("Field"):
+            field_def = f'Field({field_def}, description="{desc}")'
     
     return f"{name}: {field_type} = {field_def}"
 
@@ -296,23 +367,8 @@ def determine_field_type(schema: Dict[str, Any], all_schemas: Dict[str, Any]) ->
     """Determine the Python type for a field."""
     # Handle $ref
     if "$ref" in schema:
-        ref = schema["$ref"]
-        
-        # Handle cross-file references
-        if ref.startswith("./") and "#" in ref:
-            # e.g., "./evaluation-status.yaml#/components/schemas/EvaluationStatus"
-            type_name = ref.split("/")[-1]
-            return type_name
-        
-        # Handle same-file references
-        if ref.startswith("#/"):
-            type_name = ref.split("/")[-1]
-            if type_name in all_schemas:
-                return type_name
-        
-        # If we can't resolve it, return the type name anyway
-        # The import will handle making it available
-        return ref.split("/")[-1]
+        _, type_name = parse_ref(schema["$ref"])
+        return type_name
     
     # Handle basic types
     type_map = {
@@ -380,44 +436,16 @@ Run 'python shared/scripts/generate-python-types.py' to regenerate.
     print(f"Updated {init_file}")
 
 
-# Helper functions
-def has_datetime_fields(schema: Dict[str, Any]) -> bool:
-    """Check if schema has any datetime fields."""
-    if isinstance(schema, dict):
-        if schema.get("format") == "date-time":
-            return True
-        for value in schema.values():
-            if has_datetime_fields(value):
-                return True
-    return False
-
-
-def has_optional_fields(schema: Dict[str, Any]) -> bool:
-    """Check if schema has optional fields."""
-    properties = schema.get("properties", {})
-    required = schema.get("required", [])
-    
-    for prop_name, prop_def in properties.items():
-        if prop_name not in required or prop_def.get("nullable", False):
-            return True
-    return False
-
-
-def has_dict_fields(schema: Dict[str, Any]) -> bool:
-    """Check if schema has dict/object fields."""
-    return any(
-        prop.get("type") == "object" or prop.get("additionalProperties") 
-        for prop in schema.get("properties", {}).values()
-    )
-
-
-def has_list_fields(schema: Dict[str, Any]) -> bool:
-    """Check if schema has array fields."""
-    return any(
-        prop.get("type") == "array" 
-        for prop in schema.get("properties", {}).values()
-    )
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nGeneration cancelled by user")
+        exit(1)
+    except Exception as e:
+        print(f"\nFATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        exit(1)

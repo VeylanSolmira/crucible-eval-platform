@@ -180,17 +180,20 @@ async def capacity():
 def start_container(eval_id: str, code: str, timeout: int) -> Dict:
     """Start code execution in an isolated container"""
     try:
+        # Get executor image from environment
+        executor_image = os.getenv("EXECUTOR_IMAGE", "python:3.11-slim")
+        
         # Pull image if not present
         try:
-            docker_client.images.get("python:3.11-slim")
+            docker_client.images.get(executor_image)
         except ImageNotFound:
-            logger.info("Pulling python:3.11-slim image...")
-            docker_client.images.pull("python:3.11-slim")
+            logger.info(f"Pulling {executor_image} image...")
+            docker_client.images.pull(executor_image)
 
         # Create and run container
-        logger.info(f"Creating container for eval {eval_id}")
+        logger.info(f"Creating container for eval {eval_id} using image {executor_image}")
         container = docker_client.containers.run(
-            image="python:3.11-slim",
+            image=executor_image,
             command=["python", "-u", "-c", code],
             detach=True,
             remove=False,  # We'll remove manually after completion

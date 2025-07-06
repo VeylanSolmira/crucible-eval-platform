@@ -18,7 +18,7 @@ import yaml
 import redis.asyncio as redis
 
 from storage import FlexibleStorageManager
-from storage.config import StorageConfig
+from storage.core.config import StorageConfig
 from shared.generated.python import EvaluationStatus
 
 logging.basicConfig(level=logging.INFO)

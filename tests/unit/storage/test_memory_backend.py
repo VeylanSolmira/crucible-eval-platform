@@ -3,8 +3,8 @@ Tests for in-memory storage backend.
 """
 
 import unittest
-from ...tests.base_test import StorageServiceTestMixin
-from .memory_storage import InMemoryStorage
+from tests.unit.storage.base_storage_test import StorageServiceTestMixin
+from storage.backends.memory import InMemoryStorage
 
 
 class InMemoryStorageTests(StorageServiceTestMixin, unittest.TestCase):

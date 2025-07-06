@@ -172,17 +172,67 @@ def main():
     )
     print(f"User: {results['environment']['user']}")
 
-    # Save results
-    with open("safe_security_check.json", "w") as f:
-        json.dump(results, f, indent=2)
-
+    # Determine output directory with fallbacks
+    output_dir = os.environ.get("SECURITY_CHECK_OUTPUT_DIR", "")
+    
+    if not output_dir:
+        # Try various locations in order of preference
+        possible_dirs = [
+            ".",  # Current directory
+            "/tmp",  # Temp directory (usually writable in containers)
+            "/var/tmp",  # Alternative temp
+            os.environ.get("HOME", ""),  # User home
+        ]
+        
+        # If we're outside a container, also try tests/output
+        if not results["environment"]["in_container"]:
+            possible_dirs.insert(0, "tests/output")
+            possible_dirs.insert(1, "../tests/output")
+            possible_dirs.insert(2, "../../tests/output")
+        
+        for dir_path in possible_dirs:
+            if dir_path and os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
+                output_dir = dir_path
+                break
+    
+    # Try to save results
+    files_saved = []
+    
+    if output_dir:
+        try:
+            json_path = os.path.join(output_dir, "safe_security_check.json")
+            with open(json_path, "w") as f:
+                json.dump(results, f, indent=2)
+            files_saved.append(f"📊 Data saved to: {json_path}")
+        except (IOError, OSError) as e:
+            print(f"⚠️  Could not save JSON file: {e}")
+    
     report = generate_report(results)
-    with open("SAFE_SECURITY_CHECK.md", "w") as f:
-        f.write(report)
-
+    
+    if output_dir:
+        try:
+            md_path = os.path.join(output_dir, "SAFE_SECURITY_CHECK.md")
+            with open(md_path, "w") as f:
+                f.write(report)
+            files_saved.append(f"📄 Report saved to: {md_path}")
+        except (IOError, OSError) as e:
+            print(f"⚠️  Could not save Markdown file: {e}")
+    
     print("\n✅ Check complete!")
-    print("📄 Report saved to: SAFE_SECURITY_CHECK.md")
-    print("📊 Data saved to: safe_security_check.json")
+    
+    if files_saved:
+        for msg in files_saved:
+            print(msg)
+    else:
+        print("⚠️  Could not save files (no writable directory found)")
+        print("\n" + "="*50)
+        print("REPORT OUTPUT:")
+        print("="*50)
+        print(report)
+        print("\n" + "="*50)
+        print("JSON OUTPUT:")
+        print("="*50)
+        print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":

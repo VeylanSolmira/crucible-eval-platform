@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import shared types
-from shared.generated.python import EvaluationStatus, EvaluationResponse as EvaluationDetailResponse
+from shared.generated.python import EvaluationStatus, EvaluationResponse
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,7 +81,7 @@ class EvaluationRequest(BaseModel):
     priority: bool = False  # High priority flag for queue jumping
 
 
-class EvaluationResponse(BaseModel):
+class EvaluationSubmitResponse(BaseModel):
     eval_id: str
     status: EvaluationStatus = EvaluationStatus.QUEUED
     message: str = "Evaluation queued for processing"
@@ -93,7 +93,7 @@ class BatchEvaluationRequest(BaseModel):
 
 
 class BatchEvaluationResponse(BaseModel):
-    evaluations: List[EvaluationResponse]
+    evaluations: List[EvaluationSubmitResponse]
     total: int
     queued: int
     failed: int
@@ -350,7 +350,7 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
         # Queue position not available with Celery yet
         queue_position = None
 
-        return EvaluationResponse(
+        return EvaluationSubmitResponse(
             eval_id=eval_id,
             status=EvaluationStatus.QUEUED,
             message="Evaluation queued successfully",
@@ -364,7 +364,7 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
         raise HTTPException(status_code=502, detail="Failed to queue evaluation")
 
 
-@app.post("/api/eval", response_model=EvaluationResponse)
+@app.post("/api/eval", response_model=EvaluationSubmitResponse)
 async def evaluate(request: EvaluationRequest):
     """Submit code for evaluation"""
     if not service_health["queue"]:
@@ -384,6 +384,7 @@ async def evaluate(request: EvaluationRequest):
             "metadata": {
                 "submitted_at": datetime.now(timezone.utc).isoformat(),
                 "timeout": request.timeout,
+                "priority": request.priority,
             },
         },
     )
@@ -487,6 +488,7 @@ async def evaluate_batch(request: BatchEvaluationRequest, response: Response):
                 "metadata": {
                     "submitted_at": datetime.now(timezone.utc).isoformat(),
                     "timeout": eval_request.timeout,
+                    "priority": eval_request.priority,
                     "batch": True,
                 },
             },
@@ -494,7 +496,7 @@ async def evaluate_batch(request: BatchEvaluationRequest, response: Response):
         
         # Add to results with submitted status
         results.append(
-            EvaluationResponse(
+            EvaluationSubmitResponse(
                 eval_id=eval_id,
                 status=EvaluationStatus.SUBMITTED,
                 message="Evaluation accepted for processing",
@@ -607,10 +609,10 @@ async def get_evaluation_status(eval_id: str, response: Response):
 
 @app.get(
     "/api/eval/{eval_id}",
-    response_model=EvaluationDetailResponse,
+    response_model=EvaluationResponse,
     responses={
         200: {
-            "model": EvaluationDetailResponse,
+            "model": EvaluationResponse,
             "description": "Full evaluation details including code",
         },
         404: {"description": "Evaluation not found"},
@@ -631,7 +633,7 @@ async def get_evaluation(eval_id: str):
             eval_data = response.json()
             
             # Map storage service response to our detail response
-            return EvaluationDetailResponse(
+            return EvaluationResponse(
                 eval_id=eval_data.get("id", eval_id),
                 code=eval_data.get("code", ""),
                 language=eval_data.get("language", "python"),

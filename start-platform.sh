@@ -1,11 +1,15 @@
 #!/bin/bash
 # One-command startup script for Crucible Platform
-# Usage: ./start-platform.sh [dev|prod|build] [--skip-tests|--no-browser]
-#   dev   - Start in development mode (default)
-#   prod  - Start with production configuration
-#   build - Rebuild all images then start in dev mode
+# Usage: ./start-platform.sh [dev|prod|build|build-all] [--skip-tests|--no-browser]
+#   dev       - Start in development mode (default)
+#   prod      - Start with production configuration
+#   build     - Rebuild core images then start in dev mode (excludes ML executor)
+#   build-all - Rebuild ALL images including ML executor (adds ~3 minutes)
 #   --skip-tests - Skip running tests after startup
 #   --no-browser - Don't open browser after startup
+#
+# Note: The ML executor image (1.3GB) is not built by default to save time.
+#       Build it manually with: docker compose build executor-ml-image
 
 set -e  # Exit on error
 
@@ -33,12 +37,18 @@ for arg in "$@"; do
     esac
 done
 
+REBUILD_ALL=false
+BUILD_ML=false
+
 if [ "$MODE" = "build" ]; then
-    echo -e "${BLUE}Rebuilding all services...${NC}"
+    echo -e "${BLUE}Rebuilding core services...${NC}"
     REBUILD_ALL=true
     MODE="dev"  # After building, start in dev mode
-else
-    REBUILD_ALL=false
+elif [ "$MODE" = "build-all" ]; then
+    echo -e "${BLUE}Rebuilding ALL services (including ML executor)...${NC}"
+    REBUILD_ALL=true
+    BUILD_ML=true
+    MODE="dev"  # After building, start in dev mode
 fi
 
 echo -e "${GREEN}Starting Crucible Platform in ${MODE} mode...${NC}"
@@ -62,12 +72,33 @@ mkdir -p data  # For file-based storage
 
 # Build images
 if [ "$REBUILD_ALL" = true ]; then
-    echo -e "${BLUE}Building all images (this may take several minutes)...${NC}"
-    docker compose build --no-cache
+    echo -e "${BLUE}Building images...${NC}"
+    # First build base image since other images depend on it
+    echo "Building base image first..."
+    docker compose build --no-cache base
+    
+    # Build executor-ml image only if requested with 'all'
+    if [ "$BUILD_ML" = true ]; then
+        echo "Building ML executor image (this takes ~3 minutes)..."
+        docker compose build --no-cache executor-ml-image
+    fi
+    
+    # Then build all other images in parallel, excluding base and executor-ml-image
+    echo "Building all other services in parallel..."
+    # Get all services except 'base' and 'executor-ml-image' and build them
+    SERVICES=$(docker compose config --services | grep -v '^base$' | grep -v '^executor-ml-image$' | tr '\n' ' ')
+    docker compose build --parallel --no-cache $SERVICES
 else
     # Just build base image for normal startup
     echo "Building base image..."
     docker compose build base
+    
+    # Check if executor-ml image exists
+    if ! docker image inspect executor-ml:latest >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  ML executor image not found. ML workloads will fail.${NC}"
+        echo "   To build it, run: docker compose build executor-ml-image"
+        echo "   Or use: ./start-platform.sh build-all"
+    fi
 fi
 
 # Start services based on mode with --wait flag
@@ -123,7 +154,8 @@ echo -e "\n${GREEN}Useful commands:${NC}"
 echo "  View logs:      docker compose logs -f [service-name]"
 echo "  Stop platform:  docker compose down"
 echo "  Clean restart:  docker compose down -v && ./start-platform.sh"
-echo "  Rebuild all:    ./start-platform.sh build"
+echo "  Rebuild core:   ./start-platform.sh build"
+echo "  Rebuild all:    ./start-platform.sh build-all"
 
 # Check if all services are healthy
 if docker compose ps | grep -E "unhealthy|Exit|Restarting" > /dev/null 2>&1; then

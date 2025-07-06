@@ -23,13 +23,32 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - Wiki-style documentation system
 - Nginx with HTTPS and security headers
 - TypeScript linting configuration
+- Celery integration (100% traffic, with Flower monitoring)
+  - Priority queues implemented
+  - Retry logic with exponential backoff
+  - Task cancellation working
+  - Zero-downtime migration strategy documented
 
 ### 🚧 In Progress
-- Celery integration (infrastructure created, needs integration)
-- Shared contracts implementation
+- Shared contracts implementation (partially done, TypeScript generator needs work)
 
-### ⚠️ Future Tasks (Post-Demo)
-- **Multiple Worker Support**: When scaling beyond single worker, implement atomic executor allocation (see `docs/architecture/celery-task-chaining-solution.md`)
+### ✅ Completed (Week 4 Addition)
+- **Multiple Worker Support**: Atomic executor allocation implemented with Redis Lua scripts
+  - Multiple executors configured (executor-1, executor-2, executor-3)
+  - Idempotent release mechanism prevents race conditions
+  - See `docs/architecture/idempotent-executor-release.md`
+- **Code Storage Fix**: Fixed issue where evaluation code wasn't being saved
+  - Modified FlexibleStorageManager to include code field
+  - Frontend ExecutionMonitor has collapsible code section ready
+- **Priority Field**: Added to evaluation metadata (API changes made, requires rebuild)
+- **Execution Image Field Task**: Created design document for tracking Docker execution environments
+  - See `week-4-demo/add-execution-image-field.md`
+- **API Testing Guide**: Created comprehensive testing documentation
+  - See `docs/testing/api-testing-guide.md`
+  - Includes proper JSON escaping examples, port mappings, and troubleshooting
+- **ML Executor Image**: executor-ml image defined and built in docker-compose.yml
+  - Executors configured to use `executor-ml:latest` for ML-enabled evaluations
+  - Sets foundation for multiple execution environments with different capabilities
 
 ### ❌ Not Started (Deferred to Future)
 - Authentication/authorization (will document the design only)
@@ -120,7 +139,7 @@ This week focuses on achieving demo-ready status with a polished, production-qua
 - [x] Load testing with multiple concurrent evaluations (test_load.py)
 - [x] Test service restart resilience (test_resilience.py)
 - [x] Document test results and performance metrics (docs/testing/performance-metrics.md)
-- [ ] Validate fill in all numbers in docs/testing/performance-metrics.md
+- [ ] Validate fill in all numbers in docs/testing/performance-metrics.md (placeholders remain)
 - [x] Create automated test script for demo (run_demo_tests.py)
 - [ ] Verify the above testing protocols perform and cover as expected/desired
 - [ ] Analyze and adapt legacy test code
@@ -370,6 +389,12 @@ Benefits for our multi-service architecture:
 - [ ] **Consider WebSockets/SSE** - Replace polling with real-time updates to eliminate cache invalidation complexity entirely
 - [ ] **Improve batch submission** - Current implementation lacks rate limiting for large batches. See `docs/batch-submission-patterns.md` for better patterns using React Query
 - [ ] **Fix type generation architecture** - Currently takes 45 minutes to modify a shared type due to indirect TypeScript generation through OpenAPI. Need direct YAML→TypeScript generation. See `docs/proposals/type-separation-architecture.md`
+- [ ] **Update JavaScript/TypeScript generator to match Python capabilities** - Current JS generator only handles one hardcoded enum file. Should be updated to:
+  - Auto-discover and process all YAML files
+  - Generate interfaces/types (not just enums)
+  - Handle cross-file references
+  - Match the generic approach of the Python generator
+  - See `docs/development/python-vs-js-generators.md` for detailed comparison
 
 ### Next Steps - Executor Capacity Management
 

@@ -9,22 +9,13 @@ This module provides a unified interface for different storage backends:
 - In-memory - Testing and development
 """
 
-from .manager import StorageManager
-from .flexible_manager import FlexibleStorageManager
-from .base import StorageService
+from .core.flexible_manager import FlexibleStorageManager
+from .core.base import StorageService
 
 # Import backends
-from .backends.memory import InMemoryStorage
-from .backends.file import FileStorage
-
-# Optional import for database
-try:
-    from .backends.database import DatabaseStorage
-except ImportError:
-    DatabaseStorage = None
+from .backends import InMemoryStorage, FileStorage, DatabaseStorage
 
 __all__ = [
-    "StorageManager",
     "FlexibleStorageManager",
     "StorageService",
     "InMemoryStorage",

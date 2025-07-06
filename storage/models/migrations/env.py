@@ -15,7 +15,7 @@ from alembic import context
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 # Import our models
-from storage.database.models import Base
+from storage.models.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

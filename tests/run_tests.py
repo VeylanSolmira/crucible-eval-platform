@@ -16,6 +16,7 @@ Usage:
 Options:
     -v, --verbose                          # Show detailed test output
     --include-slow                         # Include tests marked as @pytest.mark.slow
+    --include-destructive                  # Include tests that stop/restart services
     --dry-run                              # Show which tests would run without executing them
 
 Available test suites: unit, integration, e2e, performance, security, benchmarks
@@ -173,13 +174,18 @@ def collect_tests(script_path: str, skip_slow: bool = True) -> Dict[str, Any]:
         return {"error": str(e), "tests": []}
 
 
-def run_test_script(script_path: str, args: List[str] = None, skip_slow: bool = True) -> Tuple[bool, str]:
+def run_test_script(script_path: str, args: List[str] = None, skip_slow: bool = True, skip_destructive: bool = True) -> Tuple[bool, str]:
     """Run a test script and return success status and output."""
     # Use pytest for test files, python for scripts
     if script_path.endswith('.py') and 'test_' in script_path:
         cmd = ["pytest", script_path, "-v", "-r", "a"]  # -r a shows all test outcomes
+        markers = []
         if skip_slow:
-            cmd.extend(["-m", "not slow"])
+            markers.append("not slow")
+        if skip_destructive:
+            markers.append("not destructive")
+        if markers:
+            cmd.extend(["-m", " and ".join(markers)])
     else:
         cmd = ["python3", script_path]
     if args:
@@ -249,7 +255,7 @@ def parse_pytest_output(output: str) -> Dict[str, Any]:
     return results
 
 
-def run_demo_sequence(verbose: bool = False, include_slow: bool = False, dry_run: bool = False):
+def run_demo_sequence(verbose: bool = False, include_slow: bool = False, include_destructive: bool = False, dry_run: bool = False):
     """Run the demonstration test sequence."""
     print_section("CRUCIBLE PLATFORM TEST SUITE")
     
@@ -288,6 +294,34 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, dry_run
             "args": [],
             "critical": False,
         },
+        {
+            "name": "Storage - Memory Backend",
+            "description": "Tests in-memory storage backend implementation",
+            "script": "tests/unit/storage/test_memory_backend.py",
+            "args": [],
+            "critical": False,
+        },
+        {
+            "name": "Storage - File Backend",
+            "description": "Tests file-based storage backend implementation",
+            "script": "tests/unit/storage/test_file_backend.py",
+            "args": [],
+            "critical": False,
+        },
+        {
+            "name": "Storage - Database Backend",
+            "description": "Tests database storage backend implementation",
+            "script": "tests/unit/storage/test_database_backend.py",
+            "args": [],
+            "critical": False,
+        },
+        {
+            "name": "Storage - Flexible Manager",
+            "description": "Tests flexible storage manager with caching and fallback",
+            "script": "tests/unit/storage/test_flexible_manager.py",
+            "args": [],
+            "critical": False,
+        },
     ]
     
     # Integration Tests
@@ -313,6 +347,14 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, dry_run
         #     "args": [],
         #     "critical": True,
         # },
+        {
+            "name": "Service Resilience",
+            "description": "Tests service restart and failure recovery (destructive)",
+            "script": "tests/integration/test_resilience.py",
+            "args": [],
+            "critical": False,
+            "destructive": True,  # Requires special flag to run
+        },
     ]
     
     # E2E Tests
@@ -410,6 +452,10 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, dry_run
                 print(f"{'='*60}")
             
         for test in suite_tests:
+            # Skip destructive tests unless explicitly included
+            if test.get("destructive", False) and not include_destructive:
+                continue
+                
             print_section(test["name"])
             print(f"Description: {test['description']}")
             print(f"Script: {test['script']}")
@@ -448,7 +494,7 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, dry_run
             print()
 
             # Run the test
-            success, output = run_test_script(test["script"], test["args"], skip_slow=not include_slow)
+            success, output = run_test_script(test["script"], test["args"], skip_slow=not include_slow, skip_destructive=not include_destructive)
             results.append({"name": test["name"], "success": success, "critical": test["critical"]})
 
             # Show results based on test type and verbosity
@@ -550,6 +596,9 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, dry_run
         if not include_slow:
             print(f"\nNote: Tests marked as @pytest.mark.slow were skipped")
             print(f"      Run with --include-slow to include them")
+        if not include_destructive:
+            print(f"\nNote: Destructive tests (that stop/restart services) were skipped")
+            print(f"      Run with --include-destructive to include them")
         print()
 
         for result in results:
@@ -629,10 +678,11 @@ if __name__ == "__main__":
     # Check for flags
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     include_slow = "--include-slow" in sys.argv
+    include_destructive = "--include-destructive" in sys.argv
     dry_run = "--dry-run" in sys.argv
     
     # Remove flags from args
-    sys.argv = [arg for arg in sys.argv if arg not in ["-v", "--verbose", "--include-slow", "--dry-run"]]
+    sys.argv = [arg for arg in sys.argv if arg not in ["-v", "--verbose", "--include-slow", "--include-destructive", "--dry-run"]]
     
     if len(sys.argv) > 1 and sys.argv[1] == "quick":
         # Quick check mode
@@ -644,4 +694,4 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         # Full demo test suite
-        run_demo_sequence(verbose=verbose, include_slow=include_slow, dry_run=dry_run)
+        run_demo_sequence(verbose=verbose, include_slow=include_slow, include_destructive=include_destructive, dry_run=dry_run)

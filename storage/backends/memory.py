@@ -5,7 +5,7 @@ In-memory storage implementation.
 import threading
 from typing import Dict, List, Any, Optional
 
-from ...base import StorageService
+from ..core.base import StorageService
 
 
 class InMemoryStorage(StorageService):

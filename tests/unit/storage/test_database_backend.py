@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 
 from sqlalchemy import create_engine, text
 
-from ...tests.base_test import StorageServiceTestMixin
-from .database_storage import DatabaseStorage
-from ...database.models import Base
+from tests.unit.storage.base_storage_test import StorageServiceTestMixin
+from storage.backends.database import DatabaseStorage
+from storage.models.models import Base
 
 
 class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):

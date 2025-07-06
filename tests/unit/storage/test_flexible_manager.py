@@ -5,8 +5,8 @@ Tests for the flexible storage manager.
 import unittest
 import asyncio
 
-from ..flexible_manager import FlexibleStorageManager
-from ..backends.memory import InMemoryStorage
+from storage.core.flexible_manager import FlexibleStorageManager
+from storage.backends.memory import InMemoryStorage
 
 
 class TestFlexibleStorageManager(unittest.TestCase):

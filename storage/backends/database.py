@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, select, delete
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from ...base import StorageService
-from ...database.models import Evaluation, EvaluationEvent
+from ..core.base import StorageService
+from ..models.models import Evaluation, EvaluationEvent
 
 
 class DatabaseStorage(StorageService):

@@ -43,7 +43,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvaluationResponse'
+                $ref: '#/components/schemas/EvaluationSubmitResponse'
         '422':
           description: Validation Error
           content:
@@ -53,7 +53,8 @@ paths:
   /api/eval-batch:
     post:
       summary: Evaluate Batch
-      description: Submit multiple evaluations as a batch
+      description: Submit multiple evaluations as a batch - returns immediately with
+        202 Accepted
       operationId: evaluate_batch_api_eval_batch_post
       requestBody:
         content:
@@ -62,7 +63,7 @@ paths:
               $ref: '#/components/schemas/BatchEvaluationRequest'
         required: true
       responses:
-        '200':
+        '202':
           description: Successful Response
           content:
             application/json:
@@ -74,11 +75,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/eval-status/{eval_id}:
+  /api/eval/{eval_id}/status:
     get:
       summary: Get Evaluation Status
-      description: Get evaluation status from storage service
-      operationId: get_evaluation_status_api_eval_status__eval_id__get
+      description: 'Get evaluation status - checks Redis first for real-time status,
+        falls back to DB.
+
+        This provides instant status updates for running evaluations.'
+      operationId: get_evaluation_status_api_eval__eval_id__status_get
       parameters:
       - name: eval_id
         in: path
@@ -109,7 +113,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/eval/{eval_id}/status:
     patch:
       summary: Update Evaluation Status
       description: Admin endpoint to manually update evaluation status
@@ -141,6 +144,37 @@ paths:
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/eval/{eval_id}:
+    get:
+      summary: Get Evaluation
+      description: 'Get full evaluation details including code, output, and all metadata.
+
+        This endpoint returns comprehensive evaluation data from the storage service.'
+      operationId: get_evaluation_api_eval__eval_id__get
+      parameters:
+      - name: eval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Id
+      responses:
+        '200':
+          description: Full evaluation details including code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+        '404':
+          description: Evaluation not found
+        '503':
+          description: Storage service unavailable
         '422':
           description: Validation Error
           content:
@@ -277,7 +311,8 @@ paths:
   /api/queue-status:
     get:
       summary: Get Queue Status
-      description: Get queue status
+      description: Get queue status - now returns Celery status since legacy queue
+        is deactivated
       operationId: get_queue_status_api_queue_status_get
       responses:
         '200':
@@ -286,6 +321,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/QueueStatusResponse'
+  /api/celery-status:
+    get:
+      summary: Get Celery Status Endpoint
+      description: Get Celery cluster status including workers, queues, and tasks.
+      operationId: get_celery_status_endpoint_api_celery_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /api/status:
     get:
       summary: Platform Status
@@ -349,7 +395,7 @@ components:
       properties:
         evaluations:
           items:
-            $ref: '#/components/schemas/EvaluationResponse'
+            $ref: '#/components/schemas/EvaluationSubmitResponse'
           type: array
           title: Evaluations
         total:
@@ -398,36 +444,109 @@ components:
         eval_id:
           type: string
           title: Eval Id
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Code
+          description: The code that was evaluated
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Language
+          description: Programming language used
+          default: python
         status:
-          allOf:
-          - $ref: '#/components/schemas/EvaluationStatus'
-          default: queued
-        message:
-          type: string
-          title: Message
-          default: Evaluation queued for processing
-        queue_position:
+          $ref: '#/components/schemas/EvaluationStatus'
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+          description: When the evaluation was created
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+          description: When execution started
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+          description: When execution completed
+        output:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Output
+          description: Standard output from the evaluation
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+          description: Standard error or error messages
+        exit_code:
           anyOf:
           - type: integer
           - type: 'null'
-          title: Queue Position
+          title: Exit Code
+          description: Process exit code
+        runtime_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Runtime Ms
+          description: Execution time in milliseconds
+        memory_used_mb:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Memory Used Mb
+          description: Peak memory usage in megabytes
+        output_truncated:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Output Truncated
+          description: Whether output was truncated due to size
+          default: false
+        error_truncated:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error Truncated
+          description: Whether error was truncated due to size
+          default: false
+        metadata:
+          anyOf:
+          - type: object
+          - type: 'null'
+          title: Metadata
       type: object
       required:
       - eval_id
+      - status
       title: EvaluationResponse
+      description: Complete evaluation data including code, status, and results
     EvaluationStatus:
       type: string
       enum:
+      - submitted
       - queued
+      - provisioning
       - running
       - completed
       - failed
       - cancelled
       title: EvaluationStatus
-      description: 'The status of an evaluation throughout its lifecycle
-
-
-        Generated from: shared/types/evaluation-status.yaml'
+      description: The status of an evaluation throughout its lifecycle
     EvaluationStatusResponse:
       properties:
         eval_id:
@@ -462,6 +581,28 @@ components:
       - eval_id
       - status
       title: EvaluationStatusResponse
+    EvaluationSubmitResponse:
+      properties:
+        eval_id:
+          type: string
+          title: Eval Id
+        status:
+          allOf:
+          - $ref: '#/components/schemas/EvaluationStatus'
+          default: queued
+        message:
+          type: string
+          title: Message
+          default: Evaluation queued for processing
+        queue_position:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Queue Position
+      type: object
+      required:
+      - eval_id
+      title: EvaluationSubmitResponse
     HTTPValidationError:
       properties:
         detail:
@@ -550,6 +691,11 @@ components:
           type: object
           title: Storage
           default: {}
+        celery:
+          anyOf:
+          - type: object
+          - type: 'null'
+          title: Celery
         version:
           type: string
           title: Version

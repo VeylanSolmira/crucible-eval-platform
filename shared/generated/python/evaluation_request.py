@@ -8,6 +8,7 @@ Source: shared/types/evaluation-request.yaml
 
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
+from enum import Enum
 
 
 class EvaluationRequest(BaseModel):
