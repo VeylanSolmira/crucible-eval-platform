@@ -19,7 +19,11 @@ env:
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'crucible-platform' }}
 
 jobs:
+  generate-specs:
+    uses: ./.github/workflows/generate-openapi-spec.yml
+  
   build-and-push:
+    needs: generate-specs
     runs-on: ubuntu-latest
     
     # Required for OIDC and artifact access
@@ -32,16 +36,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     
-    - name: Check for fresh OpenAPI spec
-      id: check-spec
-      continue-on-error: true
-      uses: dawidd6/action-download-artifact@v2
+    - name: Download OpenAPI specs
+      uses: actions/download-artifact@v4
       with:
-        workflow: generate-openapi-spec.yml
-        name: openapi-spec
-        path: api/
-        search_artifacts: true
-        if_no_artifact_found: warn
+        name: openapi-specs
+        path: ./
     
     - name: Configure AWS credentials via OIDC
       uses: aws-actions/configure-aws-credentials@v2
@@ -69,12 +68,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Note if we're using a fresh OpenAPI spec
-        if [ -f "api/openapi.yaml" ] && [ "${{ steps.check-spec.outcome }}" == "success" ]; then
-          echo "📋 Using fresh OpenAPI spec from artifact"
-        else
-          echo "📋 Using committed OpenAPI spec"
-        fi
+        echo "📋 Using OpenAPI specs from generate-openapi-spec workflow"
         
         # Build and push each service
         # Format: "service-name:dockerfile-path:build-context"
@@ -84,8 +78,8 @@ jobs:
           "api:api/Dockerfile:."
           "frontend:frontend/Dockerfile:."
           "executor-service:executor-service/Dockerfile:."
-          "queue-service:queue-service/Dockerfile:."
-          "queue-worker:queue-worker/Dockerfile:."
+          "celery-worker:celery-worker/Dockerfile:."
+          "storage-service:storage-service/Dockerfile:."
           "storage-worker:storage-worker/Dockerfile:."
         )
         
@@ -121,8 +115,8 @@ jobs:
           "api"
           "frontend"
           "executor-service"
-          "queue-service"
-          "queue-worker"
+          "celery-worker"
+          "storage-service"
           "storage-worker"
         )
         
@@ -175,8 +169,8 @@ jobs:
           "api"
           "frontend"
           "executor-service"
-          "queue-service"
-          "queue-worker"
+          "celery-worker"
+          "storage-service"
           "storage-worker"
         )
         
@@ -228,8 +222,8 @@ jobs:
         API_IMAGE=${{ steps.params.outputs.api_image }}
         FRONTEND_IMAGE=${{ steps.params.outputs.frontend_image }}
         EXECUTOR_SERVICE_IMAGE=${{ steps.params.outputs.executor_service_image }}
-        QUEUE_SERVICE_IMAGE=${{ steps.params.outputs.queue_service_image }}
-        QUEUE_WORKER_IMAGE=${{ steps.params.outputs.queue_worker_image }}
+        CELERY_WORKER_IMAGE=${{ steps.params.outputs.celery_worker_image }}
+        STORAGE_SERVICE_IMAGE=${{ steps.params.outputs.storage_service_image }}
         STORAGE_WORKER_IMAGE=${{ steps.params.outputs.storage_worker_image }}
         
         # Legacy names for compatibility

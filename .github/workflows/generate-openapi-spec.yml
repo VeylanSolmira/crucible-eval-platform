@@ -1,23 +1,13 @@
 name: Generate OpenAPI Spec
 
 on:
-  push:
-    paths:
-      - 'api/**/*.py'
-      - '!api/openapi.yaml'  # Don't trigger on spec changes
-      - '!api/openapi.json'
-      - 'storage-service/**/*.py'
-      - '!storage-service/openapi.yaml'
-      - '!storage-service/openapi.json'
-      - 'executor-service/**/*.py'
-      - '!executor-service/openapi.yaml'
-      - '!executor-service/openapi.json'
   pull_request:
     paths:
       - 'api/**/*.py'
       - 'storage-service/**/*.py'
       - 'executor-service/**/*.py'
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   generate-spec:
