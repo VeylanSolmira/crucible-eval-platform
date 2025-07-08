@@ -14,6 +14,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.mark.unit
 class TestPostgreSQLOperations:
     """Test PostgreSQL-specific functionality."""
     

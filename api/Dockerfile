@@ -21,7 +21,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 
 # Copy only necessary application code with proper ownership
 COPY --chown=appuser:appuser api/microservices_gateway.py api/__init__.py /app/api/
-COPY --chown=appuser:appuser api/app/ /app/api/app/
+COPY --chown=appuser:appuser api/celery_client.py api/celery_constants.py /app/api/
 COPY --chown=appuser:appuser storage/ /app/storage/
 COPY --chown=appuser:appuser shared/ /app/shared/
 

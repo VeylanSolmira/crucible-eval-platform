@@ -70,6 +70,15 @@ fi
 echo "Creating data directories..."
 mkdir -p data  # For file-based storage
 
+# Generate OpenAPI specs (needed for frontend build)
+echo -e "${YELLOW}Generating OpenAPI specifications...${NC}"
+if ./scripts/generate-all-openapi-specs.sh; then
+    echo -e "${GREEN}✓ OpenAPI specs ready${NC}"
+else
+    echo -e "${YELLOW}⚠️  Some OpenAPI specs failed to generate${NC}"
+    echo "   Frontend type generation may use fallback types"
+fi
+
 # Build images
 if [ "$REBUILD_ALL" = true ]; then
     echo -e "${BLUE}Building images...${NC}"

@@ -282,7 +282,7 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, include
         },
         {
             "name": "Celery Retry Configuration",
-            "description": "Tests retry logic and exponential backoff calculations",
+            "description": "Tests retry logic, exponential backoff, HTTP error classification, and retry strategies",
             "script": "tests/unit/celery/test_retry_config.py",
             "args": [],
             "critical": False,
@@ -334,19 +334,68 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, include
             "critical": True,
         },
         {
+            "name": "Celery Connection",
+            "description": "Tests Celery and Redis connectivity and configuration",
+            "script": "tests/integration/test_celery_connection.py",
+            "args": [],
+            "critical": True,  # Critical - must be able to connect to Celery
+        },
+        {
+            "name": "Celery Direct Tasks",
+            "description": "Tests Celery tasks directly without API layer",
+            "script": "tests/integration/test_celery_tasks.py",
+            "args": [],
+            "critical": False,  # Informational - API layer tests cover functionality
+        },
+        {
             "name": "Celery Task Integration",
             "description": "Tests Celery task chaining and executor allocation",
             "script": "tests/integration/test_celery_integration.py",
             "args": [],
             "critical": True,  # Critical - evaluations can't reach executors without it
         },
-        # {
-        #     "name": "Core Integration Tests",
-        #     "description": "Tests basic submission, retrieval, and error handling",
-        #     "script": "tests/integration/test_core_flows.py",
-        #     "args": [],
-        #     "critical": True,
-        # },
+        {
+            "name": "Fast-Failing Container Logs",
+            "description": "Tests Docker event race condition fix for fast-failing containers",
+            "script": "tests/integration/test_fast_failing_containers.py",
+            "args": [],
+            "critical": True,  # Critical - ensures logs are captured from all containers
+        },
+        {
+            "name": "Docker Event Diagnostics",
+            "description": "Diagnostic tests for container lifecycle and event handling",
+            "script": "tests/integration/test_docker_event_diagnostics.py",
+            "args": [],
+            "critical": False,  # Informational/diagnostic
+        },
+        {
+            "name": "Executor Import Handling",
+            "description": "Tests import error capture and ML library support in executors",
+            "script": "tests/integration/test_executor_imports.py",
+            "args": [],
+            "critical": False,  # Informational - validates executor capabilities
+        },
+        {
+            "name": "Priority Queue API",
+            "description": "Tests priority queue functionality via API endpoints",
+            "script": "tests/integration/test_priority_queue.py",
+            "args": [],
+            "critical": False,  # Priority queues are an optimization feature
+        },
+        {
+            "name": "Priority Queue Celery",
+            "description": "Tests Celery priority queue direct task submission",
+            "script": "tests/integration/test_priority_celery.py",
+            "args": [],
+            "critical": False,  # Lower-level priority queue testing
+        },
+        {
+            "name": "Core Integration Tests",
+            "description": "Tests basic submission, retrieval, and error handling",
+            "script": "tests/integration/test_core_flows.py",
+            "args": [],
+            "critical": True,
+        },
         {
             "name": "Service Resilience",
             "description": "Tests service restart and failure recovery (destructive)",
@@ -364,7 +413,14 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, include
     
     # Performance Tests
     performance_tests = [
-        # TODO: Add performance tests that verify requirements:
+        {
+            "name": "Rate-Aware Load Test",
+            "description": "Tests system under load while respecting rate limits",
+            "script": "tests/integration/test_load.py",
+            "args": ["10", "20", "120"],  # 10 concurrent, 20 total, 2 min timeout
+            "critical": False,  # Performance tests are informational
+        },
+        # TODO: Add more performance tests that verify requirements:
         # - API response time < 100ms
         # - Evaluation submission < 500ms
         # - Handle 10 concurrent evaluations

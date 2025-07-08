@@ -19,17 +19,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import shared types
 from shared.generated.python import EvaluationStatus, EvaluationResponse
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
+from pydantic import BaseModel, Field, validator
 import uvicorn
 
 # Import Redis for event publishing
 import redis.asyncio as redis
 
 # Import Celery client for dual-write
-from api.app.celery_client import submit_evaluation_to_celery, CELERY_ENABLED, cancel_celery_task
+from api.celery_client import submit_evaluation_to_celery, CELERY_ENABLED, cancel_celery_task
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,6 +40,14 @@ QUEUE_SERVICE_URL = os.getenv("QUEUE_SERVICE_URL", "http://queue:8081")
 STORAGE_SERVICE_URL = os.getenv("STORAGE_SERVICE_URL", "http://storage-service:8082")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev-internal-api-key")
+
+# Security validation constants
+# These limits prevent DoS attacks and resource exhaustion
+# Implemented as part of Week 4 security hardening
+MAX_CODE_SIZE = 1 * 1024 * 1024  # 1MB limit - prevents memory exhaustion
+MIN_TIMEOUT = 1  # 1 second minimum - prevents instant timeout abuse
+MAX_TIMEOUT = 900  # 15 minutes maximum - prevents long-running resource locks
+SUPPORTED_LANGUAGES = ["python"]  # Explicitly allowlist supported languages
 
 app = FastAPI(
     title="Crucible API Service (Microservices Mode)",
@@ -54,6 +63,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request size limiting middleware
+# Provides defense-in-depth against DoS attacks by limiting total request size
+# Works in conjunction with code size validation in EvaluationRequest
+# Returns 413 (Request Entity Too Large) for oversized requests
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_size: int = 2 * 1024 * 1024):  # 2MB total request size
+        super().__init__(app)
+        self.max_size = max_size
+    
+    async def dispatch(self, request: Request, call_next):
+        # Only apply size limit to API endpoints
+        if request.url.path.startswith("/api/"):
+            if request.headers.get("content-length"):
+                content_length = int(request.headers["content-length"])
+                if content_length > self.max_size:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "Request entity too large"}
+                    )
+        
+        response = await call_next(request)
+        return response
+
+# Add request size limiting
+app.add_middleware(RequestSizeLimitMiddleware, max_size=2 * 1024 * 1024)
 
 # Create HTTP client factory function instead of global client
 def create_http_client(timeout: float = 30.0) -> httpx.AsyncClient:
@@ -72,13 +107,44 @@ logger.info(f"Storage service URL: {STORAGE_SERVICE_URL}")
 # See: shared/types/evaluation-status.yaml
 
 
-# Request models
+# Request models with security validations
+# Security validations implemented in Week 4:
+# 1. Code size validation - prevents memory exhaustion attacks (1MB max)
+# 2. Timeout validation - prevents resource locks (1s-900s range)
+# 3. Language allowlisting - only explicitly supported languages allowed
+# 4. Empty code prevention - ensures meaningful requests
+# Combined with RequestSizeLimitMiddleware for defense in depth
 class EvaluationRequest(BaseModel):
-    code: str
-    language: str = "python"
-    engine: str = "docker"
-    timeout: int = 30
-    priority: bool = False  # High priority flag for queue jumping
+    code: str = Field(..., description="Code to execute")
+    language: str = Field("python", description="Programming language")
+    engine: str = Field("docker", description="Execution engine")
+    timeout: int = Field(30, description="Timeout in seconds", ge=MIN_TIMEOUT, le=MAX_TIMEOUT)
+    priority: bool = Field(False, description="High priority flag")
+    
+    @validator('code')
+    def validate_code_size(cls, v):
+        """Validate code size to prevent DoS attacks."""
+        if len(v.encode('utf-8')) > MAX_CODE_SIZE:
+            raise ValueError(f"Code size exceeds maximum allowed size of {MAX_CODE_SIZE} bytes")
+        if not v.strip():
+            raise ValueError("Code cannot be empty")
+        return v
+    
+    @validator('language')
+    def validate_language(cls, v):
+        """Validate that language is supported."""
+        if v.lower() not in SUPPORTED_LANGUAGES:
+            raise ValueError(f"Language '{v}' is not supported. Supported languages: {', '.join(SUPPORTED_LANGUAGES)}")
+        return v.lower()
+    
+    @validator('timeout')
+    def validate_timeout(cls, v):
+        """Validate timeout is within acceptable range."""
+        if v < MIN_TIMEOUT:
+            raise ValueError(f"Timeout must be at least {MIN_TIMEOUT} seconds")
+        if v > MAX_TIMEOUT:
+            raise ValueError(f"Timeout cannot exceed {MAX_TIMEOUT} seconds")
+        return v
 
 
 class EvaluationSubmitResponse(BaseModel):
@@ -923,7 +989,7 @@ async def get_queue_status():
 @app.get("/api/celery-status")
 async def get_celery_status_endpoint():
     """Get Celery cluster status including workers, queues, and tasks."""
-    from app.celery_client import get_celery_status, CELERY_ENABLED, celery_app
+    from api.celery_client import get_celery_status, CELERY_ENABLED, celery_app
 
     if not CELERY_ENABLED:
         return {
@@ -994,7 +1060,7 @@ async def platform_status():
     # Get Celery status
     celery_info = {}
     try:
-        from app.celery_client import get_celery_status, CELERY_ENABLED
+        from api.celery_client import get_celery_status, CELERY_ENABLED
 
         if CELERY_ENABLED:
             celery_info = get_celery_status()

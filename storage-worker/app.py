@@ -21,6 +21,7 @@ import structlog
 from fastapi import FastAPI
 import uvicorn
 from shared.generated.python import EvaluationStatus
+from shared.state_machine import validate_and_update_status
 
 # Configure standard logging for libraries (redis, etc)
 logging.basicConfig(
@@ -244,16 +245,17 @@ class StorageWorker:
             return
 
         try:
-            # Update evaluation status to queued (it should already exist with submitted status)
-            response = await self.client.put(
-                f"{self.storage_url}/evaluations/{eval_id}",
-                json={
-                    "status": EvaluationStatus.QUEUED.value,
-                    "metadata": data.get("metadata", {}),
-                },
+            # Validate and update status to queued using shared helper
+            metadata = data.get("metadata", {})
+            success, error = await validate_and_update_status(
+                http_client=self.client,
+                storage_url=self.storage_url,
+                eval_id=eval_id,
+                new_status=EvaluationStatus.QUEUED.value,
+                update_data={"metadata": metadata} if metadata else None
             )
 
-            if response.status_code == 200:
+            if success:
                 logger.info(f"Updated evaluation {eval_id} to queued status")
                 # Publish confirmation event (other services can listen)
                 await self.redis.publish(
@@ -263,7 +265,7 @@ class StorageWorker:
                     ),
                 )
             else:
-                logger.error(f"Failed to update evaluation {eval_id} to queued: {response.status_code}")
+                logger.error(f"Failed to update evaluation {eval_id} to queued: {error}")
 
         except Exception as e:
             logger.error(f"Error updating evaluation {eval_id} to queued: {e}")
@@ -279,16 +281,16 @@ class StorageWorker:
             return
 
         try:
-            # Update PostgreSQL status to running
-            response = await self.client.put(
-                f"{self.storage_url}/evaluations/{eval_id}",
-                json={"status": EvaluationStatus.RUNNING.value},
+            # Validate and update status to running using shared helper
+            success, error = await validate_and_update_status(
+                http_client=self.client,
+                storage_url=self.storage_url,
+                eval_id=eval_id, 
+                new_status=EvaluationStatus.RUNNING.value
             )
-
-            if response.status_code != 200:
-                logger.error(
-                    f"Failed to update status to running for {eval_id}: {response.status_code}"
-                )
+            
+            if not success:
+                logger.info(f"Skipping running event for {eval_id}: {error}")
                 return
 
             # Store transient executor info in Redis
@@ -334,18 +336,22 @@ class StorageWorker:
         logger.info(f"Storage-worker handling completed event for {eval_id}")
 
         try:
-            # Call storage service API to update evaluation
-            response = await self.client.put(
-                f"{self.storage_url}/evaluations/{eval_id}",
-                json={
-                    "status": EvaluationStatus.COMPLETED.value,
-                    "output": data.get("output", ""),
-                    "error": data.get("error", ""),
-                    "metadata": data.get("metadata", {}),
-                },
+            # Validate and update status to completed using shared helper
+            update_data = {
+                "output": data.get("output", ""),
+                "error": data.get("error", ""),
+                "metadata": data.get("metadata", {}),
+            }
+            
+            success, error = await validate_and_update_status(
+                http_client=self.client,
+                storage_url=self.storage_url,
+                eval_id=eval_id,
+                new_status=EvaluationStatus.COMPLETED.value,
+                update_data=update_data
             )
 
-            if response.status_code == 200:
+            if success:
                 logger.info(f"Updated completed evaluation {eval_id} in database")
 
                 # Clean up Redis running info
@@ -373,7 +379,7 @@ class StorageWorker:
                     ),
                 )
             else:
-                logger.error(f"Failed to update completed evaluation {eval_id}")
+                logger.error(f"Failed to update completed evaluation {eval_id}: {error}")
 
         except Exception as e:
             logger.error(f"Error updating completed evaluation {eval_id}: {e}")
@@ -388,13 +394,16 @@ class StorageWorker:
             return
 
         try:
-            # Call storage service API to update evaluation
-            response = await self.client.put(
-                f"{self.storage_url}/evaluations/{eval_id}",
-                json={"status": EvaluationStatus.FAILED.value, "error": error},
+            # Validate and update status to failed using shared helper
+            success, error_msg = await validate_and_update_status(
+                http_client=self.client,
+                storage_url=self.storage_url,
+                eval_id=eval_id,
+                new_status=EvaluationStatus.FAILED.value,
+                update_data={"error": error}
             )
 
-            if response.status_code == 200:
+            if success:
                 logger.info(f"Updated failed evaluation {eval_id}")
 
                 # Clean up Redis running info
@@ -413,7 +422,7 @@ class StorageWorker:
                     ),
                 )
             else:
-                logger.error(f"Failed to update failed evaluation {eval_id}")
+                logger.error(f"Failed to update failed evaluation {eval_id}: {error_msg}")
 
         except Exception as e:
             logger.error(f"Error updating failed evaluation {eval_id}: {e}")

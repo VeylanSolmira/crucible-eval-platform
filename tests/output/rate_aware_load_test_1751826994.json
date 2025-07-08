@@ -1,0 +1,599 @@
+{
+  "timestamp": "2025-07-06T11:36:34.140293",
+  "configuration": {
+    "concurrent_threads": 20,
+    "rate_limit": 10,
+    "burst": 10
+  },
+  "metrics": {
+    "test_duration": 65.59653091430664,
+    "total_submitted": 50,
+    "successful": 21,
+    "failed": 0,
+    "errors": 29,
+    "rate_limited": 0,
+    "effective_rate": 0.7622354307931087,
+    "success_rate": 0.42,
+    "submit_time": {
+      "min": 0.024119138717651367,
+      "max": 3.6899468898773193,
+      "avg": 1.0939830711909704,
+      "median": 0.5319139957427979
+    },
+    "complete_time": {
+      "min": 4.125925064086914,
+      "max": 28.641210794448853,
+      "avg": 11.761086918058849,
+      "median": 6.811806917190552
+    },
+    "queue_time": {
+      "min": 1.391000747680664,
+      "max": 24.948780059814453,
+      "avg": 9.303292369842529,
+      "median": 3.85127592086792
+    },
+    "execution_time": {
+      "min": 0.5471701622009277,
+      "max": 5.053194999694824,
+      "avg": 2.3686012585957843,
+      "median": 2.025219202041626
+    },
+    "rate_limit_wait": {
+      "total": 0.09774384498596192,
+      "avg": 0.004654468808855329,
+      "max": 0.09774384498596192
+    }
+  },
+  "evaluations": [
+    {
+      "eval_id": "eval_20250706_183528_42ef6549",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.11310601234436035,
+      "queue_time": 3.820175886154175,
+      "execution_time": 0.5471701622009277,
+      "total_duration": 4.480449914932251,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183528_a8eb4871",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.12269473075866699,
+      "queue_time": 3.85127592086792,
+      "execution_time": 1.0474271774291992,
+      "total_duration": 5.021397829055786,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183528_33fd84a8",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.12165999412536621,
+      "queue_time": 20.28374695777893,
+      "execution_time": 1.412067174911499,
+      "total_duration": 21.81747317314148,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183528_e7438104",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.10579085350036621,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 4.125925064086914,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183528_b159ca7e",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.13797688484191895,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 27.768434762954712,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_d614a1c1",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 0.13556885719299316,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 27.90865206718445,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_ef9d8e47",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.13644695281982422,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 37.16689872741699,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_aaa7bb06",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.13529491424560547,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 37.88674306869507,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_ea9b21ff",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 0.1378629207611084,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 28.362952947616577,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_f1843d72",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.1380620002746582,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 28.36239004135132,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_4fcbf510",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.0440981388092041,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 37.78134226799011,
+      "wait_time": 0.09831914901733399,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_c4493b61",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.024119138717651367,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 14.736406087875366,
+      "wait_time": 0.09774384498596192,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183528_74aab69c",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.011098146438598633,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 36.655471086502075,
+      "wait_time": 0.09985194206237794,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183528_19dd75c3",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.013213872909545898,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 27.72877287864685,
+      "wait_time": 0.09983811378479004,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183529_283981a0",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 0.029066085815429688,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 27.614036083221436,
+      "wait_time": 0.09985027313232422,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183529_00d988c6",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.04781007766723633,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 37.26899528503418,
+      "wait_time": 0.09973702430725098,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183529_46337399",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.11139106750488281,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 36.24385213851929,
+      "wait_time": 0.09910926818847657,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183529_89884047",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 0.04870891571044922,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 37.334102153778076,
+      "wait_time": 0.09970293045043946,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183529_ba25f470",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.08154916763305664,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 27.209893941879272,
+      "wait_time": 0.09980783462524415,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183529_30af1fa5",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.7127747535705566,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 36.15992999076843,
+      "wait_time": 0.09979901313781739,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183532_f3bc4ddb",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.031339168548583984,
+      "queue_time": 1.391000747680664,
+      "execution_time": 4.816436290740967,
+      "total_duration": 6.238776206970215,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183533_fe6908e2",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.5400209426879883,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 5.496389865875244,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183533_e15cc0d1",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.10481095314025879,
+      "queue_time": 4.54594087600708,
+      "execution_time": 1.4639570713043213,
+      "total_duration": 6.11470890045166,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183538_df90e3e7",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 1.1540050506591797,
+      "queue_time": 3.9187028408050537,
+      "execution_time": 3.5484580993652344,
+      "total_duration": 8.621165752410889,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183539_767af0d3",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.7680389881134033,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 4.572501182556152,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183539_62eac9ee",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.4226250648498535,
+      "queue_time": 3.382714033126831,
+      "execution_time": 3.647138833999634,
+      "total_duration": 7.452476978302002,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183543_42aef4df",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.5319139957427979,
+      "queue_time": 3.1277859210968018,
+      "execution_time": 2.092705249786377,
+      "total_duration": 5.7524049282073975,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183543_552ffe2f",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.6378791332244873,
+      "queue_time": 3.0326931476593018,
+      "execution_time": 2.104207754135132,
+      "total_duration": 5.774780035018921,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183547_cba7feb3",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.025040864944458008,
+      "queue_time": 2.101655960083008,
+      "execution_time": 5.053194999694824,
+      "total_duration": 7.179888725280762,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183547_c6b09666",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.04497885704040527,
+      "queue_time": 2.071704864501953,
+      "execution_time": 4.695123195648193,
+      "total_duration": 6.811806917190552,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183549_ca20dc60",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.08262395858764648,
+      "queue_time": 5.103765964508057,
+      "execution_time": 0.0,
+      "total_duration": 17.76728081703186,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183549_da1a418a",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.0818629264831543,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 7.144676923751831,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183551_f8052687",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 2.1857080459594727,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 7.191494941711426,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183556_8f0b82ed",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 3.6899468898773193,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 6.217724800109863,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183556_c977ce33",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 3.3366267681121826,
+      "queue_time": 2.5139219760894775,
+      "execution_time": 0.0,
+      "total_duration": 12.345328092575073,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_8d083c5e",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 1.5870349407196045,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 9.712169885635376,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_76891e88",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 1.5269298553466797,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 9.094692707061768,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_b08557be",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 1.4757602214813232,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 9.050288200378418,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_c4c72471",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 1.5804169178009033,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 9.051010131835938,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_f4b6b43b",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 1.2998039722442627,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 8.838814973831177,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_9533f8d1",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 1.4955778121948242,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 8.821269035339355,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_cfd0247b",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 1.3393168449401855,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 8.801590919494629,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_0224c1be",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 1.6941838264465332,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 9.519400835037231,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183557_53678502",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 1.1420061588287354,
+      "queue_time": 1.4583821296691895,
+      "execution_time": 0.0,
+      "total_duration": 8.167245149612427,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183600_f30344b6",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 0.03829598426818848,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 5.652328252792358,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_183607_c8b21a74",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 2.9071288108825684,
+      "queue_time": 24.948780059814453,
+      "execution_time": 0.7853059768676758,
+      "total_duration": 28.641210794448853,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183607_c297bd05",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 2.921546220779419,
+      "queue_time": 24.301713943481445,
+      "execution_time": 1.4157559871673584,
+      "total_duration": 28.639015197753906,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183607_458a5a49",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 2.904902219772339,
+      "queue_time": 19.960994243621826,
+      "execution_time": 0.8748517036437988,
+      "total_duration": 23.74074912071228,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183607_20c01642",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 2.8985047340393066,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 21.808263778686523,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_183607_ad2fe30e",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 2.9035918712615967,
+      "queue_time": 18.810500144958496,
+      "execution_time": 2.025219202041626,
+      "total_duration": 23.739310026168823,
+      "wait_time": 0,
+      "error": ""
+    }
+  ]
+}

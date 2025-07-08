@@ -235,7 +235,7 @@ export const CodeEditorWithTemplates: React.FC<CodeEditorWithTemplatesProps> = (
           disabled={loading || !value.trim()}
           className="px-6 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
         >
-          {loading ? 'Evaluating...' : 'Run Evaluation'}
+          {loading ? 'Submitting...' : 'Run Evaluation'}
         </button>
 
         {onBatchSubmit && (

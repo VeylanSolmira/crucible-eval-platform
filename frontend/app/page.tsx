@@ -253,7 +253,7 @@ export default function ResearcherUI() {
               onChange={setCode}
               onSubmit={() => void handleSubmit()}
               onBatchSubmit={(count) => void handleBatchSubmit(count)}
-              loading={isSubmitting || isRunning}
+              loading={isSubmitting}
             />
           </div>
 
@@ -270,7 +270,7 @@ export default function ResearcherUI() {
             {/* Execution Config */}
             <ExecutionConfig
               config={execConfig}
-              onChange={useCallback((newConfig: ExecutionConfigData) => setExecConfig(newConfig), [])}
+              onChange={setExecConfig}
               disabled={isSubmitting || isRunning}
             />
 

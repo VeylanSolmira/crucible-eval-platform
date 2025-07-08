@@ -632,26 +632,33 @@
         "properties": {
           "code": {
             "type": "string",
-            "title": "Code"
+            "title": "Code",
+            "description": "Code to execute"
           },
           "language": {
             "type": "string",
             "title": "Language",
+            "description": "Programming language",
             "default": "python"
           },
           "engine": {
             "type": "string",
             "title": "Engine",
+            "description": "Execution engine",
             "default": "docker"
           },
           "timeout": {
             "type": "integer",
+            "maximum": 900.0,
+            "minimum": 1.0,
             "title": "Timeout",
+            "description": "Timeout in seconds",
             "default": 30
           },
           "priority": {
             "type": "boolean",
             "title": "Priority",
+            "description": "High priority flag",
             "default": false
           }
         },

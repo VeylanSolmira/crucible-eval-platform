@@ -2,6 +2,7 @@
 Tests for file-based storage backend.
 """
 
+import pytest
 import unittest
 import tempfile
 import shutil
@@ -12,6 +13,7 @@ from tests.unit.storage.base_storage_test import StorageServiceTestMixin
 from storage.backends.file import FileStorage
 
 
+@pytest.mark.unit
 class FileStorageTests(StorageServiceTestMixin, unittest.TestCase):
     """Test suite for file-based storage."""
 

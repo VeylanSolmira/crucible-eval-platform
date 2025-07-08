@@ -1,0 +1,159 @@
+{
+  "timestamp": "2025-07-06T13:33:09.389005",
+  "configuration": {
+    "concurrent_threads": 5,
+    "rate_limit": 10,
+    "burst": 10
+  },
+  "metrics": {
+    "test_duration": 30.12703585624695,
+    "total_submitted": 10,
+    "successful": 5,
+    "failed": 0,
+    "errors": 5,
+    "rate_limited": 0,
+    "effective_rate": 0.33192777569342136,
+    "success_rate": 0.5,
+    "submit_time": {
+      "min": 0.20802617073059082,
+      "max": 1.8082659244537354,
+      "avg": 0.5832443714141846,
+      "median": 0.242445707321167
+    },
+    "complete_time": {
+      "min": 4.636724948883057,
+      "max": 16.610306978225708,
+      "avg": 9.95732078552246,
+      "median": 8.004076719284058
+    },
+    "queue_time": {
+      "min": 3.6968069076538086,
+      "max": 12.675096273422241,
+      "avg": 7.117852592468262,
+      "median": 3.726874828338623
+    },
+    "execution_time": {
+      "min": 0.7018239498138428,
+      "max": 4.059316873550415,
+      "avg": 2.2562247276306153,
+      "median": 2.1269447803497314
+    },
+    "rate_limit_wait": {
+      "total": 0,
+      "avg": 0,
+      "max": 0
+    }
+  },
+  "evaluations": [
+    {
+      "eval_id": "eval_20250706_203239_f5d8e351",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.24104070663452148,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 13.515612840652466,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_203239_bb36acab",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.242445707321167,
+      "queue_time": 3.702315092086792,
+      "execution_time": 4.059316873550415,
+      "total_duration": 8.004076719284058,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_203239_88f0b760",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.23832082748413086,
+      "queue_time": 3.6968069076538086,
+      "execution_time": 3.4901130199432373,
+      "total_duration": 7.425238132476807,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_203239_18eb49b4",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.20802617073059082,
+      "queue_time": 3.726874828338623,
+      "execution_time": 0.7018239498138428,
+      "total_duration": 4.636724948883057,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_203239_deb18aa9",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.23920798301696777,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 14.903666019439697,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_203243_d55cd67f",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 0.047590017318725586,
+      "queue_time": 3.2784688472747803,
+      "execution_time": 0.0,
+      "total_duration": 10.251008987426758,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_203246_eb8cfa0c",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 0.47855377197265625,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 7.462264776229858,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_203247_fc9b9763",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 0.37780189514160156,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 6.888535976409912,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_203254_8faf21e8",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 1.8082659244537354,
+      "queue_time": 12.675096273422241,
+      "execution_time": 2.1269447803497314,
+      "total_duration": 16.610306978225708,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_203254_ee09bb5d",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.41916322708129883,
+      "queue_time": 11.788169860839844,
+      "execution_time": 0.9029250144958496,
+      "total_duration": 13.110257148742676,
+      "wait_time": 0,
+      "error": ""
+    }
+  ]
+}

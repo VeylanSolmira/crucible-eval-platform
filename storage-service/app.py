@@ -915,35 +915,8 @@ async def get_openapi_yaml():
     return Response(content=yaml_content, media_type="application/yaml")
 
 
-@app.on_event("startup")
-async def export_openapi_spec():
-    """Export OpenAPI spec on startup for documentation"""
-    try:
-        from fastapi.openapi.utils import get_openapi
-        import yaml
-        import json
-        from pathlib import Path
-
-        # Get OpenAPI schema
-        openapi_schema = get_openapi(
-            title=app.title, version=app.version, description=app.description, routes=app.routes
-        )
-
-        # Create directory if it doesn't exist
-        Path("/app/storage-service").mkdir(exist_ok=True)
-
-        # Export as JSON
-        with open("/app/storage-service/openapi.json", "w") as f:
-            json.dump(openapi_schema, f, indent=2)
-
-        # Export as YAML
-        with open("/app/storage-service/openapi.yaml", "w") as f:
-            yaml.dump(openapi_schema, f, sort_keys=False)
-
-        logger.info("OpenAPI spec exported to /app/storage-service/openapi.json and openapi.yaml")
-    except Exception as e:
-        logger.error(f"Failed to export OpenAPI spec: {e}")
-        # Don't fail startup if export fails
+# Note: OpenAPI spec export removed - now handled by storage-service/scripts/export-openapi-spec.py
+# This allows the service to run with read-only filesystem in production
 
 
 # Logs endpoints

@@ -158,6 +158,7 @@ def monitor_evaluation(eval_id: str, timeout: int = 30) -> dict:
 
 
 # Test functions
+@pytest.mark.api
 def test_single_evaluation(redis_client):
     """Test a single evaluation through the full chain."""
     print("\n" + "="*60)
@@ -188,6 +189,7 @@ def test_single_evaluation(redis_client):
     assert final_busy == initial_busy, "Executor still marked as busy"
 
 
+@pytest.mark.api
 def test_concurrent_evaluations(redis_client):
     """Test multiple concurrent evaluations to verify executor allocation."""
     print("\n" + "="*60)
@@ -254,6 +256,7 @@ def test_concurrent_evaluations(redis_client):
     assert final_busy == initial_busy, "Some executors still marked as busy"
 
 
+@pytest.mark.api
 def test_executor_shortage(redis_client):
     """Test behavior when there are more tasks than executors."""
     print("\n" + "="*60)
@@ -307,6 +310,7 @@ def test_executor_shortage(redis_client):
     assert max_queued > 0, "No tasks were queued despite executor shortage"
 
 
+@pytest.mark.api
 def test_task_cancellation(redis_client):
     """Test cancelling a task during execution."""
     print("\n" + "="*60)
@@ -346,6 +350,7 @@ def test_task_cancellation(redis_client):
 
 
 @pytest.mark.slow
+@pytest.mark.api
 def test_high_load(redis_client):
     """Test system under high load with many tasks."""
     print("\n" + "="*60)

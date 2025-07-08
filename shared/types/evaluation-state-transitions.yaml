@@ -1,0 +1,44 @@
+# Evaluation State Transition Rules
+# Defines valid state transitions for the evaluation lifecycle
+
+# Format: from_state -> [allowed_to_states]
+# Special rules:
+# - Terminal states (completed, failed, cancelled) cannot transition to any other state
+# - Any non-terminal state can transition to a terminal state (for failure/cancellation)
+
+transitions:
+  submitted:
+    - queued      # Normal flow after submission
+    - failed      # Immediate validation failure
+    - cancelled   # User cancellation
+  
+  queued:
+    - provisioning  # Executor allocation started
+    - running       # Direct to running (skip provisioning)
+    - failed        # Queue failure
+    - cancelled     # User cancellation
+  
+  provisioning:
+    - running     # Container started successfully
+    - completed   # Fast execution completed during provisioning
+    - queued      # Retry on provisioning failure
+    - failed      # Provisioning failure
+    - cancelled   # User cancellation
+  
+  running:
+    - completed   # Successful completion
+    - failed      # Execution failure
+    - cancelled   # User cancellation
+    - queued      # Executor crash, retry (future)
+    - provisioning # Container restart (future)
+  
+  # Terminal states - no transitions allowed
+  completed: []
+  failed: []
+  cancelled: []
+
+# Future enhancements:
+# - Add transition metadata (reasons, conditions)
+# - Add maximum retry counts per transition
+# - Add time-based constraints
+# - Add role-based permissions for certain transitions

@@ -1,0 +1,68 @@
+{
+  "timestamp": "2025-07-06 11:10:29",
+  "metrics": {
+    "total_evaluations": 6,
+    "concurrent_count": 3,
+    "total_time": 8.630980253219604,
+    "successful": 6,
+    "failed": 0,
+    "errors": 0,
+    "throughput": 0.6951701688532802,
+    "submit_time": {
+      "min": 0.057279109954833984,
+      "max": 0.13071775436401367,
+      "avg": 0.08142085870107015,
+      "median": 0.0735095739364624
+    },
+    "complete_time": {
+      "min": 2.4040298461914062,
+      "max": 4.807720899581909,
+      "avg": 3.6443167130152383,
+      "median": 3.6557376384735107
+    }
+  },
+  "evaluations": [
+    {
+      "eval_id": "eval_20250706_181020_61c40311",
+      "status": "completed",
+      "submit_time": 0.057279109954833984,
+      "total_duration": 3.4372732639312744,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181020_52fbdd47",
+      "status": "completed",
+      "submit_time": 0.06801509857177734,
+      "total_duration": 3.4899063110351562,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181020_f55acd48",
+      "status": "completed",
+      "submit_time": 0.0613560676574707,
+      "total_duration": 4.807720899581909,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181024_adc186b6",
+      "status": "completed",
+      "submit_time": 0.13071775436401367,
+      "total_duration": 2.4040298461914062,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181024_a35297ce",
+      "status": "completed",
+      "submit_time": 0.07900404930114746,
+      "total_duration": 3.9054009914398193,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181025_1b415c0e",
+      "status": "completed",
+      "submit_time": 0.09215307235717773,
+      "total_duration": 3.8215689659118652,
+      "error": ""
+    }
+  ]
+}

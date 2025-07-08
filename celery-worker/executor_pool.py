@@ -219,7 +219,9 @@ class ExecutorPool:
         if len(recent_releases) >= 2:
             timestamps = []
             for release in recent_releases[:2]:
-                data = json.loads(release)
+                # Redis returns bytes, need to decode
+                release_str = release.decode() if isinstance(release, bytes) else release
+                data = json.loads(release_str)
                 timestamps.append(data["timestamp"])
             
             if len(timestamps) >= 2 and (timestamps[0] - timestamps[1]) < 1.0:

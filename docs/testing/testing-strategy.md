@@ -32,7 +32,7 @@ We follow the Testing Pyramid approach, balancing test speed, reliability, and c
 
 ### Example: Celery Task Cancellation
 ```python
-@patch('api.app.celery_client.celery_app')
+@patch('api.celery_client.celery_app')
 def test_cancel_pending_task(mock_celery_app):
     """Test cancelling a pending task."""
     # Mock the Celery components

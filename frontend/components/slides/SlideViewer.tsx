@@ -46,17 +46,18 @@ export function SlideViewer({ slides, theme = 'black', transition = 'slide' }: S
       history: false,
       controls: true,
       progress: true,
-      center: true,
+      center: false, // Don't center vertically to prevent content cutoff
       transition,
       transitionSpeed: 'default',
       backgroundTransition: 'fade',
       embedded: true, // Changed to embedded mode for better container handling
-      width: 1024,
-      height: 768,
-      margin: 0.04,
-      minScale: 0.2,
-      maxScale: 2.0,
+      width: 1200,
+      height: 900,
+      margin: 0.1,
+      minScale: 0.1,
+      maxScale: 3.0,
       navigationMode: 'default', // Allows both horizontal and vertical navigation
+      scrollActivationWidth: 0, // Disable scroll activation to prevent issues
     })
 
     void deck.initialize().then(() => {

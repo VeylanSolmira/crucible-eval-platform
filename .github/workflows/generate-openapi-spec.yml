@@ -6,9 +6,17 @@ on:
       - 'api/**/*.py'
       - '!api/openapi.yaml'  # Don't trigger on spec changes
       - '!api/openapi.json'
+      - 'storage-service/**/*.py'
+      - '!storage-service/openapi.yaml'
+      - '!storage-service/openapi.json'
+      - 'executor-service/**/*.py'
+      - '!executor-service/openapi.yaml'
+      - '!executor-service/openapi.json'
   pull_request:
     paths:
       - 'api/**/*.py'
+      - 'storage-service/**/*.py'
+      - 'executor-service/**/*.py'
   workflow_dispatch:
 
 jobs:
@@ -26,46 +34,99 @@ jobs:
     - name: Install Python dependencies
       run: |
         pip install -r api/requirements.txt
+        pip install -r storage-service/requirements.txt
+        pip install -r executor-service/requirements.txt
     
-    - name: Generate OpenAPI spec from API
+    - name: Generate OpenAPI specs from all services
       run: |
-        python api/scripts/export-openapi-spec.py
+        # Use shared script for DRY principle
+        ./scripts/generate-all-openapi-specs.sh
     
-    - name: Validate OpenAPI spec
+    - name: Validate all OpenAPI specs
       run: |
-        # Check that spec was generated
-        test -f api/openapi.yaml || exit 1
-        test -f api/openapi.json || exit 1
-        
-        # Check spec has required fields
-        python -c "
+        # Create a Python script to validate all specs
+        cat > validate_specs.py << 'EOF'
         import yaml
-        with open('api/openapi.yaml') as f:
-            spec = yaml.safe_load(f)
-        assert 'openapi' in spec
-        assert 'paths' in spec
-        assert '/api/eval' in spec['paths']
-        print('✅ OpenAPI spec validated')
-        "
+        import json
+        import sys
+        
+        services = ['api', 'storage-service', 'executor-service']
+        all_valid = True
+        
+        for service in services:
+            print(f"Validating {service}...")
+            
+            # Check YAML file
+            yaml_path = f"{service}/openapi.yaml"
+            json_path = f"{service}/openapi.json"
+            
+            try:
+                # Validate YAML
+                with open(yaml_path) as f:
+                    yaml_spec = yaml.safe_load(f)
+                
+                # Validate JSON
+                with open(json_path) as f:
+                    json_spec = json.load(f)
+                
+                # Check required fields
+                for spec in [yaml_spec, json_spec]:
+                    if 'openapi' not in spec:
+                        print(f"❌ Missing openapi field in {service}")
+                        all_valid = False
+                    if 'paths' not in spec:
+                        print(f"❌ Missing paths field in {service}")
+                        all_valid = False
+                    if 'info' not in spec:
+                        print(f"❌ Missing info field in {service}")
+                        all_valid = False
+                
+                if all_valid:
+                    print(f"✅ {yaml_spec['info']['title']} spec validated")
+                    
+            except FileNotFoundError as e:
+                print(f"❌ Missing file: {e.filename}")
+                all_valid = False
+            except Exception as e:
+                print(f"❌ Error validating {service}: {e}")
+                all_valid = False
+        
+        sys.exit(0 if all_valid else 1)
+        EOF
+        
+        python validate_specs.py
     
-    - name: Upload OpenAPI spec as artifact
+    - name: Upload all OpenAPI specs as artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: openapi-spec
+        name: openapi-specs
         path: |
           api/openapi.yaml
           api/openapi.json
+          storage-service/openapi.yaml
+          storage-service/openapi.json
+          executor-service/openapi.yaml
+          executor-service/openapi.json
         retention-days: 7
     
-    - name: Check if spec changed
+    - name: Check if specs changed
       id: check-changes
       run: |
-        if git diff --quiet api/openapi.yaml api/openapi.json; then
-          echo "changed=false" >> $GITHUB_OUTPUT
-          echo "✅ OpenAPI spec is up to date"
-        else
+        # Check for changes in all services
+        CHANGED=false
+        
+        for service in api storage-service executor-service; do
+          if ! git diff --quiet $service/openapi.yaml $service/openapi.json; then
+            CHANGED=true
+            echo "⚠️ OpenAPI spec changed in $service"
+            git diff --stat $service/openapi.yaml $service/openapi.json
+          fi
+        done
+        
+        if [ "$CHANGED" = "true" ]; then
           echo "changed=true" >> $GITHUB_OUTPUT
-          echo "⚠️ OpenAPI spec has changes"
-          echo "::warning::OpenAPI spec has changed. Please update the committed spec."
-          git diff --stat api/openapi.yaml api/openapi.json
+          echo "::warning::OpenAPI specs have changed. Please commit the updated specs."
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "✅ All OpenAPI specs are up to date"
         fi

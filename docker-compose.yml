@@ -1,3 +1,39 @@
+# Shared executor configuration using YAML anchors
+x-executor-base: &executor-base
+  image: ${PROJECT_NAME:-crucible-platform}/executor:local
+  environment:
+    - PYTHONUNBUFFERED=1
+    - LOG_LEVEL=INFO
+    - DOCKER_HOST=tcp://docker-proxy:2375
+    - REDIS_HOST=redis
+    - REDIS_PORT=6379
+    - HEALTH_CHECK_URL=http://localhost:8083/health
+    - MAX_CONCURRENT_EXECUTIONS=1  # Each executor can handle 1 task at a time
+    - EXECUTOR_IMAGE=executor-ml:latest  # Use ML-enabled executor image
+  depends_on:
+    docker-proxy:
+      condition: service_started
+    redis:
+      condition: service_healthy
+  networks:
+    - default
+    - docker-api
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "/healthcheck.py"]
+    interval: 30s
+    timeout: 3s
+    retries: 3
+  # Security: Limited resources for the executor itself
+  mem_limit: 128m
+  cpus: 0.25
+  # Additional security hardening
+  security_opt:
+    - no-new-privileges:true
+  read_only: true
+  tmpfs:
+    - /tmp:size=100M,noexec
+
 services:
   # Build base image first (used by all Python services)
   # Run: docker-compose build base
@@ -161,107 +197,20 @@ services:
     profiles:
       - tools  # Only run when explicitly requested
 
-  # Queue Service - HTTP wrapper around existing TaskQueue
-  # TODO: Remove after Celery migration complete (Day 7)
-  # This modularizes our queue component for future Celery migration
-  # DEACTIVATED - All traffic now goes through Celery
-  queue:
-    build:
-      context: .
-      dockerfile: queue-service/Dockerfile
-      args:
-        - BASE_IMAGE=crucible-base
-    image: ${PROJECT_NAME:-crucible-platform}/queue:local
-    container_name: queue-service
-    ports:
-      - "8081:8081"  # Expose queue API
-    environment:
-      - API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
-      - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=INFO
-    depends_on:
-      base:
-        condition: service_completed_successfully
-    # restart: unless-stopped  # DEACTIVATED
-    profiles:
-      - legacy  # Only start with --profile legacy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8081/health').raise_for_status()"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-    mem_limit: 100m
-    # Security hardening
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:size=100M,noexec
-
-  # Queue Worker - Routes tasks from queue to executors
-  # TODO: Remove after Celery migration complete (Day 7)
-  # This will become Celery beat/scheduler in the future
-  # DEACTIVATED - All traffic now goes through Celery
-  queue-worker:
-    build:
-      context: .
-      dockerfile: queue-worker/Dockerfile
-      args:
-        - BASE_IMAGE=crucible-base
-    image: ${PROJECT_NAME:-crucible-platform}/queue-worker:local
-    container_name: queue-worker
-    environment:
-      - QUEUE_SERVICE_URL=http://queue:8081
-      - QUEUE_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
-      - REDIS_URL=redis://redis:6379
-      - EXECUTOR_COUNT=1  # Only executor-1 for legacy queue
-      - EXECUTOR_BASE_URL=http://executor
-      - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=INFO
-    depends_on:
-      base:
-        condition: service_completed_successfully
-      queue:
-        condition: service_started
-      redis:
-        condition: service_healthy
-    # restart: unless-stopped  # DEACTIVATED
-    profiles:
-      - legacy  # Only start with --profile legacy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://queue:8081/health', headers={'X-API-Key': '${INTERNAL_API_KEY:-dev-internal-api-key}'}).raise_for_status()"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    # Security hardening
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:size=100M,noexec
 
   # Executor Services - Python execution environments
   # These ARE the sandboxes where code runs
   # NOTE: Only needed if CREATE_ISOLATED_CONTAINERS=false
   # When true, queue-worker creates fresh containers for each execution
+  
   executor-1:
+    <<: *executor-base
     build:
       context: .
       dockerfile: executor-service/Dockerfile
       args:
         - BASE_IMAGE=crucible-base
-    image: ${PROJECT_NAME:-crucible-platform}/executor:local
     container_name: executor-1
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=INFO
-      - DOCKER_HOST=tcp://docker-proxy:2375
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - HEALTH_CHECK_URL=http://localhost:8083/health
-      - MAX_CONCURRENT_EXECUTIONS=1  # Each executor can handle 1 task at a time
-      - EXECUTOR_IMAGE=executor-ml:latest  # Use ML-enabled executor image
     depends_on:
       base:
         condition: service_completed_successfully
@@ -271,34 +220,30 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    networks:
-      - default
-      - docker-api
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "/healthcheck.py"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-    # Security: Limited resources for the executor itself
-    mem_limit: 128m
-    cpus: 0.25
-    # Additional security hardening
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:size=100M,noexec
 
   # Additional executors commented out for t2.micro resource constraints
   # Uncomment for larger instances or production
   executor-2:
-    extends: executor-1
+    <<: *executor-base
     container_name: executor-2
+    depends_on:
+      executor-1:
+        condition: service_started
+      docker-proxy:
+        condition: service_started
+      redis:
+        condition: service_healthy
   
   executor-3:
-    extends: executor-1
+    <<: *executor-base
     container_name: executor-3
+    depends_on:
+      executor-1:
+        condition: service_started
+      docker-proxy:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
   # Celery Worker - Handles 50% of evaluation traffic
   celery-worker:

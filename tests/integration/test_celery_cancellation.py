@@ -11,14 +11,14 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from api.app.celery_client import cancel_celery_task, get_celery_task_info
+from api.celery_client import cancel_celery_task, get_celery_task_info
 
 
 class TestCeleryCancellation(unittest.TestCase):
     """Test the Celery cancellation functionality."""
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_cancel_pending_task(self, mock_celery_app):
         """Test cancelling a task that's still pending in queue."""
         # Setup mock
@@ -37,8 +37,8 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertIn("pending in queue", result["message"])
         mock_result.revoke.assert_called_once()
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_cancel_running_task_without_terminate(self, mock_celery_app):
         """Test attempting to cancel a running task without terminate flag."""
         # Setup mock
@@ -55,8 +55,8 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertIn("already running", result["message"])
         self.assertIn("terminate=true", result["message"])
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_cancel_running_task_with_terminate(self, mock_celery_app):
         """Test forcefully terminating a running task."""
         # Setup mock
@@ -74,8 +74,8 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertIn("forcefully terminated", result["message"])
         mock_result.revoke.assert_called_once_with(terminate=True)
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_cancel_completed_task(self, mock_celery_app):
         """Test attempting to cancel an already completed task."""
         # Setup mock
@@ -91,8 +91,8 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertFalse(result["cancelled"])
         self.assertIn("already completed", result["message"])
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_cancel_already_revoked_task(self, mock_celery_app):
         """Test attempting to cancel an already cancelled task."""
         # Setup mock
@@ -108,7 +108,7 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertFalse(result["cancelled"])
         self.assertIn("already cancelled", result["message"])
 
-    @patch("api.app.celery_client.CELERY_ENABLED", False)
+    @patch("api.celery_client.CELERY_ENABLED", False)
     def test_cancel_with_celery_disabled(self):
         """Test cancellation when Celery is not enabled."""
         result = cancel_celery_task("test-disabled")
@@ -116,8 +116,8 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertFalse(result["cancelled"])
         self.assertEqual(result["reason"], "Celery not enabled")
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_cancel_with_exception(self, mock_celery_app):
         """Test cancellation when an exception occurs."""
         # Setup mock to raise exception
@@ -131,8 +131,8 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertIn("Connection failed", result["error"])
         self.assertEqual(result["message"], "Failed to cancel task")
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_get_task_info_success(self, mock_celery_app):
         """Test getting task info for a successful task."""
         # Setup mock
@@ -155,8 +155,8 @@ class TestCeleryCancellation(unittest.TestCase):
         self.assertFalse(info["failed"])
         self.assertEqual(info["result"], {"output": "Hello World", "exit_code": 0})
 
-    @patch("api.app.celery_client.CELERY_ENABLED", True)
-    @patch("api.app.celery_client.celery_app")
+    @patch("api.celery_client.CELERY_ENABLED", True)
+    @patch("api.celery_client.celery_app")
     def test_get_task_info_failed(self, mock_celery_app):
         """Test getting task info for a failed task."""
         # Setup mock

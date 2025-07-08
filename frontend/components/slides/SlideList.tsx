@@ -50,10 +50,10 @@ export function SlideList({
 
         {/* Tag filters */}
         {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
             <button
               onClick={() => setSelectedTag(null)}
-              className={`px-3 py-1 rounded-full text-sm ${
+              className={`px-2 py-0.5 rounded-full text-xs ${
                 selectedTag === null
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -65,7 +65,7 @@ export function SlideList({
               <button
                 key={tag}
                 onClick={() => setSelectedTag(tag)}
-                className={`px-3 py-1 rounded-full text-sm ${
+                className={`px-2 py-0.5 rounded-full text-xs ${
                   selectedTag === tag
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'

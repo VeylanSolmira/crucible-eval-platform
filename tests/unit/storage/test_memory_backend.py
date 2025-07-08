@@ -2,11 +2,13 @@
 Tests for in-memory storage backend.
 """
 
+import pytest
 import unittest
 from tests.unit.storage.base_storage_test import StorageServiceTestMixin
 from storage.backends.memory import InMemoryStorage
 
 
+@pytest.mark.unit
 class InMemoryStorageTests(StorageServiceTestMixin, unittest.TestCase):
     """Test suite for in-memory storage."""
 

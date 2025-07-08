@@ -1,0 +1,269 @@
+{
+  "timestamp": "2025-07-07T02:13:21.778535",
+  "configuration": {
+    "concurrent_threads": 10,
+    "rate_limit": 10,
+    "burst": 10
+  },
+  "metrics": {
+    "test_duration": 301.93759512901306,
+    "total_submitted": 20,
+    "successful": 20,
+    "failed": 0,
+    "errors": 0,
+    "rate_limited": 0,
+    "effective_rate": 0.0662388530698018,
+    "success_rate": 1.0,
+    "submit_time": {
+      "min": 0.012926340103149414,
+      "max": 0.103729248046875,
+      "avg": 0.06178117990493774,
+      "median": 0.06317615509033203
+    },
+    "complete_time": {
+      "min": 1.5758328437805176,
+      "max": 301.8277611732483,
+      "avg": 73.15638782978058,
+      "median": 18.482977509498596
+    },
+    "queue_time": {
+      "min": 1.063920021057129,
+      "max": 34.332244873046875,
+      "avg": 12.492088711261749,
+      "median": 7.114665985107422
+    },
+    "execution_time": {
+      "min": 0.03672599792480469,
+      "max": 1.799635887145996,
+      "avg": 1.06379137319677,
+      "median": 1.3108160495758057
+    },
+    "rate_limit_wait": {
+      "total": 0.8932735919952391,
+      "avg": 0.04466367959976197,
+      "max": 0.09986791610717774
+    }
+  },
+  "evaluations": [
+    {
+      "eval_id": "eval_20250707_090819_00806f5f",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.10298299789428711,
+      "queue_time": 5.763116121292114,
+      "execution_time": 0.03672599792480469,
+      "total_duration": 5.799842119216919,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_dec240fc",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.10217595100402832,
+      "queue_time": 31.140721082687378,
+      "execution_time": 1.2689638137817383,
+      "total_duration": 32.409684896469116,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_9dc16c79",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.103729248046875,
+      "queue_time": 5.708704710006714,
+      "execution_time": 1.6175501346588135,
+      "total_duration": 7.326254844665527,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_f16946dd",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.10118699073791504,
+      "queue_time": 1.063920021057129,
+      "execution_time": 0.0,
+      "total_duration": 301.8167519569397,
+      "wait_time": 0,
+      "error": "Redis monitoring timeout"
+    },
+    {
+      "eval_id": "eval_20250707_090819_c76524b7",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.10191702842712402,
+      "queue_time": 5.810492992401123,
+      "execution_time": 1.3885748386383057,
+      "total_duration": 7.199067831039429,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_c9f18f63",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.1032707691192627,
+      "queue_time": 16.408922910690308,
+      "execution_time": 1.7802681922912598,
+      "total_duration": 18.189191102981567,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_2db3b378",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.09981822967529297,
+      "queue_time": 1.303497314453125,
+      "execution_time": 0.060546875,
+      "total_duration": 301.82384419441223,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_89249cbe",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.10335302352905273,
+      "queue_time": 1.1069450378417969,
+      "execution_time": 1.3269009590148926,
+      "total_duration": 2.4338459968566895,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_f124591e",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.10332894325256348,
+      "queue_time": 7.018215894699097,
+      "execution_time": 1.6477651596069336,
+      "total_duration": 8.66598105430603,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_a8d7526d",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.10093379020690918,
+      "queue_time": 7.211116075515747,
+      "execution_time": 0.0,
+      "total_duration": 301.8277611732483,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090819_fc55f2d4",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.022144079208374023,
+      "queue_time": 7.330354928970337,
+      "execution_time": 0.9146561622619629,
+      "total_duration": 8.2450110912323,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_4f3de4e9",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.026534080505371094,
+      "queue_time": 17.55909776687622,
+      "execution_time": 1.6222541332244873,
+      "total_duration": 19.181351900100708,
+      "wait_time": 0.09752030372619629,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_29cab803",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.02402496337890625,
+      "queue_time": 17.369109869003296,
+      "execution_time": 0.1608130931854248,
+      "total_duration": 17.52992296218872,
+      "wait_time": 0.09986791610717774,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_6af72011",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.025084972381591797,
+      "queue_time": 17.41291904449463,
+      "execution_time": 1.363844871520996,
+      "total_duration": 18.776763916015625,
+      "wait_time": 0.09747395515441895,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_a2763dd4",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.012926340103149414,
+      "queue_time": 34.332244873046875,
+      "execution_time": 1.3108160495758057,
+      "total_duration": 35.64306092262268,
+      "wait_time": 0.09969506263732911,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_e7a3b821",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.015240907669067383,
+      "queue_time": 1.9347519874572754,
+      "execution_time": 0.0,
+      "total_duration": 301.30700397491455,
+      "wait_time": 0.09975681304931641,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_6a6d9d8a",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.018246889114379883,
+      "queue_time": 34.23602604866028,
+      "execution_time": 0.772413969039917,
+      "total_duration": 35.008440017700195,
+      "wait_time": 0.09967575073242188,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_3d7adac8",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.021432161331176758,
+      "queue_time": 34.27978801727295,
+      "execution_time": 1.799635887145996,
+      "total_duration": 36.079423904418945,
+      "wait_time": 0.09976706504821778,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_6f9ce10d",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.02570796012878418,
+      "queue_time": 1.513213872909546,
+      "execution_time": 0.06261897087097168,
+      "total_duration": 1.5758328437805176,
+      "wait_time": 0.09975180625915528,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_090820_2f043c7e",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.021584272384643555,
+      "queue_time": 1.3386156558990479,
+      "execution_time": 0.9501042366027832,
+      "total_duration": 2.288719892501831,
+      "wait_time": 0.09976491928100586,
+      "error": ""
+    }
+  ]
+}

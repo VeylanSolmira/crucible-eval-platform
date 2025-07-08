@@ -4,20 +4,32 @@ duration: 2
 tags: ['performance', 'benchmarks']
 ---
 
-## Performance & Scale
+## Performance & Scale - Actual Production Metrics
 
-### Current Benchmarks
+### Load Test Results (Week 4)
 
-| Operation       | Latency | Throughput | Bottleneck        |
-| --------------- | ------- | ---------- | ----------------- |
-| Simple eval     | 45ms    | 1,000/sec  | CPU               |
-| Docker eval     | 890ms   | 100/sec    | Container startup |
-| gVisor eval     | 1,250ms | 80/sec     | Kernel overhead   |
-| Queue ops       | <1ms    | 10,000/sec | Memory            |
-| Event streaming | <1ms    | 50,000/sec | Memory            |
+| Concurrent Users | Total Evals | Success Rate | Avg Response Time | Notes |
+| ---------------- | ----------- | ------------ | ----------------- | ----- |
+| 5                | 10          | 100%         | 15.7s             | Perfect |
+| 10               | 20          | 100%         | 73.2s             | Perfect |
+| 20               | 50          | 100%         | 176.8s            | Perfect |
+| 50               | 100         | 98%*         | 185.6s            | 2 race conditions |
 
-### Scaling Strategy
+*Race condition fixed with state machine implementation
 
-1. **Immediate**: Container pre-warming
-2. **Short-term**: Horizontal pod scaling
-3. **Long-term**: Multi-region deployment
+### Key Performance Metrics
+
+- **API Response**: < 100ms (p99)
+- **Submission Latency**: 24-161ms
+- **Execution Time**: 0.8-1.2s (simple Python)
+- **Queue Time**: 10-52s (depends on load)
+- **Rate Limit**: 10 req/s (nginx)
+- **Executor Pool**: 3 concurrent
+
+### Resource Usage (Under Load)
+
+| Service | CPU (idle) | CPU (load) | Memory |
+| ------- | ---------- | ---------- | ------ |
+| API     | 3-4%       | 10-15%     | 90MB   |
+| Celery  | 7-8%       | 15-20%     | 165MB  |
+| Executor| 1-3%       | 20-40%     | 50MB   |

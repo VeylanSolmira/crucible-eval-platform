@@ -2,12 +2,14 @@
 Base test cases that all storage backends must pass.
 """
 
+import pytest
 import threading
 import time
 from datetime import datetime, timezone
 from abc import abstractmethod
 
 
+@pytest.mark.unit
 class StorageServiceTestMixin:
     """
     Mixin class containing tests that all storage backends must pass.

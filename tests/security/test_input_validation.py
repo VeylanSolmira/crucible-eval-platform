@@ -25,6 +25,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conftest import get_api_url, get_request_config
 
 
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.security
 class TestInputValidation:
     """Test that dangerous inputs are properly rejected"""
 
@@ -57,7 +60,7 @@ class TestInputValidation:
             **get_request_config()
         )
         
-        assert response.status_code == 400, "Malformed JSON should return 400"
+        assert response.status_code == 422, "Malformed JSON should return 422 (FastAPI validation error)"
 
     def test_missing_required_fields(self):
         """Verify requests missing required fields are rejected"""

@@ -4,6 +4,60 @@
   font-family: 'Source Sans Pro', Helvetica, sans-serif;
 }
 
+/* Fix for reveal.js slides cutting off content */
+.reveal .slides {
+  overflow: visible !important;
+}
+
+.reveal .slides section {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  max-height: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.reveal .slides section > * {
+  flex-shrink: 0;
+}
+
+/* Ensure content fits within viewport */
+.reveal {
+  font-size: 32px !important;
+}
+
+@media (max-height: 800px) {
+  .reveal {
+    font-size: 28px !important;
+  }
+}
+
+@media (max-height: 600px) {
+  .reveal {
+    font-size: 24px !important;
+  }
+}
+
+/* Fix for mermaid diagrams and code blocks */
+.reveal .mermaid {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+.reveal pre {
+  max-width: 100% !important;
+  font-size: 0.7em !important;
+}
+
+/* Ensure lists don't get cut off */
+.reveal ul, .reveal ol {
+  margin-bottom: 0.5em !important;
+}
+
+.reveal li {
+  margin-bottom: 0.3em !important;
+}
+
 .slide-content h1,
 .slide-content h2,
 .slide-content h3 {

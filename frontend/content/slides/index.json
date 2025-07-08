@@ -207,9 +207,30 @@
       "file": "29-distributed-contracts.md",
       "duration": 3,
       "tags": ["microservices", "distributed-systems", "type-safety"]
+    },
+    {
+      "id": "30-celery-idempotency",
+      "title": "Celery Idempotency: Solving Edge Cases",
+      "file": "30-celery-idempotency.md",
+      "duration": 3,
+      "tags": ["celery", "distributed-systems", "idempotency"]
+    },
+    {
+      "id": "31-small-models-guide",
+      "title": "Small Models Guide: Efficient ML Deployment",
+      "file": "31-small-models-guide.md",
+      "duration": 2,
+      "tags": ["ml", "optimization", "deployment"]
+    },
+    {
+      "id": "32-celery-integration",
+      "title": "Celery Integration: A Distributed Systems Story",
+      "file": "32-celery-integration.md",
+      "duration": 3,
+      "tags": ["celery", "distributed-systems", "week-4"]
     }
   ],
-  "totalDuration": 70,
+  "totalDuration": 78,
   "config": {
     "transition": "slide",
     "transitionSpeed": "default",

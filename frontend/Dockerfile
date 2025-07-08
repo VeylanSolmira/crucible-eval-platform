@@ -1,26 +1,6 @@
 # Multi-stage build for Next.js frontend with type generation
 
-# Stage 1: Type Generator
-FROM node:20-alpine AS type-generator
-WORKDIR /app
-
-# Install openapi-typescript globally
-RUN npm install -g openapi-typescript@7.8.0
-
-# Copy OpenAPI spec from API service
-# In production, this would come from a published spec
-COPY api/openapi.yaml ./openapi.yaml
-
-# Generate TypeScript types
-RUN openapi-typescript openapi.yaml -o types/generated/api.ts
-
-# Stage 2: Dependencies
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci --only=production
-
-# Stage 2.5: Docs Preprocessor
+# Stage 1: Docs Preprocessor
 FROM node:20-alpine AS docs-processor
 WORKDIR /app
 # Copy package files and install deps needed for markdown processing
@@ -33,7 +13,7 @@ COPY infrastructure/**/*.md ./infrastructure/
 # Run preprocessing
 RUN npm install gray-matter && node scripts/preprocess-docs.js
 
-# Stage 2.6: Shared Types Generator
+# Stage 2: Shared Types Generator
 FROM node:20-alpine AS shared-types-generator
 WORKDIR /app
 # Copy package files for js-yaml dependency
@@ -58,8 +38,19 @@ COPY docs/ ./docs/
 # Copy only markdown files from infrastructure, preserving paths
 COPY infrastructure/**/*.md ./infrastructure/
 
-# Copy generated types from type-generator stage
-COPY --from=type-generator /app/types/generated ./types/generated
+# Create types directory
+RUN mkdir -p ./types/generated
+
+# Copy OpenAPI specs where generate-types.js expects them (../api/openapi.yaml from /app)
+# These files must be generated before building this Dockerfile by running:
+#   ./scripts/generate-all-openapi-specs.sh
+# This script is automatically called by:
+#   - start-platform.sh (local development)
+#   - .github/workflows/deploy-compose.yml (CI/CD via generate-openapi-spec workflow)
+# The specs are generated from the Python FastAPI apps without running the services
+COPY api/openapi.yaml /api/openapi.yaml
+COPY storage-service/openapi.yaml /storage-service/openapi.yaml
+COPY executor-service/openapi.yaml /executor-service/openapi.yaml
 
 # Copy shared generated types from shared-types-generator stage
 COPY --from=shared-types-generator /app/shared/generated/typescript ./shared/generated/typescript

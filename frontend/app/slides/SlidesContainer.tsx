@@ -5,6 +5,7 @@ import type { Slide } from '@/lib/slides/loader'
 import { SlideList } from '@/components/slides/SlideList'
 import { SlideViewer } from '@/components/slides/SlideViewer'
 import { SlideEditor } from '@/components/slides/SlideEditor'
+import './slides.css'
 
 interface SlidesContainerProps {
   initialSlides: Slide[]
@@ -14,9 +15,10 @@ type ViewMode = 'list' | 'presentation' | 'edit'
 
 export default function SlidesContainer({ initialSlides }: SlidesContainerProps) {
   const [slides, setSlides] = useState<Slide[]>(initialSlides)
-  const [selectedSlide, setSelectedSlide] = useState<Slide | null>(null)
+  const [selectedSlide, setSelectedSlide] = useState<Slide | null>(initialSlides[0] || null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [presentationSlides, setPresentationSlides] = useState<Slide[]>([])
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const handleSelectSlide = (slide: Slide) => {
     setSelectedSlide(slide)
@@ -115,25 +117,33 @@ export default function SlidesContainer({ initialSlides }: SlidesContainerProps)
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-96 border-r bg-white">
-        <SlideList
-          slides={slides}
-          onSelectSlide={handleSelectSlide}
-          onEditSlide={handleEditSlide}
-          onDeleteSlide={id => void handleDeleteSlide(id)}
-          selectedSlideId={selectedSlide?.id || ''}
-        />
-      </div>
+      {/* Sidebar - keep visible unless in presentation mode */}
+      {(viewMode === 'list' || viewMode === 'edit') && (
+        <div className={`${isFullscreen ? 'w-64' : 'w-96'} border-r bg-white flex-shrink-0 transition-all`}>
+          <SlideList
+            slides={slides}
+            onSelectSlide={handleSelectSlide}
+            onEditSlide={handleEditSlide}
+            onDeleteSlide={id => void handleDeleteSlide(id)}
+            selectedSlideId={selectedSlide?.id || ''}
+          />
+        </div>
+      )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${isFullscreen && (viewMode === 'list' || viewMode === 'edit') ? 'bg-black' : ''}`}>
         {selectedSlide ? (
           <>
             {/* Toolbar */}
-            <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{selectedSlide.title}</h2>
+            <div className={`p-4 border-b ${isFullscreen ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-between`}>
+              <h2 className={`text-lg font-semibold ${isFullscreen ? 'text-white' : ''}`}>{selectedSlide.title}</h2>
               <div className="flex gap-2">
+                <button
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className={`px-4 py-2 ${isFullscreen ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded`}
+                >
+                  {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                </button>
                 <button
                   onClick={() => handlePresentFromCurrent()}
                   className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
@@ -150,38 +160,16 @@ export default function SlidesContainer({ initialSlides }: SlidesContainerProps)
             </div>
 
             {/* Preview */}
-            <div className="flex-1 p-8 overflow-y-auto">
-              <div className="prose prose-lg max-w-none">
-                {selectedSlide.sections.map((section, index) => (
-                  <div key={index} className="mb-12 pb-12 border-b last:border-0">
-                    <div
-                      className="slide-section"
-                      dangerouslySetInnerHTML={{
-                        __html: section.replace(
-                          /```(\w+)?\n([\s\S]*?)```/g,
-                          (_match: string, lang: string | undefined, code: string) => {
-                            const language = lang || 'plaintext'
-                            const trimmedCode = code.trim()
-                            return `<pre><code class="language-${language}">${trimmedCode}</code></pre>`
-                          }
-                        ),
-                      }}
-                    />
-                  </div>
-                ))}
+            <div className={`flex-1 overflow-hidden ${isFullscreen ? 'bg-black' : ''}`}>
+              <div className="h-full">
+                <SlideViewer slides={[selectedSlide]} theme={isFullscreen ? 'black' : 'white'} />
               </div>
             </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-500">
             <div className="text-center">
-              <p className="text-xl mb-4">Select a slide to preview</p>
-              <button
-                onClick={handlePresentAll}
-                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                Present All Slides
-              </button>
+              <p className="text-xl mb-4">No slides available</p>
             </div>
           </div>
         )}

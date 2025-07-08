@@ -1,0 +1,166 @@
+{
+  "timestamp": "2025-07-06 11:15:40",
+  "metrics": {
+    "total_evaluations": 20,
+    "concurrent_count": 10,
+    "total_time": 21.096040964126587,
+    "successful": 13,
+    "failed": 0,
+    "errors": 7,
+    "throughput": 0.6162293684443565,
+    "submit_time": {
+      "min": 0.02136087417602539,
+      "max": 0.20130515098571777,
+      "avg": 0.10733316494868352,
+      "median": 0.14531683921813965
+    },
+    "complete_time": {
+      "min": 2.370405912399292,
+      "max": 21.09383201599121,
+      "avg": 9.471527338027954,
+      "median": 8.23656415939331
+    }
+  },
+  "evaluations": [
+    {
+      "eval_id": "eval_20250706_181519_e7805358",
+      "status": "completed",
+      "submit_time": 0.057662010192871094,
+      "total_duration": 2.370405912399292,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_f493b9c7",
+      "status": "completed",
+      "submit_time": 0.05875086784362793,
+      "total_duration": 2.647221803665161,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_49f97e16",
+      "status": "completed",
+      "submit_time": 0.057604074478149414,
+      "total_duration": 3.7634499073028564,
+      "error": ""
+    },
+    {
+      "eval_id": "",
+      "status": "error",
+      "submit_time": 0.0,
+      "total_duration": 0.007961034774780273,
+      "error": "429 Client Error: Too Many Requests for url: http://localhost:8000/api/eval"
+    },
+    {
+      "eval_id": "",
+      "status": "error",
+      "submit_time": 0.0,
+      "total_duration": 0.006675243377685547,
+      "error": "429 Client Error: Too Many Requests for url: http://localhost:8000/api/eval"
+    },
+    {
+      "eval_id": "",
+      "status": "error",
+      "submit_time": 0.0,
+      "total_duration": 0.006395816802978516,
+      "error": "429 Client Error: Too Many Requests for url: http://localhost:8000/api/eval"
+    },
+    {
+      "eval_id": "",
+      "status": "error",
+      "submit_time": 0.0,
+      "total_duration": 0.013772964477539062,
+      "error": "429 Client Error: Too Many Requests for url: http://localhost:8000/api/eval"
+    },
+    {
+      "eval_id": "",
+      "status": "error",
+      "submit_time": 0.0,
+      "total_duration": 0.004981040954589844,
+      "error": "429 Client Error: Too Many Requests for url: http://localhost:8000/api/eval"
+    },
+    {
+      "eval_id": "",
+      "status": "error",
+      "submit_time": 0.0,
+      "total_duration": 0.00423884391784668,
+      "error": "429 Client Error: Too Many Requests for url: http://localhost:8000/api/eval"
+    },
+    {
+      "eval_id": "",
+      "status": "error",
+      "submit_time": 0.0,
+      "total_duration": 0.0031397342681884766,
+      "error": "429 Client Error: Too Many Requests for url: http://localhost:8000/api/eval"
+    },
+    {
+      "eval_id": "eval_20250706_181521_2fc12d18",
+      "status": "completed",
+      "submit_time": 0.02136087417602539,
+      "total_duration": 4.478082895278931,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181521_ba026538",
+      "status": "completed",
+      "submit_time": 0.05838298797607422,
+      "total_duration": 4.233180046081543,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181522_b029f328",
+      "status": "completed",
+      "submit_time": 0.027304887771606445,
+      "total_duration": 4.397707939147949,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_3bfb1b12",
+      "status": "completed",
+      "submit_time": 0.14936017990112305,
+      "total_duration": 8.23656415939331,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_e0f8c328",
+      "status": "completed",
+      "submit_time": 0.14982032775878906,
+      "total_duration": 9.466873168945312,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_6a84529b",
+      "status": "completed",
+      "submit_time": 0.1467299461364746,
+      "total_duration": 11.63403868675232,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_5f3f4342",
+      "status": "completed",
+      "submit_time": 0.16068601608276367,
+      "total_duration": 11.71299695968628,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_8ba98359",
+      "status": "completed",
+      "submit_time": 0.14531683921813965,
+      "total_duration": 19.22753095626831,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_862da541",
+      "status": "completed",
+      "submit_time": 0.16104698181152344,
+      "total_duration": 19.867970943450928,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250706_181519_3d051eee",
+      "status": "completed",
+      "submit_time": 0.20130515098571777,
+      "total_duration": 21.09383201599121,
+      "error": ""
+    }
+  ]
+}

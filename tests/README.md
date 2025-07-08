@@ -78,6 +78,15 @@ pytest -m "requires_docker"
 
 # Skip integration tests
 pytest -m "not integration"
+
+# Run only load tests
+pytest -m "load"
+
+# Run integration tests but skip load tests
+pytest -m "integration and not load"
+
+# Run fast load tests only (skip slow ones)
+pytest -m "load and not slow"
 ```
 
 ### Demo Test Runner
@@ -108,15 +117,28 @@ Tests:
 
 #### Load Testing (`integration/test_load.py`)
 ```bash
-# Default: 10 concurrent, 20 total
+# Default: 20 concurrent, 100 total
 python tests/integration/test_load.py
 
-# Custom: 50 concurrent, 100 total
-python tests/integration/test_load.py 50 100
+# Custom: 10 concurrent, 20 total with timeout
+python tests/integration/test_load.py 10 20
 
-# Progressive load test
-python tests/integration/test_load.py progressive
+# With custom timeout (10 minutes)
+python tests/integration/test_load.py 10 20 600
+
+# Sustained load test
+python tests/integration/test_load.py sustained 60
+
+# Using pytest (runs smaller preset tests)
+pytest tests/integration/test_load.py -v
 ```
+
+This test respects nginx rate limits (10 req/s) and includes:
+- Redis event monitoring for real-time status updates
+- State machine validation to handle out-of-order events
+- Final status verification against storage service
+- Detailed performance metrics in JSON output
+- Rate limiting with token bucket algorithm
 
 #### Resilience Testing (`integration/test_resilience.py`)
 ```bash
@@ -274,6 +296,7 @@ Available markers:
 @pytest.mark.requires_docker  # Needs Docker daemon
 @pytest.mark.security  # Security-related tests
 @pytest.mark.flaky  # Known to be unstable
+@pytest.mark.load  # Load/performance tests (excluded by default)
 ```
 
 ## Test Data

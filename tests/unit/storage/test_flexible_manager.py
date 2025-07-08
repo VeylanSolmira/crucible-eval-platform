@@ -2,6 +2,7 @@
 Tests for the flexible storage manager.
 """
 
+import pytest
 import unittest
 import asyncio
 
@@ -9,6 +10,7 @@ from storage.core.flexible_manager import FlexibleStorageManager
 from storage.backends.memory import InMemoryStorage
 
 
+@pytest.mark.unit
 class TestFlexibleStorageManager(unittest.TestCase):
     """Test suite for flexible storage manager."""
 

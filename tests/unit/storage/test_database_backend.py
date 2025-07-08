@@ -2,6 +2,7 @@
 Tests for database storage backend.
 """
 
+import pytest
 import unittest
 import os
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ from storage.backends.database import DatabaseStorage
 from storage.models.models import Base
 
 
+@pytest.mark.unit
 class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
     """Test suite for database storage."""
 

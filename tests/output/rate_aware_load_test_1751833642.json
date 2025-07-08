@@ -1,0 +1,130 @@
+{
+  "timestamp": "2025-07-06T13:27:22.892425",
+  "configuration": {
+    "concurrent_threads": 5,
+    "rate_limit": 10,
+    "burst": 10
+  },
+  "metrics": {
+    "test_duration": 56.405893087387085,
+    "total_submitted": 10,
+    "successful": 0,
+    "failed": 0,
+    "errors": 10,
+    "rate_limited": 0,
+    "effective_rate": 0.1772864403460017,
+    "success_rate": 0.0
+  },
+  "evaluations": [
+    {
+      "eval_id": "eval_20250706_202627_e9fc8226",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 5.486495018005371,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 10.506979942321777,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202630_208f6298",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 5.530590057373047,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 10.538336992263794,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202630_f9b6ef86",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 5.5690858364105225,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 10.574270963668823,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202630_556280d8",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 5.528375148773193,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 10.535575151443481,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202627_6ab1fd82",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 5.5243330001831055,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 10.532140970230103,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202637_66fdfc96",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 3.3042049407958984,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 45.88359999656677,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202637_c63709c2",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 3.2701618671417236,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 45.85706901550293,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202637_7c40099a",
+      "status": "error",
+      "code_type": "Medium",
+      "submit_time": 3.2727270126342773,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 45.85481286048889,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202637_16f254c6",
+      "status": "error",
+      "code_type": "Slow",
+      "submit_time": 3.273930788040161,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 45.856586933135986,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    },
+    {
+      "eval_id": "eval_20250706_202637_67e6c9a7",
+      "status": "error",
+      "code_type": "Fast",
+      "submit_time": 2.9112250804901123,
+      "queue_time": 0.0,
+      "execution_time": 0.0,
+      "total_duration": 45.82089805603027,
+      "wait_time": 0,
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)"
+    }
+  ]
+}

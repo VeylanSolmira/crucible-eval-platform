@@ -38,9 +38,19 @@ docker_events_thread = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global redis_client, event_handler_task, docker_events_thread
+    global redis_client, event_handler_task, docker_events_thread, docker_client
 
     logger.info(f"Starting up executor service {executor_id}")
+
+    # Initialize Docker client
+    try:
+        docker_client = docker.from_env()
+        docker_client.ping()
+        logger.info("Connected to Docker daemon successfully")
+    except Exception as e:
+        logger.error(f"Failed to connect to Docker daemon: {e}")
+        # Docker is critical for executor service
+        raise
 
     # Connect to Redis
     try:
@@ -85,8 +95,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Docker client will use DOCKER_HOST env var (tcp://docker-proxy:2375)
-docker_client = docker.from_env()
+# Docker client will be initialized on startup
+docker_client = None
 executor_id = os.getenv("HOSTNAME", "executor")
 
 # Redis connection for publishing events
@@ -654,14 +664,28 @@ def _process_events_sync(event_queue, loop):
                     if action in ["die", "stop"]:
                         eval_id = attributes.get("eval_id")
                         if eval_id:
-                            logger.debug(f"Container {eval_id} {action} event received")
-                            # Get container object
+                            logger.info(f"Container {eval_id} {action} event received")
+                            
+                            # Try to get container from our tracking
                             container = running_containers.get(eval_id)
-                            if container:
-                                # Queue the event for async processing
-                                asyncio.run_coroutine_threadsafe(
-                                    event_queue.put((eval_id, container)), loop
-                                )
+                            
+                            # If not in our dict, try Docker API
+                            if not container:
+                                try:
+                                    # Use container ID from event
+                                    container_id = event.get("id") or event.get("Actor", {}).get("ID")
+                                    if container_id:
+                                        container = docker_client.containers.get(container_id)
+                                        logger.info(f"Retrieved container {eval_id} from Docker API")
+                                except Exception as e:
+                                    logger.warning(f"Could not retrieve container {eval_id}: {e}")
+                                    # Still process the event with None container
+                                    container = None
+                            
+                            # ALWAYS queue the event, even with None container
+                            asyncio.run_coroutine_threadsafe(
+                                event_queue.put((eval_id, container)), loop
+                            )
 
                 except Exception as e:
                     logger.error(f"Error processing Docker event: {e}")
@@ -677,15 +701,40 @@ async def _handle_container_completion(eval_id: str, container):
     global redis_client
 
     try:
-        logger.debug(f"Processing completion for container {eval_id}")
-
-        # Reload to get final state
-        container.reload()
-
-        # Get exit code and logs
-        exit_code = container.attrs.get("State", {}).get("ExitCode", -1)
-        output = container.logs(stdout=True, stderr=False).decode("utf-8", errors="replace")
-        error = container.logs(stdout=False, stderr=True).decode("utf-8", errors="replace")
+        logger.info(f"Processing completion for container {eval_id} (container={'exists' if container else 'None'})")
+        
+        # Initialize defaults
+        output = ""
+        error = ""
+        exit_code = -1
+        
+        if container:
+            try:
+                # Normal path - we have the container
+                container.reload()
+                exit_code = container.attrs.get("State", {}).get("ExitCode", -1)
+                # TODO: Consider using stream=True with logs() to properly separate stdout/stderr
+                # Current approach mixes both streams together, making it impossible to distinguish
+                # between normal output and error messages. Docker's stream API can provide this
+                # but requires more complex parsing of the multiplexed stream format.
+                logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
+                # Put all logs in error field if exit code != 0
+                if exit_code == 0:
+                    output = logs
+                    error = ""
+                else:
+                    output = ""
+                    error = logs
+            except docker.errors.NotFound:
+                logger.warning(f"Container {eval_id} was removed before we could get logs")
+                error = "Container was removed before logs could be retrieved"
+            except Exception as e:
+                logger.error(f"Error retrieving logs for {eval_id}: {e}")
+                error = f"Error retrieving logs: {str(e)}"
+        else:
+            # No container object - we missed it entirely
+            logger.warning(f"Processing completion for {eval_id} without container object")
+            error = "Container exited before logs could be captured"
 
         # Determine final status
         if exit_code == 0:
@@ -740,11 +789,15 @@ async def _handle_container_completion(eval_id: str, container):
         running_containers.pop(eval_id, None)
         completed_containers.add(eval_id)
 
-        try:
-            container.remove(force=True)
-            logger.debug(f"Removed container for {eval_id}")
-        except Exception as e:
-            logger.error(f"Failed to remove container {eval_id}: {e}")
+        # Only try to remove container if we have a reference
+        if container:
+            try:
+                container.remove(force=True)
+                logger.debug(f"Removed container for {eval_id}")
+            except docker.errors.NotFound:
+                logger.debug(f"Container {eval_id} already removed")
+            except Exception as e:
+                logger.error(f"Failed to remove container {eval_id}: {e}")
 
     except Exception as e:
         logger.error(f"Error handling container completion for {eval_id}: {e}")

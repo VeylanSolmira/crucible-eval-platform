@@ -18,8 +18,33 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 # Custom markers
 markers = [
-    "destructive: marks tests that stop/restart services (deselect with '-m \"not destructive\"')",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
+    # Test Categories
     "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+    "performance: marks tests as performance tests",
+    "security: marks tests as security tests",
+    "benchmark: marks tests as benchmarks (usually long-running)",
+    
+    # Service Dependencies
+    "api: marks tests as requiring API service",
+    "redis: marks tests as requiring Redis",
+    "celery: marks tests as requiring Celery workers",
+    "docker: marks tests as requiring Docker daemon",
+    "database: marks tests as requiring PostgreSQL database",
+    "storage: marks tests as requiring storage service",
+    "executor: marks tests as requiring executor service",
+    
+    # Test Characteristics
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "destructive: marks tests that stop/restart services (deselect with '-m \"not destructive\"')",
+    "flaky: marks tests that may fail intermittently",
+    "critical: marks tests that must pass for basic functionality",
+    
+    # Platform Features
+    "priority_queue: marks tests for priority queue functionality",
+    "dual_write: marks tests for dual write functionality",
+    "resilience: marks tests for resilience and recovery",
+    "concurrency: marks tests for concurrent execution",
+    "timeout: marks tests for timeout functionality",
 ]

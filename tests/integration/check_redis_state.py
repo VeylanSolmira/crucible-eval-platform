@@ -23,9 +23,12 @@ def wait_for():
     return _wait
 
 
+@pytest.mark.integration
+@pytest.mark.redis
 class TestRedisStateManagement:
     """Test Redis state management during evaluation lifecycle."""
     
+    @pytest.mark.api
     def test_basic_evaluation_lifecycle(self, redis_client, api_session, api_base_url, wait_for):
         """Test that Redis state is properly managed throughout evaluation lifecycle."""
         # Submit evaluation
@@ -79,6 +82,7 @@ class TestRedisStateManagement:
         assert wait_for(is_cleaned_up, timeout=5), "Redis state not cleaned up after completion"
         print("✓ Redis state cleaned up")
         
+    @pytest.mark.api
     def test_failed_evaluation_cleanup(self, redis_client, api_session, api_base_url, wait_for):
         """Test that Redis state is cleaned up even when evaluation fails."""
         # Submit evaluation that will fail

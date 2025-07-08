@@ -70,10 +70,10 @@ print("Evaluation complete!")
             # Step 2: Wait for it to start running
             time.sleep(2)
 
-            # Step 3: Restart a service (queue-worker)
-            print("  Restarting queue-worker service...")
+            # Step 3: Restart a service (api-service)
+            print("  Restarting api-service...")
             subprocess.run(
-                ["docker-compose", "restart", "queue-worker"],
+                ["docker", "compose", "restart", "api-service"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -125,7 +125,7 @@ class CeleryWorkerFailureTest(ResilienceTest):
             # Step 1: Stop Celery worker
             print("  Stopping celery-worker...")
             subprocess.run(
-                ["docker-compose", "stop", "celery-worker"],
+                ["docker", "compose", "stop", "celery-worker"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -156,7 +156,7 @@ class CeleryWorkerFailureTest(ResilienceTest):
             # Step 4: Start Celery worker
             print("  Starting celery-worker...")
             subprocess.run(
-                ["docker-compose", "start", "celery-worker"],
+                ["docker", "compose", "start", "celery-worker"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -179,7 +179,7 @@ class CeleryWorkerFailureTest(ResilienceTest):
         finally:
             # Ensure worker is running
             subprocess.run(
-                ["docker-compose", "start", "celery-worker"], capture_output=True, text=True
+                ["docker", "compose", "start", "celery-worker"], capture_output=True, text=True
             )
 
         self.duration = time.time() - start_time
@@ -215,7 +215,7 @@ class StorageServiceFailureTest(ResilienceTest):
             # Step 3: Stop storage service
             print("  Stopping storage-service...")
             subprocess.run(
-                ["docker-compose", "stop", "storage-service"],
+                ["docker", "compose", "stop", "storage-service"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -235,7 +235,7 @@ class StorageServiceFailureTest(ResilienceTest):
             # Step 5: Restart storage service
             print("  Starting storage-service...")
             subprocess.run(
-                ["docker-compose", "start", "storage-service"],
+                ["docker", "compose", "start", "storage-service"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -259,7 +259,7 @@ class StorageServiceFailureTest(ResilienceTest):
         finally:
             # Ensure service is running
             subprocess.run(
-                ["docker-compose", "start", "storage-service"], capture_output=True, text=True
+                ["docker", "compose", "start", "storage-service"], capture_output=True, text=True
             )
 
         self.duration = time.time() - start_time

@@ -45,10 +45,8 @@ EXECUTOR_COUNT = int(os.environ.get("EXECUTOR_COUNT", "3"))
 EXECUTOR_BASE_URL = os.environ.get("EXECUTOR_BASE_URL", "http://executor")
 executor_urls = [f"{EXECUTOR_BASE_URL}-{i+1}:8083" for i in range(EXECUTOR_COUNT)]
 
-# Import executor routing only if not using fixed executor
+# Initialize the pool on worker startup if not using fixed executor
 if not EXECUTOR_SERVICE_URL:
-    from executor_router import get_executor_url, get_available_executor_url
-    # Initialize the pool on worker startup
     try:
         executor_pool.initialize_pool(executor_urls)
         logger.info(f"Initialized executor pool with {len(executor_urls)} executors")
@@ -204,14 +202,9 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", execu
             executor_url = EXECUTOR_SERVICE_URL
             logger.info(f"Using fixed executor: {executor_url}")
         else:
-            # Legacy path: find available executor (should not be reached with task chaining)
-            logger.warning(f"evaluate_code called without executor_url for {eval_id} - using legacy path")
-            executor_url = get_available_executor_url()
-            if not executor_url:
-                # No executor available, retry the task
-                logger.info(f"No executor available for {eval_id}, retrying in 5 seconds")
-                raise self.retry(countdown=5, max_retries=None)  # Keep retrying until executor available
-            logger.info(f"Found available executor for {eval_id}: {executor_url}")
+            # This should not happen with proper task chaining
+            logger.error(f"evaluate_code called without executor_url for {eval_id}")
+            raise ValueError("No executor URL provided and no fixed executor configured")
 
         # Now that we have an executor, update status to provisioning
         with httpx.Client() as client:

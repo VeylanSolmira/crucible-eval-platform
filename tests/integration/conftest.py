@@ -136,17 +136,5 @@ def wait_for_services():
     logger.info("All services ready")
 
 
-def pytest_configure(config):
-    """Configure pytest with custom markers"""
-    config.addinivalue_line(
-        "markers", "redis: mark test as requiring Redis"
-    )
-    config.addinivalue_line(
-        "markers", "api: mark test as requiring API service"
-    )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
-    config.addinivalue_line(
-        "markers", "integration: mark test as integration test"
-    )
+# Markers are now defined in pyproject.toml
+# No need to define them here

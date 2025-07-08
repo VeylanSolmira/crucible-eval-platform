@@ -16,6 +16,7 @@ class EvaluationRequest(BaseModel):
     priority: bool = False  # High priority flag for queue jumping
 
 
+@pytest.mark.unit
 class TestEvaluationRequest:
     """Test EvaluationRequest model validation."""
     

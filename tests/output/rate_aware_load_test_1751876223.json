@@ -1,0 +1,159 @@
+{
+  "timestamp": "2025-07-07T01:17:03.965886",
+  "configuration": {
+    "concurrent_threads": 5,
+    "rate_limit": 10,
+    "burst": 10
+  },
+  "metrics": {
+    "test_duration": 32.301756858825684,
+    "total_submitted": 10,
+    "successful": 9,
+    "failed": 0,
+    "errors": 0,
+    "rate_limited": 0,
+    "effective_rate": 0.3095806845338116,
+    "success_rate": 0.9,
+    "submit_time": {
+      "min": 0.013035058975219727,
+      "max": 0.11443614959716797,
+      "avg": 0.06181417571173774,
+      "median": 0.023231983184814453
+    },
+    "complete_time": {
+      "min": 2.811627149581909,
+      "max": 32.158823013305664,
+      "avg": 12.229945712619358,
+      "median": 7.895401954650879
+    },
+    "queue_time": {
+      "min": 1.279872179031372,
+      "max": 32.13799786567688,
+      "avg": 11.15549307399326,
+      "median": 6.255888938903809
+    },
+    "execution_time": {
+      "min": 0.02082514762878418,
+      "max": 1.8438966274261475,
+      "avg": 1.0744526386260986,
+      "median": 1.531754970550537
+    },
+    "rate_limit_wait": {
+      "total": 0,
+      "avg": 0,
+      "max": 0
+    }
+  },
+  "evaluations": [
+    {
+      "eval_id": "eval_20250707_081631_847cb997",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.11443614959716797,
+      "queue_time": 6.255888938903809,
+      "execution_time": 0.1255941390991211,
+      "total_duration": 6.38148307800293,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_1dd0fa99",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.11267995834350586,
+      "queue_time": 1.443113088607788,
+      "execution_time": 1.625427007675171,
+      "total_duration": 3.068540096282959,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_511a57ca",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.11371588706970215,
+      "queue_time": 1.318056344985962,
+      "execution_time": 1.8438966274261475,
+      "total_duration": 3.1619529724121094,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_2203c040",
+      "status": "running",
+      "code_type": "Fast",
+      "submit_time": 0.11355400085449219,
+      "queue_time": 6.040856838226318,
+      "execution_time": 0.0,
+      "total_duration": 6.040673017501831,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_5aec76a5",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.1127159595489502,
+      "queue_time": 1.279872179031372,
+      "execution_time": 1.531754970550537,
+      "total_duration": 2.811627149581909,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_d2cf1098",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.013035058975219727,
+      "queue_time": 6.1958327293396,
+      "execution_time": 1.6995692253112793,
+      "total_duration": 7.895401954650879,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_a3609b13",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.023231983184814453,
+      "queue_time": 32.13799786567688,
+      "execution_time": 0.02082514762878418,
+      "total_duration": 32.158823013305664,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_73d338c4",
+      "status": "completed",
+      "code_type": "Medium",
+      "submit_time": 0.021965742111206055,
+      "queue_time": 17.143981218338013,
+      "execution_time": 1.0524630546569824,
+      "total_duration": 18.196444272994995,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_df896655",
+      "status": "completed",
+      "code_type": "Slow",
+      "submit_time": 0.023107051849365234,
+      "queue_time": 17.118765115737915,
+      "execution_time": 1.5507047176361084,
+      "total_duration": 18.669469833374023,
+      "wait_time": 0,
+      "error": ""
+    },
+    {
+      "eval_id": "eval_20250707_081631_16b0109d",
+      "status": "completed",
+      "code_type": "Fast",
+      "submit_time": 0.021439790725708008,
+      "queue_time": 17.505930185317993,
+      "execution_time": 0.21983885765075684,
+      "total_duration": 17.72576904296875,
+      "wait_time": 0,
+      "error": ""
+    }
+  ]
+}

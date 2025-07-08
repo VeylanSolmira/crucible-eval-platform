@@ -8,8 +8,9 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run generate-types && next build",
     "build:local": "npm run generate-types && next build",
+    "build:full": "cd .. && ./scripts/generate-all-openapi-specs.sh && cd frontend && npm run build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -19,8 +20,9 @@
     "check-deps": "npm-check-updates",
     "prepare": "cd .. && husky install frontend/.husky",
     "pre-commit": "npm run type-check && npm run lint && npm run security-check",
-    "generate-types": "openapi-typescript ../api/openapi.yaml -o ./types/generated/api.ts",
-    "generate-types:docker": "openapi-typescript ../api/openapi.yaml -o ./types/generated/api.ts",
+    "generate-types": "node scripts/generate-types.js",
+    "generate-types:unsafe": "openapi-typescript ../api/openapi.yaml -o ./types/generated/api.ts",
+    "generate-types:docker": "node scripts/generate-types.js",
     "generate-shared-types": "NODE_PATH=./node_modules node ../shared/scripts/generate-typescript-types.js"
   },
   "dependencies": {
