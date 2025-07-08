@@ -16,33 +16,17 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Security group for evaluation server
-resource "aws_security_group" "eval_server" {
-  name        = "crucible-eval-server-sg"
-  description = "Security group for Crucible evaluation server"
-
-  # SSH access (restricted to your IP)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_ip]
-  }
-
-  # Platform web interface (restricted for SSH tunneling)
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_ip]  # Changed from 0.0.0.0/0 for security
-  }
+# Shared security group for common rules (always updates)
+resource "aws_security_group" "eval_server_shared" {
+  name        = "crucible-eval-server-shared-sg"
+  description = "Shared security group for all Crucible evaluation servers"
 
   # HTTP access (for Let's Encrypt challenge and redirect to HTTPS)
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : [var.allowed_ssh_ip]
+    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : ["0.0.0.0/0"]
     description = "HTTP for LetsEncrypt and redirect"
   }
   
@@ -51,16 +35,26 @@ resource "aws_security_group" "eval_server" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : [var.allowed_ssh_ip]
+    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : ["0.0.0.0/0"]
     description = "HTTPS web interface"
   }
 
-  # Additional port for monitoring tools (Prometheus, etc.)
+  # Platform web interface (for development/debugging)
   ingress {
-    from_port   = 9090
-    to_port     = 9090
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_ip]
+    cidr_blocks = ["127.0.0.1/32"]  # Only localhost (via SSH tunnel)
+    description = "Platform API (SSH tunnel only)"
+  }
+
+  # Frontend dev server
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["127.0.0.1/32"]  # Only localhost (via SSH tunnel)
+    description = "Frontend dev (SSH tunnel only)"
   }
 
   # Allow all outbound
@@ -72,9 +66,37 @@ resource "aws_security_group" "eval_server" {
   }
 
   tags = merge(local.common_tags, {
-    Name    = "crucible-eval-sg"
-    Purpose = "Security group for evaluation server SSH and internal access"
+    Name    = "crucible-eval-shared-sg"
+    Purpose = "Shared security rules for all evaluation servers"
   })
+}
+
+# Color-specific security groups (for SSH access that needs per-environment control)
+resource "aws_security_group" "eval_server_color" {
+  for_each = toset(["blue", "green"])
+  
+  name        = "crucible-eval-server-${each.key}-sg"
+  description = "Color-specific security group for ${each.key} evaluation server"
+
+  # SSH access (restricted to your IP) - This is what we want to update per-color
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_ip]
+    description = "SSH access for ${each.key}"
+  }
+
+  # Additional monitoring/debugging ports can be added per-color
+  # Example: Open port 9090 only on green for testing
+  
+  tags = merge(local.common_tags, {
+    Name             = "crucible-eval-${each.key}-sg"
+    Purpose          = "Color-specific security rules"
+    DeploymentColor  = each.key
+  })
+  
+  # Note: Use deploy-green or deploy-blue aliases to target specific colors
 }
 
 # IAM role for EC2 instance (for S3 access)
@@ -199,6 +221,12 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# Attach AWS managed policy for CloudWatch Agent
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent_server_policy" {
+  role       = aws_iam_role.eval_server.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 # Key pair for SSH access
 resource "aws_key_pair" "eval_server_key" {
   key_name   = "crucible-eval-key"
@@ -212,14 +240,17 @@ resource "aws_key_pair" "eval_server_key" {
 
 # EC2 instances with for_each for blue-green deployment
 resource "aws_instance" "eval_server" {
-  for_each = var.enabled_deployment_colors
+  for_each = toset(["blue", "green"])  # Always create both
   
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   iam_instance_profile   = aws_iam_instance_profile.eval_server.name
   
   key_name               = aws_key_pair.eval_server_key.key_name
-  vpc_security_group_ids = [aws_security_group.eval_server.id]
+  vpc_security_group_ids = [
+    aws_security_group.eval_server_shared.id,
+    aws_security_group.eval_server_color[each.key].id
+  ]
 
   # Increase root volume to have space for Docker images
   root_block_device {
@@ -257,11 +288,8 @@ resource "aws_instance" "eval_server" {
     DeploymentVersion = var.deployment_version
   })
 
-  # Ignore userdata changes - for blue-green, we deploy new code via Docker images
-  # Infrastructure changes should be done by replacing instances entirely
-  lifecycle {
-    ignore_changes = [user_data]
-  }
+  # Note: Use deploy-green or deploy-blue aliases to target specific colors
+  # Both instances are always created but updates can be targeted
   
   # Ensure SSL certificates exist before creating instance
   # This prevents the instance from failing during userdata execution

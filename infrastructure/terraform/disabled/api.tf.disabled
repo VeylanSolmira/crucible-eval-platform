@@ -1,11 +1,13 @@
 # api.tf - API Gateway and Lambda for evaluation submission
+# NOTE: This entire file is commented out as we're using Docker Compose on EC2
+# instead of a serverless Lambda approach. Keeping for reference.
 
-# Package Lambda code from src directory
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_dir  = "../../src/lambda"
-  output_path = "lambda_deployment.zip"
-}
+# # Package Lambda code from src directory
+# data "archive_file" "lambda_zip" {
+#   type        = "zip"
+#   source_dir  = "../../src/lambda"
+#   output_path = "lambda_deployment.zip"
+# }
 
 # Lambda function for handling evaluation requests
 resource "aws_lambda_function" "evaluation_handler" {

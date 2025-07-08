@@ -109,7 +109,7 @@ variable "deployment_key" {
 variable "enabled_deployment_colors" {
   description = "Which deployment colors to create (for blue-green deployments)"
   type        = set(string)
-  default     = ["blue"]  # Start with just blue
+  default     = ["blue", "green"]  # Both environments exist
   
   validation {
     condition     = alltrue([for c in var.enabled_deployment_colors : contains(["blue", "green"], c)])
@@ -139,7 +139,7 @@ variable "create_route53_zone" {
 variable "active_deployment_color" {
   description = "Which deployment color (blue/green) should receive traffic"
   type        = string
-  default     = "green"
+  default     = "blue"
   
   validation {
     condition     = contains(["blue", "green"], var.active_deployment_color)
@@ -160,4 +160,38 @@ variable "email" {
   type        = string
   default     = "veylan.solmira+crucible@gmail.com"
   # Required for automated SSL certificate setup
+}
+
+# Monitoring Configuration
+variable "alert_email_base" {
+  description = "Base email for alerts (e.g., 'user@example.com'). Will add suffix for filtering."
+  type        = string
+  default     = "veylan.solmira@gmail.com"
+  # Leave empty to skip email alerts
+  # Example: "veylan.solmira@gmail.com" -> "veylan.solmira+crucible-alerts@gmail.com"
+}
+
+variable "alert_email_suffix" {
+  description = "Suffix to add to alert emails for easy filtering"
+  type        = string
+  default     = "crucible-alerts"
+  # Other options: "crucible-prod", "crucible-critical", "crucible-oom"
+}
+
+variable "enable_alb" {
+  description = "Whether to create an Application Load Balancer"
+  type        = bool
+  default     = false
+  # Set to true if you want ALB health checks monitored
+}
+
+# Common Tags
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default     = {
+    Project     = "crucible-platform"
+    ManagedBy   = "terraform"
+    Environment = "dev"
+  }
 }

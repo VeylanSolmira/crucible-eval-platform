@@ -1,9 +1,18 @@
 # Production overrides for docker-compose.yml
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
-version: '3.8'
-
 services:
+  # Build-only services - override with minimal images to avoid pull warnings
+  base:
+    image: busybox:latest
+    command: "true"
+    restart: "no"
+  
+  executor-ml-image:
+    image: busybox:latest
+    command: "true"
+    restart: "no"
+
   # API Service with resource limits and security
   api-service:
     restart: always
@@ -52,8 +61,7 @@ services:
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.5
-    security_opt:
-      - no-new-privileges:true
+    # security_opt already defined in base docker-compose.yml
     volumes:
       - ./data:/app/data:rw
       - storage-db:/var/lib/postgresql/data
@@ -74,7 +82,7 @@ services:
     memswap_limit: 256m
     cpus: 0.5
     security_opt:
-      - no-new-privileges:true
+      # no-new-privileges:true already in base executor config
       - seccomp:unconfined  # Needed for Docker-in-Docker
     cap_add:
       - SYS_ADMIN  # Required for container management
@@ -97,38 +105,7 @@ services:
   executor-3:
     extends: executor-1
 
-  # Queue Services (Legacy)
-  queue:
-    restart: always
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: 0.25
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:size=50M,noexec,nosuid,nodev
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  queue-worker:
-    restart: always
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: 0.25
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:size=50M,noexec,nosuid,nodev
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+  # Queue Services removed - using Celery instead
 
   # Storage Worker with write access
   storage-worker:
@@ -152,9 +129,8 @@ services:
     mem_limit: 128m
     memswap_limit: 128m
     cpus: 0.25
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
+    # security_opt already defined in base docker-compose.yml
+    # read_only already defined in base docker-compose.yml
     tmpfs:
       - /tmp:size=100M,noexec,nosuid,nodev
       - /app/.next/cache:size=100M
@@ -247,7 +223,7 @@ services:
     cpus: 0.1
     security_opt:
       - no-new-privileges:true
-    read_only: true
+    # Cannot use read_only: true - proxy needs to write haproxy config
     logging:
       driver: "json-file"
       options:

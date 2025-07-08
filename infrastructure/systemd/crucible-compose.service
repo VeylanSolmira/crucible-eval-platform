@@ -19,20 +19,17 @@ EnvironmentFile=/home/ubuntu/crucible/.env
 # Login to ECR before starting
 ExecStartPre=/usr/local/bin/docker-ecr-login
 
-# Set compose files based on environment
-Environment="COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml"
-
-# Pull latest images
-ExecStartPre=/usr/bin/docker compose pull
+# Pull latest images (explicitly use both compose files)
+ExecStartPre=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 
 # Run migrations
-ExecStartPre=/usr/bin/docker compose --profile tools run --rm migrate
+ExecStartPre=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile tools run --rm migrate
 
-# Start services (production mode)
-ExecStart=/usr/bin/docker compose up
+# Start services (production mode with both compose files)
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml up
 
 # Stop services
-ExecStop=/usr/bin/docker compose down
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 [Install]
 WantedBy=multi-user.target

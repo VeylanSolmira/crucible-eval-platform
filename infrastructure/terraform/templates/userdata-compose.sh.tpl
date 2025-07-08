@@ -158,4 +158,20 @@ else
     echo "No domain configured, skipping SSL certificate setup"
 fi
 
+# Install CloudWatch Agent
+echo "Installing CloudWatch Agent..."
+wget -q https://s3.$REGION.amazonaws.com/amazoncloudwatch-agent-$REGION/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+dpkg -i -E ./amazon-cloudwatch-agent.deb
+rm -f ./amazon-cloudwatch-agent.deb
+
+# Configure and start CloudWatch Agent
+echo "Configuring CloudWatch Agent..."
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+    -a fetch-config \
+    -m ec2 \
+    -s \
+    -c ssm:/${project_name}/cloudwatch-agent/config
+
+echo "CloudWatch Agent installed and started successfully!"
+
 echo "Infrastructure setup complete! Ready for docker-compose deployment."

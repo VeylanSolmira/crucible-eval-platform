@@ -2,7 +2,7 @@
 
 # Elastic IPs for each deployment color
 resource "aws_eip" "eval_server" {
-  for_each = var.enabled_deployment_colors
+  for_each = toset(["blue", "green"])  # Always create both
   
   domain = "vpc"
   
@@ -11,14 +11,18 @@ resource "aws_eip" "eval_server" {
     DeploymentColor  = each.key
     Purpose          = "Static IP for eval server"
   })
+  
+  # Note: Use deploy-green or deploy-blue aliases to target specific colors
 }
 
 # Associate Elastic IPs with EC2 instances
 resource "aws_eip_association" "eval_server" {
-  for_each = var.enabled_deployment_colors
+  for_each = toset(["blue", "green"])  # Always create both
   
   instance_id   = aws_instance.eval_server[each.key].id
   allocation_id = aws_eip.eval_server[each.key].id
+  
+  # Note: Use deploy-green or deploy-blue aliases to target specific colors
 }
 
 # Route 53 Hosted Zone (optional - only if managing DNS)
@@ -35,7 +39,8 @@ resource "aws_route53_zone" "crucible" {
 
 # A Record pointing to active deployment
 resource "aws_route53_record" "crucible_a" {
-  count = var.create_route53_zone && var.domain_name != "" ? 1 : 0
+  # Only create if Route53 is enabled AND the active color is in the enabled set
+  count = var.create_route53_zone && var.domain_name != "" && contains(var.enabled_deployment_colors, var.active_deployment_color) ? 1 : 0
   
   zone_id = aws_route53_zone.crucible[0].zone_id
   name    = var.domain_name
@@ -80,13 +85,13 @@ output "dns_configuration" {
     nameservers  = var.domain_name != "" ? aws_route53_zone.crucible[0].name_servers : []
     domain       = var.domain_name
     instruction  = "Add these nameservers to your domain registrar for ${var.domain_name}"
-    elastic_ip   = aws_eip.eval_server[var.active_deployment_color].public_ip
+    elastic_ip   = contains(var.enabled_deployment_colors, var.active_deployment_color) ? aws_eip.eval_server[var.active_deployment_color].public_ip : "Active color (${var.active_deployment_color}) not in enabled set"
   } : {
     zone_created = false
     nameservers  = []
     domain       = var.domain_name
-    instruction  = "Add A record for ${var.domain_name} pointing to ${aws_eip.eval_server[var.active_deployment_color].public_ip}"
-    elastic_ip   = aws_eip.eval_server[var.active_deployment_color].public_ip
+    instruction  = contains(var.enabled_deployment_colors, var.active_deployment_color) ? "Add A record for ${var.domain_name} pointing to ${aws_eip.eval_server[var.active_deployment_color].public_ip}" : "Active deployment (${var.active_deployment_color}) not enabled"
+    elastic_ip   = contains(var.enabled_deployment_colors, var.active_deployment_color) ? aws_eip.eval_server[var.active_deployment_color].public_ip : "N/A"
   }
   description = "DNS configuration instructions"
 }

@@ -1,6 +1,6 @@
 # Shared executor configuration using YAML anchors
 x-executor-base: &executor-base
-  image: ${PROJECT_NAME:-crucible-platform}/executor:local
+  image: ${EXECUTOR_SERVICE_IMAGE:-${PROJECT_NAME:-crucible-platform}/executor:local}
   environment:
     - PYTHONUNBUFFERED=1
     - LOG_LEVEL=INFO
@@ -38,20 +38,22 @@ services:
   # Build base image first (used by all Python services)
   # Run: docker-compose build base
   base:
-    image: crucible-base
+    image: ${BASE_IMAGE:-crucible-base}
     build:
       context: .
       dockerfile: shared/docker/base.Dockerfile
-    command: echo "Base image built successfully"
+    command: "true"  # Exit immediately with success
+    restart: "no"  # Never restart
 
   # Build executor-ml image (includes ML libraries)
   # This is used by executor services for running evaluations
   executor-ml-image:
-    image: executor-ml:latest
+    image: ${EXECUTOR_ML_IMAGE:-executor-ml:latest}
     build:
       context: .
       dockerfile: docker/executor-ml/Dockerfile
-    command: echo "Executor ML image built successfully"
+    command: "true"  # Exit immediately with success
+    restart: "no"  # Never restart
 
   # Docker Socket Proxy - Secure access to Docker API
   docker-proxy:
@@ -96,7 +98,7 @@ services:
       dockerfile: api/Dockerfile
       args:
         - BASE_IMAGE=crucible-base
-    image: ${PROJECT_NAME:-crucible-platform}/api-service:local
+    image: ${API_IMAGE:-${PROJECT_NAME:-crucible-platform}/api-service:local}
     container_name: api-service
     # Port exposed only internally for nginx proxy
     # ports:
@@ -138,7 +140,7 @@ services:
       args:
         # For production behind nginx, use empty to enable relative URLs
         API_URL: ${FRONTEND_API_URL:-}
-    image: ${FRONTEND_IMAGE:-${PROJECT_NAME:-crucible-platform}-frontend:local}
+    image: ${FRONTEND_IMAGE:-${PROJECT_NAME:-crucible-platform}/frontend:local}
     container_name: ${CONTAINER_NAME:-crucible-platform}-frontend
     # Port exposed only internally for nginx proxy
     # ports:
@@ -183,7 +185,7 @@ services:
 
   # Database migration service - run with: docker compose run --rm migrate
   migrate:
-    image: ${PROJECT_NAME:-crucible-platform}/storage-service:local
+    image: ${STORAGE_SERVICE_IMAGE:-${PROJECT_NAME:-crucible-platform}/storage-service:local}
     container_name: crucible-migrate
     depends_on:
       postgres:
@@ -234,16 +236,17 @@ services:
       redis:
         condition: service_healthy
   
-  executor-3:
-    <<: *executor-base
-    container_name: executor-3
-    depends_on:
-      executor-1:
-        condition: service_started
-      docker-proxy:
-        condition: service_started
-      redis:
-        condition: service_healthy
+  # executor-3 disabled for t2.micro - only 2 executors
+  # executor-3:
+  #   <<: *executor-base
+  #   container_name: executor-3
+  #   depends_on:
+  #     executor-1:
+  #       condition: service_started
+  #     docker-proxy:
+  #       condition: service_started
+  #     redis:
+  #       condition: service_healthy
 
   # Celery Worker - Handles 50% of evaluation traffic
   celery-worker:
@@ -252,7 +255,7 @@ services:
       dockerfile: celery-worker/Dockerfile
       args:
         - BASE_IMAGE=crucible-base
-    image: ${PROJECT_NAME:-crucible-platform}/celery-worker:local
+    image: ${CELERY_WORKER_IMAGE:-${PROJECT_NAME:-crucible-platform}/celery-worker:local}
     container_name: celery-worker-1
     environment:
       - CELERY_BROKER_URL=redis://celery-redis:6379/0
@@ -262,9 +265,9 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
       # Match concurrency to executor count to prevent over-provisioning
-      - CELERY_CONCURRENCY=${EXECUTOR_COUNT:-3}
+      - CELERY_CONCURRENCY=${EXECUTOR_COUNT:-2}
       # Dynamic routing to all executors (legacy queue deactivated)
-      - EXECUTOR_COUNT=3
+      - EXECUTOR_COUNT=2
       - EXECUTOR_BASE_URL=http://executor
       - EXECUTOR_START_INDEX=1  # Use all executors
     depends_on:
@@ -274,14 +277,14 @@ services:
         condition: service_healthy
       executor-2:
         condition: service_started
-      executor-3:
-        condition: service_started
+      # executor-3:  # Disabled for t2.micro
+      #   condition: service_started
       storage-service:
         condition: service_healthy
     restart: unless-stopped
     # Run worker processes to match executor count
     # This prevents over-provisioning with prefetch_multiplier=1
-    command: ["sh", "-c", "celery -A tasks worker --loglevel=info --concurrency=${EXECUTOR_COUNT:-3}"]
+    command: ["sh", "-c", "celery -A tasks worker --loglevel=info --concurrency=${EXECUTOR_COUNT:-2}"]
     healthcheck:
       test: ["CMD", "celery", "-A", "tasks", "inspect", "ping"]
       interval: 30s
@@ -328,7 +331,7 @@ services:
       dockerfile: storage-worker/Dockerfile
       args:
         - BASE_IMAGE=crucible-base
-    image: ${PROJECT_NAME:-crucible-platform}/storage-worker:local
+    image: ${STORAGE_WORKER_IMAGE:-${PROJECT_NAME:-crucible-platform}/storage-worker:local}
     container_name: storage-worker
     environment:
       - REDIS_URL=redis://redis:6379
@@ -357,7 +360,7 @@ services:
       dockerfile: storage-service/Dockerfile
       args:
         - BASE_IMAGE=crucible-base
-    image: ${PROJECT_NAME:-crucible-platform}/storage-service:local
+    image: ${STORAGE_SERVICE_IMAGE:-${PROJECT_NAME:-crucible-platform}/storage-service:local}
     container_name: storage-service
     ports:
       - "8082:8082"  # For development access
@@ -450,7 +453,7 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
-    image: ${PROJECT_NAME:-crucible-platform}/nginx:local
+    image: ${NGINX_IMAGE:-${PROJECT_NAME:-crucible-platform}/nginx:local}
     container_name: crucible-nginx
     ports:
       - "80:80"

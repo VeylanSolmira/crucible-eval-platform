@@ -92,11 +92,11 @@ if [ "$REBUILD_ALL" = true ]; then
         docker compose build --no-cache executor-ml-image
     fi
     
-    # Then build all other images in parallel, excluding base and executor-ml-image
+    # Then build all other images in parallel (excluding base and executor-ml-image)
     echo "Building all other services in parallel..."
-    # Get all services except 'base' and 'executor-ml-image' and build them
-    SERVICES=$(docker compose config --services | grep -v '^base$' | grep -v '^executor-ml-image$' | tr '\n' ' ')
-    docker compose build --parallel --no-cache $SERVICES
+    # Get list of all services except base and executor-ml-image
+    SERVICES_TO_BUILD=$(docker compose config --services | grep -v -E '^(base|executor-ml-image)$' | tr '\n' ' ')
+    docker compose build --parallel --no-cache $SERVICES_TO_BUILD
 else
     # Just build base image for normal startup
     echo "Building base image..."
