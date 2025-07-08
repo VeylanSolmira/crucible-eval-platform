@@ -42,7 +42,7 @@ usermod -aG docker ubuntu
 apt-get install -y awscli jq cloud-utils
 
 # Create application directory and storage subdirectories
-mkdir -p /home/ubuntu/crucible/data/{evaluations,logs,results}
+mkdir -p /home/ubuntu/crucible/data/{evaluations,logs,results,events,metadata}
 # Set ownership for container access (most containers run as UID 1000)
 chown -R 1000:1000 /home/ubuntu/crucible/data
 chmod -R 755 /home/ubuntu/crucible/data

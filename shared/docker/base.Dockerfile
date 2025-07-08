@@ -8,8 +8,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     LOG_LEVEL=INFO
 
-# Create non-root user early for better layer caching
-RUN groupadd -r appuser && useradd -r -g appuser appuser \
+# Create non-root user with explicit UID 1000 for volume compatibility
+RUN groupadd -g 1000 appuser && useradd -u 1000 -g 1000 appuser \
     && mkdir -p /app \
     && chown -R appuser:appuser /app
 
