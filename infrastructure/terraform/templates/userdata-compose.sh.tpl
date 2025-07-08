@@ -41,9 +41,13 @@ usermod -aG docker ubuntu
 # Install AWS CLI, jq, cloud-utils
 apt-get install -y awscli jq cloud-utils
 
-# Create application directory
-mkdir -p /home/ubuntu/crucible/data
-chown -R ubuntu:ubuntu /home/ubuntu/crucible
+# Create application directory and storage subdirectories
+mkdir -p /home/ubuntu/crucible/data/{evaluations,logs,results}
+# Set ownership for container access (most containers run as UID 1000)
+chown -R 1000:1000 /home/ubuntu/crucible/data
+chmod -R 755 /home/ubuntu/crucible/data
+# Keep main crucible directory owned by ubuntu
+chown ubuntu:ubuntu /home/ubuntu/crucible
 
 # Configure AWS CLI for ECR
 AZ=$(ec2metadata --availability-zone)

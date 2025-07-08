@@ -102,8 +102,7 @@ services:
   executor-2:
     extends: executor-1
     
-  executor-3:
-    extends: executor-1
+  # executor-3 disabled for t2.micro memory constraints
 
   # Queue Services removed - using Celery instead
 
