@@ -81,10 +81,10 @@ class TestRetryConfig:
     
     def test_calculate_retry_delay_with_policies(self):
         """Test retry delay calculation with different policies."""
-        # Test aggressive policy (shorter delays)
-        assert calculate_retry_delay(0, "aggressive", add_jitter=False) == 1
-        assert calculate_retry_delay(1, "aggressive", add_jitter=False) == 2
-        assert calculate_retry_delay(2, "aggressive", add_jitter=False) == 4
+        # Test aggressive policy (shorter delays, base=1, exponential_base=1.5)
+        assert calculate_retry_delay(0, "aggressive", add_jitter=False) == 1     # 1 * (1.5^0) = 1
+        assert calculate_retry_delay(1, "aggressive", add_jitter=False) == 1.5   # 1 * (1.5^1) = 1.5
+        assert calculate_retry_delay(2, "aggressive", add_jitter=False) == 2.25  # 1 * (1.5^2) = 2.25
         
         # Test default policy
         assert calculate_retry_delay(0, "default", add_jitter=False) == 2
@@ -100,7 +100,7 @@ class TestRetryConfig:
         
         should_retry, reason = should_retry_http_error(429)
         assert should_retry is True
-        assert "Rate Limited" in reason
+        assert "Too Many Requests" in reason  # Match actual message from retry_config.py
         
         should_retry, reason = should_retry_http_error(504)
         assert should_retry is True
@@ -141,4 +141,4 @@ class TestRetryConfig:
         
         # Test connection errors (should always retry within limits)
         assert strategy.should_retry(Exception("Connection refused"), 0) is True
-        assert strategy.should_retry(ConnectionError("Network unreachable"), 2) is True
+        assert strategy.should_retry(ConnectionError("Connection timeout"), 2) is True

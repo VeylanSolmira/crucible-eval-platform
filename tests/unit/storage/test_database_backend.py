@@ -21,23 +21,29 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up test database."""
-        # Use SQLite for tests (in-memory or file)
-        cls.test_db_url = "sqlite:///test_storage.db"
-        # cls.test_db_url = "sqlite:///:memory:"  # Alternative: in-memory
+        # Use SQLite for tests (file-based for reliability)
+        os.makedirs("tests/test_data", exist_ok=True)
+        cls.test_db_path = "tests/test_data/test_storage.db"
+        cls.test_db_url = f"sqlite:///{cls.test_db_path}"
 
         # Create tables
         engine = create_engine(cls.test_db_url)
+        Base.metadata.drop_all(engine)  # Drop existing tables first
         Base.metadata.create_all(engine)
 
     @classmethod
     def tearDownClass(cls):
         """Clean up test database."""
-        if os.path.exists("test_storage.db"):
-            os.remove("test_storage.db")
+        if cls.test_db_path and os.path.exists(cls.test_db_path):
+            os.remove(cls.test_db_path)
 
     def create_storage(self):
         """Create database storage instance."""
-        return DatabaseStorage(self.test_db_url)
+        # For in-memory SQLite, we need to use the same engine
+        if hasattr(self, '_shared_storage'):
+            return self._shared_storage
+        self._shared_storage = DatabaseStorage(self.test_db_url)
+        return self._shared_storage
 
     def tearDown(self):
         """Clean up test data after each test."""
@@ -61,7 +67,7 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
         storage = self.create_storage()
 
         # Store initial data
-        storage.store_evaluation(eval_id, {"status": "initial"})
+        storage.store_evaluation(eval_id, {"code_hash": "test_hash", "status": "initial"})
 
         # Simulate a failed update by forcing an exception
         # This is tricky to test properly without mocking
@@ -78,7 +84,7 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
         evil_id = "test'; DROP TABLE evaluations; --"
 
         # This should be safely handled by SQLAlchemy's parameterization
-        result = self.storage.store_evaluation(evil_id, {"data": "test"})
+        result = self.storage.store_evaluation(evil_id, {"code_hash": "test_hash", "status": "completed", "data": "test"})
         self.assertTrue(result)
 
         # Verify tables still exist
@@ -93,6 +99,7 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
         eval_id = "test-json-meta"
         complex_data = {
             "id": eval_id,
+            "code_hash": "json_test_hash",
             "status": "completed",
             "custom_field": "custom_value",
             "nested": {"level1": {"level2": ["a", "b", "c"]}},
@@ -121,7 +128,13 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
         eval_id = "test-cascade"
 
         # Store evaluation with events
-        self.storage.store_evaluation(eval_id, {"status": "completed"})
+        result = self.storage.store_evaluation(eval_id, {"code_hash": "test_hash", "status": "completed"})
+        self.assertTrue(result, "Failed to store evaluation")
+        
+        # Verify evaluation was created
+        eval_data = self.storage.retrieve_evaluation(eval_id)
+        self.assertIsNotNone(eval_data, "Evaluation was not created")
+        
         self.storage.store_events(
             eval_id, [{"type": "start", "message": "Started"}, {"type": "end", "message": "Ended"}]
         )
@@ -144,7 +157,7 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
 
         # Store with specific timestamp
         timestamp = datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc)
-        data = {"id": eval_id, "status": "completed", "timestamp": timestamp.isoformat()}
+        data = {"id": eval_id, "code_hash": "timestamp_test_hash", "status": "completed", "timestamp": timestamp.isoformat()}
 
         self.storage.store_evaluation(eval_id, data)
 
@@ -172,7 +185,7 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
                 for i in range(5):
                     eval_id = f"concurrent-db-{thread_id}-{i}"
                     success = storage.store_evaluation(
-                        eval_id, {"thread": thread_id, "iteration": i}
+                        eval_id, {"code_hash": f"hash_{thread_id}_{i}", "status": "completed", "thread": thread_id, "iteration": i}
                     )
                     results.append((eval_id, success))
 
@@ -209,7 +222,7 @@ class DatabaseStorageTests(StorageServiceTestMixin, unittest.TestCase):
         # Store many evaluations
         for i in range(100):
             self.storage.store_evaluation(
-                f"perf-test-{i:03d}", {"status": "completed" if i % 2 == 0 else "failed"}
+                f"perf-test-{i:03d}", {"code_hash": f"perf_hash_{i}", "status": "completed" if i % 2 == 0 else "failed"}
             )
 
         # Time a query that uses the status index

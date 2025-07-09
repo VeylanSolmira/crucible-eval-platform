@@ -27,13 +27,24 @@ class DatabaseStorage(StorageService):
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.engine = create_engine(
-            self.database_url,
-            pool_size=10,
-            max_overflow=20,
-            pool_pre_ping=True,  # Verify connections before use
-            echo=False,  # Set to True for SQL debugging
-        )
+        
+        # Different settings for SQLite vs PostgreSQL
+        if database_url.startswith("sqlite"):
+            # SQLite doesn't support these pool settings
+            self.engine = create_engine(
+                self.database_url,
+                pool_pre_ping=True,  # Verify connections before use
+                echo=False,  # Set to True for SQL debugging
+            )
+        else:
+            # PostgreSQL with full pool settings
+            self.engine = create_engine(
+                self.database_url,
+                pool_size=10,
+                max_overflow=20,
+                pool_pre_ping=True,  # Verify connections before use
+                echo=False,  # Set to True for SQL debugging
+            )
         self.SessionLocal = sessionmaker(bind=self.engine)
 
     @contextmanager
@@ -235,7 +246,7 @@ class DatabaseStorage(StorageService):
 
                 if not eval_record:
                     # Create evaluation if it doesn't exist
-                    eval_record = Evaluation(id=eval_id, status="unknown")
+                    eval_record = Evaluation(id=eval_id, code_hash="metadata_only_hash", status="unknown")
                     session.add(eval_record)
 
                 # Update metadata

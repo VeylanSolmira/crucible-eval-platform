@@ -158,3 +158,6 @@ personal/
 # Storage directory (created by FileStorage component)
 #/storage/
 data/
+# Test data
+tests/test_data/
+*.db

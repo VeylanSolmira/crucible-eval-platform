@@ -32,6 +32,7 @@ class StorageServiceTestMixin:
         self.test_data = {
             "id": self.test_eval_id,
             "status": "completed",
+            "code_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",  # SHA256 of "123"
             "output": "Hello, World!",
             "error": None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -153,7 +154,7 @@ class StorageServiceTestMixin:
         for i in range(5):
             eval_id = f"test-eval-{i:03d}"
             eval_ids.append(eval_id)
-            self.storage.store_evaluation(eval_id, {"id": eval_id, "index": i})
+            self.storage.store_evaluation(eval_id, {"id": eval_id, "code_hash": "test_hash", "status": "completed", "index": i})
 
         try:
             # Test basic listing
@@ -226,8 +227,8 @@ class StorageServiceTestMixin:
 
         try:
             # Store different data for each
-            self.storage.store_evaluation(eval_id_1, {"id": eval_id_1, "value": "first"})
-            self.storage.store_evaluation(eval_id_2, {"id": eval_id_2, "value": "second"})
+            self.storage.store_evaluation(eval_id_1, {"id": eval_id_1, "code_hash": "test_hash", "status": "completed", "value": "first"})
+            self.storage.store_evaluation(eval_id_2, {"id": eval_id_2, "code_hash": "test_hash", "status": "completed", "value": "second"})
 
             # Verify isolation
             data_1 = self.storage.retrieve_evaluation(eval_id_1)
@@ -273,7 +274,7 @@ class StorageServiceTestMixin:
             try:
                 for i in range(writes_per_thread):
                     eval_id = f"concurrent-{thread_id}-{i}"
-                    data = {"id": eval_id, "thread": thread_id, "index": i}
+                    data = {"id": eval_id, "code_hash": f"concurrent_hash_{thread_id}_{i}", "status": "completed", "thread": thread_id, "index": i}
                     success = self.storage.store_evaluation(eval_id, data)
                     results.append((eval_id, success))
             except Exception as e:
@@ -315,12 +316,12 @@ class StorageServiceTestMixin:
         lock = threading.Lock()
 
         # Initial data
-        self.storage.store_evaluation(shared_eval_id, {"counter": 0})
+        self.storage.store_evaluation(shared_eval_id, {"code_hash": "test_hash", "status": "running", "counter": 0})
 
         def writer_thread():
             nonlocal write_count
             for i in range(20):
-                self.storage.store_evaluation(shared_eval_id, {"counter": i})
+                self.storage.store_evaluation(shared_eval_id, {"code_hash": "test_hash", "status": "running", "counter": i})
                 with lock:
                     write_count += 1
                 time.sleep(0.001)  # Small delay to encourage interleaving
@@ -363,10 +364,10 @@ class StorageServiceTestMixin:
     def test_empty_data_storage(self):
         """Test storing empty or minimal data"""
         test_cases = [
-            ({}, "empty dict"),
-            ({"id": self.test_eval_id}, "minimal data"),
-            ({"id": self.test_eval_id, "data": None}, "null value"),
-            ({"id": self.test_eval_id, "list": []}, "empty list"),
+            ({"code_hash": "empty_hash", "status": "completed"}, "empty dict"),
+            ({"id": self.test_eval_id, "code_hash": "minimal_hash", "status": "completed"}, "minimal data"),
+            ({"id": self.test_eval_id, "code_hash": "null_hash", "status": "completed", "data": None}, "null value"),
+            ({"id": self.test_eval_id, "code_hash": "list_hash", "status": "completed", "list": []}, "empty list"),
         ]
 
         for i, (data, description) in enumerate(test_cases):
@@ -390,6 +391,8 @@ class StorageServiceTestMixin:
         # Create large data structure
         large_data = {
             "id": large_eval_id,
+            "code_hash": "large_data_hash",
+            "status": "completed",
             "large_list": list(range(1000)),
             "nested": {
                 f"key_{i}": f"value_{i}" * 100  # 100 chars per value

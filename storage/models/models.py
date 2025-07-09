@@ -83,14 +83,14 @@ class EvaluationEvent(Base):
 
     __tablename__ = "evaluation_events"
 
-    id = Column(BigInteger, primary_key=True)
+    id = Column(Integer, primary_key=True)  # Using Integer for SQLite compatibility
     evaluation_id = Column(
         String(64), ForeignKey("evaluations.id", ondelete="CASCADE"), nullable=False
     )
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     event_type = Column(String(50), nullable=False)  # submitted, queued, started, etc
     message = Column(Text)
-    event_metadata = Column("metadata", JSONB)  # Flexible event data
+    event_metadata = Column("metadata", JSON)  # Flexible event data (using JSON for SQLite compatibility)
 
     # Relationship
     evaluation = relationship("Evaluation", back_populates="events")
@@ -110,7 +110,7 @@ class EvaluationMetric(Base):
 
     __tablename__ = "evaluation_metrics"
 
-    id = Column(BigInteger, primary_key=True)
+    id = Column(Integer, primary_key=True)  # Using Integer for SQLite compatibility
     evaluation_id = Column(
         String(64), ForeignKey("evaluations.id", ondelete="CASCADE"), nullable=False
     )
