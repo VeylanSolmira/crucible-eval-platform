@@ -9,7 +9,7 @@ x-executor-base: &executor-base
     - REDIS_PORT=6379
     - HEALTH_CHECK_URL=http://localhost:8083/health
     - MAX_CONCURRENT_EXECUTIONS=1  # Each executor can handle 1 task at a time
-    - EXECUTOR_IMAGE_ML=${ECR_EXECUTOR_ML_IMAGE:-executor-ml:latest}  # Use ML-enabled executor image from ECR in prod
+    - EXECUTOR_IMAGE=${ECR_EXECUTOR_ML_IMAGE:-executor-ml:latest}  # Use ML-enabled executor image from ECR in prod
   depends_on:
     docker-proxy:
       condition: service_started

@@ -2,16 +2,16 @@
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 services:
-  # Build-only services - override with minimal images to avoid pull warnings
+  # Build-only services - override to prevent build warnings in production
+  # These images are built in CI/CD and not needed at runtime
   base:
     image: busybox:latest
     command: "true"
     restart: "no"
+    # This is only used as a build dependency, not needed in production
   
-  executor-ml-image:
-    image: busybox:latest
-    command: "true"
-    restart: "no"
+  # executor-ml-image must NOT be overridden - it needs to use the actual ECR image
+  # so that docker compose pull fetches it for the executor services to use
 
   # API Service with resource limits and security
   api-service:
