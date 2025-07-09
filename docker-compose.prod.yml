@@ -81,9 +81,6 @@ services:
     mem_limit: 256m
     memswap_limit: 256m
     cpus: 0.5
-    environment:
-      # Override EXECUTOR_IMAGE to use ECR in production
-      - EXECUTOR_IMAGE=${ECR_EXECUTOR_ML_IMAGE:-executor-ml:latest}
     security_opt:
       # no-new-privileges:true already in base executor config
       - seccomp:unconfined  # Needed for Docker-in-Docker
