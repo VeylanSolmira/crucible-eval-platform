@@ -36,12 +36,12 @@ resource "tls_private_key" "cert_private_key" {
   rsa_bits  = 2048
 }
 
-# Certificate request
-resource "acme_certificate" "certificate" {
+# Wildcard certificate for *.crucible.veylan.dev (includes crucible.veylan.dev via SAN)
+resource "acme_certificate" "crucible_wildcard" {
   count                     = local.create_ssl ? 1 : 0
   account_key_pem           = acme_registration.registration[0].account_key_pem
-  common_name               = var.domain_name
-  subject_alternative_names = ["www.${var.domain_name}"]
+  common_name               = "*.crucible.veylan.dev"
+  subject_alternative_names = ["crucible.veylan.dev"]
   
   dns_challenge {
     provider = "route53"
@@ -51,21 +51,19 @@ resource "acme_certificate" "certificate" {
       AWS_REGION         = var.aws_region
     }
   }
-  
-  depends_on = [aws_route53_record.crucible_a]
 }
 
-# Store certificate in SSM Parameter Store
+# Store certificate in SSM at the path nginx expects
 resource "aws_ssm_parameter" "ssl_certificate" {
   count = local.create_ssl ? 1 : 0
   
   name  = "/${var.project_name}/ssl/certificate"
   type  = "SecureString"
-  value = acme_certificate.certificate[0].certificate_pem
+  value = acme_certificate.crucible_wildcard[0].certificate_pem
   
   tags = merge(local.common_tags, {
     Name    = "${var.project_name}-ssl-certificate"
-    Purpose = "SSL certificate for platform"
+    Purpose = "Wildcard SSL certificate for crucible.veylan.dev and its subdomains"
   })
 }
 
@@ -74,11 +72,11 @@ resource "aws_ssm_parameter" "ssl_private_key" {
   
   name  = "/${var.project_name}/ssl/private_key"
   type  = "SecureString"
-  value = acme_certificate.certificate[0].private_key_pem
+  value = acme_certificate.crucible_wildcard[0].private_key_pem
   
   tags = merge(local.common_tags, {
     Name    = "${var.project_name}-ssl-private-key"
-    Purpose = "SSL certificate private key"
+    Purpose = "Private key for crucible.veylan.dev and its subdomains SSL certificate"
   })
 }
 
@@ -87,7 +85,7 @@ resource "aws_ssm_parameter" "ssl_issuer_pem" {
   
   name  = "/${var.project_name}/ssl/issuer_pem"
   type  = "SecureString"
-  value = acme_certificate.certificate[0].issuer_pem
+  value = acme_certificate.crucible_wildcard[0].issuer_pem
   
   tags = merge(local.common_tags, {
     Name    = "${var.project_name}-ssl-issuer"
@@ -120,13 +118,7 @@ resource "aws_iam_role_policy" "eval_server_ssl" {
 }
 
 # Output certificate information
-output "ssl_certificate_domain" {
-  value       = local.create_ssl ? acme_certificate.certificate[0].common_name : "SSL not configured"
-  description = "Domain name for SSL certificate"
-}
-
-output "ssl_certificate_expiry" {
-  value       = local.create_ssl ? acme_certificate.certificate[0].certificate_not_after : "N/A"
-  description = "SSL certificate expiry date"
-  sensitive   = true
+output "ssl_certificate_coverage" {
+  value       = local.create_ssl ? "*.crucible.veylan.dev (wildcard) + crucible.veylan.dev (SAN) - covers all deployment domains" : "SSL not configured"
+  description = "SSL certificate coverage"
 }

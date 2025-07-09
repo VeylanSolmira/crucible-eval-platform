@@ -13,7 +13,17 @@ alias deploy-green='tofu apply \
   -target="aws_cloudwatch_log_group.crucible_docker" \
   -target="aws_cloudwatch_log_group.crucible_system" \
   -target="aws_ssm_parameter.cloudwatch_agent_config" \
-  -target="aws_cloudwatch_dashboard.crucible_monitoring"'
+  -target="aws_cloudwatch_dashboard.crucible_monitoring" \
+  -target="aws_route53_zone.root[0]" \
+  -target="aws_route53_zone.crucible[0]" \
+  -target="aws_route53_record.ns_delegation[0]" \
+  -target="acme_certificate.crucible_wildcard[0]" \
+  -target="aws_ssm_parameter.ssl_certificate[0]" \
+  -target="aws_ssm_parameter.ssl_private_key[0]" \
+  -target="aws_ssm_parameter.ssl_issuer_pem[0]" \
+  -target="aws_route53_record.crucible_a[0]" \
+  -target="aws_route53_record.crucible_subdomains[\"green\"]" \
+  -target="aws_route53_record.crucible_subdomains[\"blue\"]"'
 
 # Deploy to Blue only  
 alias deploy-blue='tofu apply \

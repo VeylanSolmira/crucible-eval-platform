@@ -67,7 +67,7 @@ variable "gpu_instances_enabled" {
 variable "instance_type" {
   description = "EC2 instance type"
   type        = string
-  default     = "t2.micro"  # Free tier eligible
+  default     = "t3.small"  # Better baseline performance than t2.micro
 }
 
 variable "ssh_public_key" {
@@ -127,7 +127,7 @@ variable "deployment_version" {
 variable "domain_name" {
   description = "Domain name for the platform (e.g., crucible.veylan.dev)"
   type        = string
-  default     = "crucible.veylan.dev"
+  default     = "veylan.dev"
 }
 
 variable "create_route53_zone" {

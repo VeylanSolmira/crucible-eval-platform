@@ -204,10 +204,10 @@ services:
       - /var/cache/nginx:size=100M
       - /var/run:size=10M
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ssl-certs:/etc/nginx/ssl:ro
       - acme-challenge:/var/www/html/.well-known/acme-challenge:ro
+    environment:
+      - PRODUCTION_MODE=true
     logging:
       driver: "json-file"
       options:
