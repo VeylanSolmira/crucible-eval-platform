@@ -112,52 +112,38 @@ Instance Details:
 EOF
 chown ubuntu:ubuntu /home/ubuntu/deployment-instructions.txt
 
-# Fetch SSL certificates for containerized nginx (if domain is configured)
+# Setup SSL certificate refresh automation (only if domain is configured)
 if [ -n "${domain_name}" ]; then
-    echo "Fetching SSL certificates for ${domain_name}..."
+    echo "Setting up SSL certificate refresh automation..."
     
-    # Get region from availability zone
-    AZ=$(ec2metadata --availability-zone)
-    REGION=$${AZ%?}  # Remove last character (the AZ letter)
+    # Copy the refresh script
+    cat > /usr/local/bin/refresh-ssl-certs.sh <<'EOFSCRIPT'
+${ssl_refresh_script}
+EOFSCRIPT
+    chmod +x /usr/local/bin/refresh-ssl-certs.sh
     
-    # Check if SSL certificates are available in SSM Parameter Store
-    if aws ssm get-parameter --name "/${project_name}/ssl/certificate" --region $REGION >/dev/null 2>&1; then
-        echo "SSL certificates found in Parameter Store, installing..."
-        
-        # Create SSL directory for nginx container to mount
-        mkdir -p /etc/nginx/ssl
-        
-        # Get certificate (nginx container expects cert.pem)
-        aws ssm get-parameter --name "/${project_name}/ssl/certificate" \
-            --with-decryption --region $REGION \
-            --query 'Parameter.Value' --output text > /etc/nginx/ssl/cert.pem
-        
-        # Get private key (nginx container expects key.pem)
-        aws ssm get-parameter --name "/${project_name}/ssl/private_key" \
-            --with-decryption --region $REGION \
-            --query 'Parameter.Value' --output text > /etc/nginx/ssl/key.pem
-        
-        # Get issuer chain if available
-        if aws ssm get-parameter --name "/${project_name}/ssl/issuer_pem" --region $REGION >/dev/null 2>&1; then
-            aws ssm get-parameter --name "/${project_name}/ssl/issuer_pem" \
-                --with-decryption --region $REGION \
-                --query 'Parameter.Value' --output text > /etc/nginx/ssl/chain.pem
-            
-            # Create full chain
-            cat /etc/nginx/ssl/cert.pem /etc/nginx/ssl/chain.pem > /etc/nginx/ssl/fullchain.pem
-        fi
-        
-        # Set proper permissions
-        chmod 600 /etc/nginx/ssl/*
-        chown root:root /etc/nginx/ssl/*
-        
-        echo "SSL certificates installed successfully for nginx container!"
-    else
-        echo "ERROR: No SSL certificates found in Parameter Store"
-        echo "SSL certificates are required for secure operation"
-        echo "Ensure 'create_route53_zone = true' in Terraform and ACME certificates are created"
-        exit 1  # Fail the userdata script
-    fi
+    # Install systemd service
+    cat > /etc/systemd/system/ssl-refresh.service <<'EOFSERVICE'
+${ssl_refresh_service}
+EOFSERVICE
+    
+    # Install systemd timer  
+    cat > /etc/systemd/system/ssl-refresh.timer <<'EOFTIMER'
+${ssl_refresh_timer}
+EOFTIMER
+    
+    # Enable and start the timer
+    systemctl daemon-reload
+    systemctl enable ssl-refresh.timer
+    systemctl start ssl-refresh.timer
+    
+    echo "SSL certificate refresh automation configured successfully!"
+    echo "Timer will run immediately and then hourly to manage SSL certificates"
+    
+    # Create SSL directory for nginx container to mount
+    mkdir -p /etc/nginx/ssl
+    
+    # The timer with OnActiveSec=0 will run the refresh script immediately
 else
     echo "No domain configured, skipping SSL certificate setup"
 fi

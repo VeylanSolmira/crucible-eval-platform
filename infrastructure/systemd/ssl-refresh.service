@@ -1,0 +1,23 @@
+[Unit]
+Description=Refresh SSL certificates from AWS SSM Parameter Store
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/refresh-ssl-certs.sh
+StandardOutput=journal
+StandardError=journal
+Environment="PROJECT_NAME=crucible-platform"
+Environment="LOG_FILE=/var/log/ssl-refresh.log"
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/etc/nginx/ssl /var/log
+
+# Restart on failure with delay
+Restart=on-failure
+RestartSec=300

@@ -1,0 +1,19 @@
+[Unit]
+Description=Refresh SSL certificates every hour
+Requires=ssl-refresh.service
+
+[Timer]
+# Run immediately when the timer is started
+OnActiveSec=0
+
+# Run every hour after the initial run
+OnUnitActiveSec=1h
+
+# Persist timer state across reboots
+Persistent=true
+
+# Add some randomization to prevent thundering herd (except for initial run)
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
