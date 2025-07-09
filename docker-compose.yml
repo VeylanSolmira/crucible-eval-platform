@@ -461,8 +461,6 @@ services:
       # Only expose dev port if explicitly enabled
       - "${NGINX_DEV_PORT:-127.0.0.1:8000}:8000"  # HTTP-only dev port (localhost only by default)
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - acme-challenge:/var/www/html/.well-known/acme-challenge
       - ssl-certs:/etc/nginx/ssl
     environment:

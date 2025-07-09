@@ -1,34 +1,62 @@
-# version: '3.8'
+# Development overrides for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 services:
+  # Nginx with local config volume mounts for development
+  nginx:
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - acme-challenge:/var/www/html/.well-known/acme-challenge
+      - ssl-certs:/etc/nginx/ssl
+    environment:
+      - PRODUCTION_MODE=false
+
+  # API Service with hot reload for development
+  api-service:
+    volumes:
+      - ./src:/app/src:ro
+    environment:
+      - RELOAD=true
+
+  # Celery Worker with hot reload
+  celery-worker:
+    volumes:
+      - ./src:/app/src:ro
+    environment:
+      - RELOAD=true
+
+  # Storage Service with hot reload
+  storage-service:
+    volumes:
+      - ./src:/app/src:ro
+    environment:
+      - RELOAD=true
+
+  # Storage Worker with hot reload
+  storage-worker:
+    volumes:
+      - ./src:/app/src:ro
+    environment:
+      - RELOAD=true
+
+  # Executors with additional dev logging
+  executor-1:
+    environment:
+      - LOG_LEVEL=DEBUG
+  
+  executor-2:
+    environment:
+      - LOG_LEVEL=DEBUG
+
+  # Frontend with hot reload and source mounting
   crucible-frontend:
-    # Use development Dockerfile
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    # Minimal override for development with hot reload
+    volumes:
+      - ./frontend:/app:delegated
+      - /app/node_modules  # Preserve container's node_modules
+      - /app/.next        # Preserve Next.js build cache
     environment:
       - NODE_ENV=development
-      - WATCHPACK_POLLING=true
-    volumes:
-      # Mount source code for hot reload
-      - ./frontend:/app
-      # Prevent node_modules from being overwritten by host
-      - /app/node_modules
-      # Mount .next for build cache
-      - /app/.next
-    # Override command to use dev server
-    command: npm run dev -- -H 0.0.0.0
-    # Must disable read-only for Next.js to write to .next directory
-    read_only: false
-    
-    # Keep production-like settings:
-    # - security_opt (still active from base)
-    # - tmpfs (still active from base)
-    # - healthcheck (still active from base)
-    
-  # Commented out - uncomment if you want Python hot reload too
-  # api-service:
-  #   volumes:
-  #     - ./api:/app
-  #   command: uvicorn api.microservice_api:app --host 0.0.0.0 --port 8080 --reload
+      - WATCHPACK_POLLING=true  # Enable polling for file changes (needed in Docker)
+
+# Volumes are inherited from base docker-compose.yml

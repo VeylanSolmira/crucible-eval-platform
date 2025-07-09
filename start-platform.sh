@@ -79,28 +79,35 @@ else
     echo "   Frontend type generation may use fallback types"
 fi
 
+# Determine compose files based on mode
+if [ "$MODE" = "prod" ]; then
+    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
+else
+    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
+fi
+
 # Build images
 if [ "$REBUILD_ALL" = true ]; then
     echo -e "${BLUE}Building images...${NC}"
     # First build base image since other images depend on it
     echo "Building base image first..."
-    docker compose build --no-cache base
+    docker compose $COMPOSE_FILES build --no-cache base
     
     # Build executor-ml image only if requested with 'all'
     if [ "$BUILD_ML" = true ]; then
         echo "Building ML executor image (this takes ~3 minutes)..."
-        docker compose build --no-cache executor-ml-image
+        docker compose $COMPOSE_FILES build --no-cache executor-ml-image
     fi
     
     # Then build all other images in parallel (excluding base and executor-ml-image)
     echo "Building all other services in parallel..."
     # Get list of all services except base and executor-ml-image
-    SERVICES_TO_BUILD=$(docker compose config --services | grep -v -E '^(base|executor-ml-image)$' | tr '\n' ' ')
-    docker compose build --parallel --no-cache $SERVICES_TO_BUILD
+    SERVICES_TO_BUILD=$(docker compose $COMPOSE_FILES config --services | grep -v -E '^(base|executor-ml-image)$' | tr '\n' ' ')
+    docker compose $COMPOSE_FILES build --parallel --no-cache $SERVICES_TO_BUILD
 else
     # Just build base image for normal startup
     echo "Building base image..."
-    docker compose build base
+    docker compose $COMPOSE_FILES build base
     
     # Check if executor-ml image exists
     if ! docker image inspect executor-ml:latest >/dev/null 2>&1; then
@@ -122,7 +129,7 @@ if [ "$MODE" = "prod" ]; then
 else
     echo "Starting services in development mode..."
     echo -e "\n${YELLOW}Starting all services (this may take a minute)...${NC}"
-    docker compose up -d --wait --wait-timeout 120
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait --wait-timeout 120
 fi
 
 # Check if the wait was successful
@@ -130,7 +137,7 @@ if [ $? -eq 0 ]; then
     echo -e "\n${GREEN}✓ All services are healthy!${NC}"
 else
     echo -e "\n${YELLOW}⚠ Some services may still be starting. Checking status...${NC}"
-    docker compose ps
+    docker compose $COMPOSE_FILES ps
 fi
 
 # Check all services are up
@@ -139,7 +146,7 @@ echo -e "\nChecking all services..."
 # Run database migrations
 echo -e "\n${YELLOW}Running database migrations...${NC}"
 # Note: The migrate service uses the storage-service image, so it must be built first
-if docker compose run --rm migrate 2>&1 | grep -q "Will assume transactional DDL"; then
+if docker compose $COMPOSE_FILES run --rm migrate 2>&1 | grep -q "Will assume transactional DDL"; then
     echo -e "${GREEN}Migrations completed successfully${NC}"
 else
     echo -e "${YELLOW}Migrations may have already been applied or there was an error${NC}"
@@ -147,7 +154,7 @@ fi
 
 # Display service status
 echo -e "\n${GREEN}Platform Status:${NC}"
-docker compose ps
+docker compose $COMPOSE_FILES ps
 
 # Display access URLs
 echo -e "\n${GREEN}Access URLs:${NC}"
@@ -167,15 +174,15 @@ echo "  Rebuild core:   ./start-platform.sh build"
 echo "  Rebuild all:    ./start-platform.sh build-all"
 
 # Check if all services are healthy
-if docker compose ps | grep -E "unhealthy|Exit|Restarting" > /dev/null 2>&1; then
+if docker compose $COMPOSE_FILES ps | grep -E "unhealthy|Exit|Restarting" > /dev/null 2>&1; then
     echo -e "\n${YELLOW}Warning: Some services may not be healthy yet.${NC}"
     
     # Check if it's just nginx restarting (common during initial startup)
-    if docker compose ps | grep -E "unhealthy|Exit" | grep -v nginx > /dev/null 2>&1; then
-        echo "  Check logs with: docker compose logs [service-name]"
+    if docker compose $COMPOSE_FILES ps | grep -E "unhealthy|Exit" | grep -v nginx > /dev/null 2>&1; then
+        echo "  Check logs with: docker compose $COMPOSE_FILES logs [service-name]"
     else
         echo "  nginx may still be starting up. This is normal and should resolve within 30 seconds."
-        echo "  You can check status with: docker compose ps"
+        echo "  You can check status with: docker compose $COMPOSE_FILES ps"
     fi
 else
     echo -e "\n${GREEN}✓ All services started successfully!${NC}"
