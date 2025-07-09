@@ -281,6 +281,9 @@ resource "aws_instance" "eval_server" {
     # Domain configuration
     domain_name = var.domain_name
   })
+  
+  # Replace instance when user data changes (ensures updates are applied)
+  user_data_replace_on_change = true
 
   tags = merge(local.common_tags, {
     Name             = "${var.project_name}-eval-server-${each.key}"

@@ -78,6 +78,7 @@ jobs:
           "api:api/Dockerfile:."
           "frontend:frontend/Dockerfile:."
           "executor-service:executor-service/Dockerfile:."
+          "executor-ml:docker/executor-ml/Dockerfile:."
           "celery-worker:celery-worker/Dockerfile:."
           "storage-service:storage-service/Dockerfile:."
           "storage-worker:storage-worker/Dockerfile:."
@@ -115,6 +116,7 @@ jobs:
           "api"
           "frontend"
           "executor-service"
+          "executor-ml"
           "celery-worker"
           "storage-service"
           "storage-worker"
@@ -169,6 +171,7 @@ jobs:
           "api"
           "frontend"
           "executor-service"
+          "executor-ml"
           "celery-worker"
           "storage-service"
           "storage-worker"
@@ -222,6 +225,7 @@ jobs:
         API_IMAGE=${{ steps.params.outputs.api_image }}
         FRONTEND_IMAGE=${{ steps.params.outputs.frontend_image }}
         EXECUTOR_SERVICE_IMAGE=${{ steps.params.outputs.executor_service_image }}
+        ECR_EXECUTOR_ML_IMAGE=${{ steps.params.outputs.executor_ml_image }}
         CELERY_WORKER_IMAGE=${{ steps.params.outputs.celery_worker_image }}
         STORAGE_SERVICE_IMAGE=${{ steps.params.outputs.storage_service_image }}
         STORAGE_WORKER_IMAGE=${{ steps.params.outputs.storage_worker_image }}
