@@ -204,7 +204,7 @@ services:
       - /var/cache/nginx:size=100M
       - /var/run:size=10M
     volumes:
-      - ssl-certs:/etc/nginx/ssl:ro
+      - /etc/nginx/ssl:/etc/nginx/ssl:ro  # Bind mount from host
       - acme-challenge:/var/www/html/.well-known/acme-challenge:ro
     environment:
       - PRODUCTION_MODE=true
