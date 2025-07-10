@@ -8,6 +8,7 @@ import {
   useEvaluation,
 } from '@/hooks/useEvaluation'
 import { Toast } from './Toast'
+import { getExitCodeInfo, getExitCodeColorClasses } from '../utils/exit-codes'
 
 interface ExecutionMetrics {
   cpuUsage: number
@@ -407,6 +408,24 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
               </div>
             </div>
           )}
+          
+          {/* Exit Code Information */}
+          {!isRunning && logs?.exit_code !== undefined && logs.exit_code !== null && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Exit Status</h3>
+              <div className={`rounded-lg p-4 ${getExitCodeColorClasses(logs.exit_code).bg} ${getExitCodeColorClasses(logs.exit_code).text} border ${getExitCodeColorClasses(logs.exit_code).border}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{getExitCodeInfo(logs.exit_code).message}</div>
+                    <div className="text-sm mt-1 opacity-90">{getExitCodeInfo(logs.exit_code).description}</div>
+                  </div>
+                  <div className="text-2xl font-mono font-semibold">
+                    {logs.exit_code}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status Indicator */}
@@ -478,6 +497,9 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
               </div>
               <div>
                 <strong>Executor:</strong> {logs?.executor_id || 'N/A'}
+              </div>
+              <div>
+                <strong>Exit Code:</strong> {logs?.exit_code !== undefined && logs.exit_code !== null ? logs.exit_code : 'N/A'}
               </div>
               {isStuck && (
                 <div className="text-orange-600">

@@ -22,21 +22,25 @@ resource "aws_security_group" "eval_server_shared" {
   description = "Shared security group for all Crucible evaluation servers"
 
   # HTTP access (for Let's Encrypt challenge and redirect to HTTPS)
+  # Note: Port 80 needs to be open for Let's Encrypt HTTP-01 challenge
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : ["0.0.0.0/0"]
-    description = "HTTP for LetsEncrypt and redirect"
+    cidr_blocks = ["0.0.0.0/0"]  # Required for Let's Encrypt
+    description = "HTTP for LetsEncrypt challenge only"
   }
   
-  # HTTPS access (main web interface)
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : ["0.0.0.0/0"]
-    description = "HTTPS web interface"
+  # HTTPS access (main web interface) - SECURE BY DEFAULT
+  dynamic "ingress" {
+    for_each = length(var.allowed_web_ips) > 0 ? [1] : []
+    content {
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = var.allowed_web_ips
+      description = "HTTPS web interface (IP restricted)"
+    }
   }
 
   # Platform web interface (for development/debugging)

@@ -7,6 +7,7 @@ import { ExecutionMonitor } from './ExecutionMonitor'
 import { log } from '@/src/utils/logger'
 import { formatDistanceToNow } from 'date-fns'
 import { EvaluationStatus } from '@/shared/generated/typescript/evaluation-status'
+import { getExitCodeInfo, getExitCodeBadge, getExitCodeColorClasses } from '@/utils/exit-codes'
 
 type StatusFilter = 'all' | EvaluationStatus
 
@@ -349,11 +350,13 @@ export function Executions({ recentEvalIds = [] }: ExecutionsProps) {
                             {execution.executor_id && <span>• {execution.executor_id}</span>}
                             {execution.exit_code !== undefined && (
                               <span
-                                className={
-                                  execution.exit_code === 0 ? 'text-green-600' : 'text-red-600'
-                                }
+                                className={`flex items-center gap-1 ${getExitCodeColorClasses(execution.exit_code).text}`}
+                                title={getExitCodeInfo(execution.exit_code).description}
                               >
-                                • Exit: {execution.exit_code}
+                                • {getExitCodeBadge(execution.exit_code)}
+                                {execution.exit_code !== 0 && execution.exit_code !== 137 && execution.exit_code !== 124 && (
+                                  <span className="text-xs">({execution.exit_code})</span>
+                                )}
                               </span>
                             )}
                           </div>

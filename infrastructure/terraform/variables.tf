@@ -148,11 +148,12 @@ variable "active_deployment_color" {
 }
 
 variable "allowed_web_ips" {
-  description = "IP addresses allowed to access web interface (CIDR format)"
+  description = "IP addresses allowed to access HTTPS web interface (CIDR format). REQUIRED for web access - empty list means NO HTTPS access!"
   type        = list(string)
   default     = []
-  # Start with IP whitelist, then gradually open up
+  # SECURITY: Default is NO access. You MUST add IPs to access the web interface.
   # Example: ["73.41.64.209/32", "10.0.0.0/8"]
+  # Note: Port 80 remains open for Let's Encrypt, but redirects to HTTPS
 }
 
 variable "email" {

@@ -39,6 +39,23 @@ This document provides a comprehensive testing strategy for the Crucible platfor
   - [ ] Output streaming
   - [ ] Timeout handling
   - [ ] Security isolation
+  - [ ] **Exit Code Handling**
+    - [ ] Verify exit codes are captured correctly
+    - [ ] Test common exit codes (0, 1, 137, 143)
+    - [ ] Ensure exit codes are persisted to storage
+    - [ ] Validate exit code propagation through all services
+  - [ ] **Log preservation on timeout** (Post-Kubernetes)
+    - [ ] Verify logs captured before container termination
+    - [ ] Ensure timeout reason is clearly indicated
+    - [ ] Test partial output retrieval
+  - [ ] **Output accumulation** (Post-Kubernetes)
+    - [ ] Verify all output lines are preserved
+    - [ ] Test with high-frequency output
+    - [ ] Ensure no overwrites occur
+  - [ ] **stdout/stderr separation** (Post-Kubernetes)
+    - [ ] Verify streams remain separate
+    - [ ] Test error output isolation
+    - [ ] Validate stream ordering
 
 #### Celery Worker
 - **Unit Tests**
@@ -47,6 +64,19 @@ This document provides a comprehensive testing strategy for the Crucible platfor
   - [ ] Error handling and recovery
   - [ ] Fixed executor routing (executor-3 only)
   - [ ] Status updates to storage
+
+#### Frontend/UI
+- **Unit Tests**
+  - [ ] **Exit Code Messaging**
+    - [ ] Test getExitCodeInfo() returns correct messages for all codes
+    - [ ] Verify exit code badges display correctly (OOM, Timeout, etc.)
+    - [ ] Test color coding (success=green, error=red, warning=yellow)
+    - [ ] Validate tooltip descriptions are accurate
+    - [ ] Test exit status card rendering in ExecutionMonitor
+  - [ ] Component rendering and state management
+  - [ ] API response handling
+  - [ ] Error state displays
+  - [ ] Real-time log updates
 
 ### 2. Integration Testing
 
@@ -100,6 +130,12 @@ def test_output_consistency():
 - [ ] Batch submission handling
 - [ ] Task cancellation across services
 - [ ] Service failure and recovery scenarios
+- [ ] **Exit Code Scenarios**
+  - [ ] Successful execution (exit 0) shows success indicator
+  - [ ] Memory exhaustion (exit 137) displays "Memory Limit Exceeded"
+  - [ ] Timeout (exit 143) shows "Terminated" with explanation
+  - [ ] Syntax error (exit 1) shows general error message
+  - [ ] Signal-based exits show appropriate signal information
 
 ### 3. Security Testing
 
@@ -207,6 +243,29 @@ def test_output_consistency():
 - Known-good evaluation results
 - Error case examples
 - Performance test datasets
+- **Exit Code Test Cases**
+  ```python
+  # Success case (exit 0)
+  print("Hello, World!")
+  
+  # General error (exit 1)
+  import sys
+  sys.exit(1)
+  
+  # Memory exhaustion (exit 137)
+  huge_list = [0] * (10**9)
+  
+  # Timeout simulation (would get exit 143)
+  import time
+  time.sleep(60)
+  
+  # Segmentation fault (exit 139)
+  import ctypes
+  ctypes.string_at(0)
+  
+  # Division by zero (exit 1)
+  result = 1 / 0
+  ```
 
 ### Data Generation
 - Random code generation
@@ -296,6 +355,31 @@ def test_output_consistency():
 2. Automated performance regression detection
 3. Security vulnerability prediction
 4. Test impact analysis
+
+## Kubernetes Migration Testing
+
+### Container Runtime Differences
+- [ ] Verify logging improvements
+  - [ ] Timeout logs preserved
+  - [ ] Output accumulation working
+  - [ ] stdout/stderr properly separated
+- [ ] Test pod lifecycle events
+- [ ] Validate resource limit enforcement
+- [ ] Check security context compliance
+
+### Kubernetes-Specific Features
+- [ ] Job timeout enforcement (`activeDeadlineSeconds`)
+- [ ] Pod security policies
+- [ ] Network policies
+- [ ] ConfigMap and Secret mounting
+- [ ] Persistent volume claims for logs
+- [ ] Service discovery via DNS
+
+### Observability
+- [ ] Log aggregation with Fluentd/Fluent Bit
+- [ ] Metrics collection with Prometheus
+- [ ] Distributed tracing with OpenTelemetry
+- [ ] Event streaming to frontend
 
 ## Testing Philosophy
 

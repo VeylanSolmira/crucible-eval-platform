@@ -1,0 +1,5 @@
+# Flower monitoring dashboard requirements
+flower==2.0.1
+# Flower dependencies are minimal, but we ensure version pinning
+tornado>=5.0.0,<7.0.0
+prometheus-client>=0.15.0

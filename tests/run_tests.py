@@ -404,6 +404,27 @@ def run_demo_sequence(verbose: bool = False, include_slow: bool = False, include
             "critical": False,
             "destructive": True,  # Requires special flag to run
         },
+        {
+            "name": "Network Isolation",
+            "description": "Tests that containers have no network access",
+            "script": "tests/integration/test_network_isolation.py",
+            "args": [],
+            "critical": True,  # Security critical test
+        },
+        {
+            "name": "Filesystem Isolation",
+            "description": "Tests filesystem security restrictions in containers",
+            "script": "tests/integration/test_filesystem_isolation.py",
+            "args": [],
+            "critical": True,  # Security critical test
+        },
+        {
+            "name": "Available Libraries",
+            "description": "Tests which Python libraries are available in containers",
+            "script": "tests/integration/test_available_libraries.py",
+            "args": [],
+            "critical": False,  # Informational test
+        },
     ]
     
     # E2E Tests

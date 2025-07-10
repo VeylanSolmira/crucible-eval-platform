@@ -444,6 +444,15 @@ This document tracks all future work items for the METR platform after the MVP d
   - [ ] Storage usage metrics
   - [ ] Evaluation statistics dashboard
 
+### Exit Code Documentation Links
+- [ ] Make exit codes in the UI clickable to provide instant help
+  - [ ] Update `RunningEvaluations.tsx` - Exit code badge display
+  - [ ] Update `ExecutionMonitor.tsx` - Exit status card  
+  - [ ] On click show modal/tooltip with info from `/docs/reference/exit-codes.md`
+  - [ ] Example: Click "Exit: 137" → Shows "Memory Limit Exceeded (OOM)"
+  - [ ] Benefits: Self-service debugging, reduced support questions
+  - [ ] Priority: Medium, Effort: Small (2-4 hours)
+
 ### Monaco Editor Enhancements (From week-3-metr)
 - [ ] Verify pre-submission syntax validation is implemented
 - [ ] Link errors to editor line numbers

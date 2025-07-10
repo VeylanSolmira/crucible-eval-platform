@@ -739,9 +739,8 @@ async def _handle_container_completion(eval_id: str, container):
         # Determine final status
         if exit_code == 0:
             status = "completed"
-        elif exit_code == 124:  # Timeout exit code
-            status = "timeout"
         else:
+            # All non-zero exit codes are failures (including timeout 124/143, OOM 137, etc.)
             status = "failed"
 
         # Publish final logs before completion event
@@ -774,10 +773,6 @@ async def _handle_container_completion(eval_id: str, container):
             # Determine the channel based on status
             if status == "completed":
                 channel = EventChannels.EVALUATION_COMPLETED
-            elif status == "timeout":
-                channel = (
-                    EventChannels.EVALUATION_COMPLETED
-                )  # timeout still goes to completed channel
             else:
                 channel = EventChannels.EVALUATION_FAILED
 
