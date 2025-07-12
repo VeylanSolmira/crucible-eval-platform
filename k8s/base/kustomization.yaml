@@ -1,18 +1,25 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: crucible
-
 resources:
-  - deployment.yaml
-  - service.yaml
-  - network-policy.yaml
+  # Core services
+  # - api/deployment.yaml
+  # - api/service.yaml
+  # - frontend/deployment.yaml
+  # - frontend/service.yaml
+  - frontend/pod.yaml
+  
+  # Supporting services
+  # - evaluator/evaluator-pod.yaml
+  # - flower/flower-service.yaml
+  
+  # Network policies
+  # - network-policy.yaml
 
-# These will be replaced by the deployment pipeline
-images:
-  - name: crucible-platform/frontend
-    newName: PLACEHOLDER_ECR_REGISTRY/crucible-platform
-    newTag: frontend-latest
-  - name: crucible-platform/api
-    newName: PLACEHOLDER_ECR_REGISTRY/crucible-platform
-    newTag: api-latest
+# Common labels applied to all resources
+labels:
+- pairs:
+    app.kubernetes.io/part-of: crucible-platform
+  
+# Namespace for all resources
+namespace: crucible

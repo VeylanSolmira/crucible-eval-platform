@@ -1,17 +1,26 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-bases:
+resources:
   - ../../base
 
 # Production-specific patches
-patchesStrategicMerge:
-  - deployment-patch.yaml
+patches:
+  # - path: deployment-patch.yaml  # Commented out since deployment is disabled in base
+  - path: frontend-patch.yaml
 
 # Override images for production
+# Note: ECR URL is hardcoded. For multi-account deployments, consider:
+# - Multiple overlay directories (production-account1/, production-account2/)
+# - Helm for templating support
+# - CI/CD pipeline to generate this file from Terraform outputs
 images:
-  - name: PLACEHOLDER_ECR_REGISTRY/crucible-platform
-    newTag: frontend-PLACEHOLDER_TAG
+  - name: crucible-platform
+    newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
+    newTag: api-latest
+  - name: crucible-platform/frontend:local
+    newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
+    newTag: frontend-latest
     
 # Production config
 configMapGenerator:
@@ -20,6 +29,5 @@ configMapGenerator:
       - ENVIRONMENT=production
       - API_URL=https://api.crucible.example.com
       
-# Production resources
-resources:
-  - hpa.yaml  # Horizontal Pod Autoscaler for production
+# Production namespace
+namespace: crucible
