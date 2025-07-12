@@ -1,0 +1,64 @@
+This test file contains comprehensive resilience tests
+   for the platform. It tests how well the system
+  handles service failures and recoveries. Here's what
+  it tests:
+
+  Test Suite Overview
+
+  1. Service Restart Test (lines 33-106)
+
+  - Submits a long-running evaluation (10 seconds)
+  - Restarts the queue-worker service mid-execution
+  - Verifies the evaluation still completes successfully
+  - Tests that work isn't lost during service restarts
+
+  2. Celery Worker Failure Test (lines 108-180)
+
+  - Stops the Celery worker completely
+  - Submits an evaluation (should queue up)
+  - Verifies it stays in "queued" status
+  - Restarts the worker
+  - Confirms the queued work gets processed
+
+  3. Storage Service Failure Test (lines 182-259)
+
+  - Submits and completes an evaluation
+  - Stops the storage service
+  - Attempts to retrieve the evaluation (tests graceful
+  failure)
+  - Restarts storage service
+  - Verifies data persistence and integrity
+
+  4. Network Partition Test (lines 262-303)
+
+  - Basic test for network connectivity
+  - Currently simplified (comment notes more complex
+  network manipulation needed)
+  - Tests basic end-to-end functionality
+
+  Why It's Commented Out
+
+  Looking at the test configuration in run_tests.py,
+  it's commented out likely because:
+
+  1. Requires Docker Compose commands - Tests
+  restart/stop/start services
+  2. Potentially destructive - Stops running services
+  during tests
+  3. Timing sensitive - Has hardcoded sleep times that
+  might be flaky
+  4. Environment dependent - Assumes specific
+  docker-compose setup
+
+  Key Features
+
+  - Tests real failure scenarios
+  - Verifies data persistence across restarts
+  - Ensures queued work isn't lost
+  - Checks graceful degradation
+  - Saves detailed results to JSON
+
+  This is a valuable test suite for production
+  readiness, ensuring the platform can handle common
+  failure scenarios like service crashes, restarts, and
+  temporary outages.

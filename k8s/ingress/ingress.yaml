@@ -1,0 +1,165 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crucible-ingress
+  namespace: crucible
+  annotations:
+    # Ingress class
+    kubernetes.io/ingress.class: "nginx"
+    
+    # SSL redirect (HTTP to HTTPS)
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Rate limiting - general (30r/s with burst of 20)
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "20"
+    
+    # Proxy settings
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    
+    # SSL configuration
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384"
+    nginx.ingress.kubernetes.io/ssl-prefer-server-ciphers: "true"
+    
+    # Let's Encrypt via cert-manager (if using)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - crucible.example.com  # Replace with your domain
+    secretName: crucible-tls
+  rules:
+  - host: crucible.example.com  # Replace with your domain
+    http:
+      paths:
+      # Health check (no rate limiting needed - handled by service)
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8080
+      
+      # API paths
+      - path: /api/
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8080
+      
+      # OpenAPI spec
+      - path: /openapi.json
+        pathType: Exact
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8080
+      
+      # Flower (Celery monitoring)
+      - path: /flower
+        pathType: Prefix
+        backend:
+          service:
+            name: flower-service
+            port:
+              number: 5555
+      
+      # Flower static files
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: flower-service
+            port:
+              number: 5555
+      
+      # Frontend (everything else)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 3000
+---
+# Separate ingress for WebSocket endpoint with different settings
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crucible-websocket-ingress
+  namespace: crucible
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    
+    # Disable buffering for SSE
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    
+    # Longer timeout for persistent connections
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    
+    # No rate limiting for WebSocket
+    nginx.ingress.kubernetes.io/limit-rps: "0"
+spec:
+  tls:
+  - hosts:
+    - crucible.example.com
+    secretName: crucible-tls
+  rules:
+  - host: crucible.example.com
+    http:
+      paths:
+      - path: /api/events/stream
+        pathType: Exact
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8080
+---
+# Separate ingress for API paths with stricter rate limiting
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crucible-api-rate-limited
+  namespace: crucible
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    
+    # Stricter rate limiting for API (10r/s with burst of 10)
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "10"
+    
+    # Add API-specific headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Accept-Encoding gzip;
+spec:
+  tls:
+  - hosts:
+    - crucible.example.com
+    secretName: crucible-tls
+  rules:
+  - host: crucible.example.com
+    http:
+      paths:
+      - path: /api/
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8080

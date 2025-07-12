@@ -1,0 +1,47 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: false
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+        default: 'development'
+      skip-build:
+        description: 'Skip build and use existing images'
+        required: false
+        type: boolean
+        default: false
+      image-tag:
+        description: 'Image tag to use (only if skip-build is true)'
+        required: false
+        type: string
+        default: 'latest'
+
+jobs:
+  build:
+    if: ${{ !inputs.skip-build }}
+    uses: ./.github/workflows/build-and-push.yml
+    with:
+      environment: ${{ inputs.environment || 'development' }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      
+  apply:
+    needs: [build]
+    # Run after build, or immediately if build is skipped
+    if: ${{ always() && (needs.build.result == 'success' || inputs.skip-build) }}
+    uses: ./.github/workflows/apply-k8s-manifests.yml
+    with:
+      image-tag: ${{ inputs.skip-build && inputs.image-tag || needs.build.outputs.image-tag }}
+      namespace: 'crucible'
+    permissions:
+      id-token: write
+      contents: read

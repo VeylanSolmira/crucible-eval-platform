@@ -1,8 +1,8 @@
 name: Deploy Docker Compose Stack
 
 on:
-  # push:
-    # branches: [ main ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       deployment_color:
@@ -19,129 +19,27 @@ env:
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'crucible-platform' }}
 
 jobs:
-  generate-specs:
-    uses: ./.github/workflows/generate-openapi-spec.yml
-  
-  build-and-push:
-    needs: generate-specs
-    runs-on: ubuntu-latest
-    
-    # Required for OIDC and artifact access
+  build:
+    uses: ./.github/workflows/build-and-push.yml
+    with:
+      environment: production
     permissions:
       id-token: write
       contents: read
       actions: read
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
-    - name: Download OpenAPI specs
-      uses: actions/download-artifact@v4
-      with:
-        name: openapi-specs
-        path: ./
-    
-    - name: Configure AWS credentials via OIDC
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_REGION }}
-    
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-      with:
-        mask-password: 'true'
-    
-    - name: Build base image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Build base image first (used by other services)
-        docker build -t crucible-base -f shared/docker/base.Dockerfile .
-        echo "✅ Built base image"
-    
-    - name: Build and push all service images
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        echo "📋 Using OpenAPI specs from generate-openapi-spec workflow"
-        
-        # Build and push each service
-        # Format: "service-name:dockerfile-path:build-context"
-        # All services use project root as build context for consistency
-        services=(
-          "nginx:nginx/Dockerfile:."
-          "api:api/Dockerfile:."
-          "frontend:frontend/Dockerfile:."
-          "executor-service:executor-service/Dockerfile:."
-          "executor-ml:docker/executor-ml/Dockerfile:."
-          "celery-worker:celery-worker/Dockerfile:."
-          "storage-service:storage-service/Dockerfile:."
-          "storage-worker:storage-worker/Dockerfile:."
-        )
-        
-        for service_info in "${services[@]}"; do
-          IFS=':' read -r service_name dockerfile_path build_context <<< "$service_info"
-          echo "🔨 Building $service_name using $dockerfile_path from context $build_context"
-          
-          # Build with base image arg if it's a Python service
-          if [[ "$service_name" != "nginx" && "$service_name" != "frontend" ]]; then
-            docker build --build-arg BASE_IMAGE=crucible-base -f $dockerfile_path -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $build_context
-          else
-            docker build -f $dockerfile_path -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $build_context
-          fi
-          
-          # Tag as latest
-          docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-latest
-          
-          # Push both tags
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-latest
-          
-          echo "✅ Pushed $service_name image"
-        done
-    
-    - name: Update SSM parameters with new images
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Store image URLs for all services
-        services=(
-          "nginx"
-          "api"
-          "frontend"
-          "executor-service"
-          "executor-ml"
-          "celery-worker"
-          "storage-service"
-          "storage-worker"
-        )
-        
-        for service in "${services[@]}"; do
-          aws ssm put-parameter \
-            --name "/${{ env.PROJECT_NAME }}/$service-image" \
-            --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service-$IMAGE_TAG" \
-            --type String \
-            --overwrite
-          echo "📝 Stored $service image URL in SSM"
-        done
-        
-        # Keep legacy parameter names for backward compatibility
-        aws ssm put-parameter \
-          --name "/${{ env.PROJECT_NAME }}/backend-image" \
-          --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:api-$IMAGE_TAG" \
-          --type String \
-          --overwrite
-        
-        echo "✅ Updated all SSM parameters with new images"
-
+  
+  setup:
+    needs: build
+    uses: ./.github/workflows/deploy-base.yml
+    with:
+      environment: production
+      image-tag: ${{ needs.build.outputs.image-tag }}
+    permissions:
+      id-token: write
+      contents: read
+      
   deploy:
-    needs: build-and-push
+    needs: [build, setup]
     runs-on: ubuntu-latest
     
     permissions:
@@ -161,34 +59,12 @@ jobs:
     - name: Get deployment parameters
       id: params
       run: |
-        # Determine deployment color (use repository variable as default)
+        # Determine deployment color
         DEPLOYMENT_COLOR="${{ github.event.inputs.deployment_color || vars.DEFAULT_DEPLOYMENT_TARGET || 'green' }}"
         echo "deployment_color=$DEPLOYMENT_COLOR" >> $GITHUB_OUTPUT
+        echo "🎨 Deploying to $DEPLOYMENT_COLOR environment"
         
-        # Get all service image URLs from SSM
-        services=(
-          "nginx"
-          "api"
-          "frontend"
-          "executor-service"
-          "executor-ml"
-          "celery-worker"
-          "storage-service"
-          "storage-worker"
-        )
-        
-        for service in "${services[@]}"; do
-          IMAGE_URL=$(aws ssm get-parameter --name "/${{ env.PROJECT_NAME }}/$service-image" --query 'Parameter.Value' --output text)
-          # Convert dashes to underscores for bash variable names
-          VAR_NAME=$(echo "$service" | tr '-' '_')_image
-          echo "${VAR_NAME}=$IMAGE_URL" >> $GITHUB_OUTPUT
-        done
-        
-        # Legacy support
-        BACKEND_IMAGE=$(aws ssm get-parameter --name "/${{ env.PROJECT_NAME }}/api-image" --query 'Parameter.Value' --output text)
-        echo "backend_image=$BACKEND_IMAGE" >> $GITHUB_OUTPUT
-        
-        # Find EC2 instances
+        # Find EC2 instances with the right tags
         INSTANCE_IDS=$(aws ec2 describe-instances \
           --filters \
             "Name=tag:Project,Values=${{ env.PROJECT_NAME }}" \
@@ -205,7 +81,7 @@ jobs:
         echo "instance_ids=$INSTANCE_IDS" >> $GITHUB_OUTPUT
         echo "📡 Found instances: $INSTANCE_IDS"
     
-    - name: Get database password from Secrets Manager
+    - name: Get database password
       id: secrets
       run: |
         DB_PASSWORD=$(aws secretsmanager get-secret-value \
@@ -217,30 +93,31 @@ jobs:
     
     - name: Prepare deployment files
       id: compose
+      env:
+        IMAGE_URLS: ${{ needs.setup.outputs.image-urls }}
       run: |
-        # Create .env file with all service image URLs
-        cat > deploy.env << EOF
-        # Service Images
-        NGINX_IMAGE=${{ steps.params.outputs.nginx_image }}
-        API_IMAGE=${{ steps.params.outputs.api_image }}
-        FRONTEND_IMAGE=${{ steps.params.outputs.frontend_image }}
-        EXECUTOR_SERVICE_IMAGE=${{ steps.params.outputs.executor_service_image }}
-        ECR_EXECUTOR_ML_IMAGE=${{ steps.params.outputs.executor_ml_image }}
-        CELERY_WORKER_IMAGE=${{ steps.params.outputs.celery_worker_image }}
-        STORAGE_SERVICE_IMAGE=${{ steps.params.outputs.storage_service_image }}
-        STORAGE_WORKER_IMAGE=${{ steps.params.outputs.storage_worker_image }}
+        # Parse image URLs from JSON
+        echo "$IMAGE_URLS" | jq -r 'to_entries[] | "\(.key | ascii_upcase)_IMAGE=\(.value)"' > deploy.env
+        
+        # Add database password and legacy names
+        cat >> deploy.env << EOF
         
         # Legacy names for compatibility
-        BACKEND_IMAGE=${{ steps.params.outputs.api_image }}
+        BACKEND_IMAGE=$(echo "$IMAGE_URLS" | jq -r '.api')
         
         # Database
         DB_PASSWORD=${{ steps.secrets.outputs.db_password }}
         EOF
         
+        # Show what we're deploying (without secrets)
+        echo "📋 Deployment configuration:"
+        grep -E "IMAGE=" deploy.env | sed 's/=.*/=***/'
+        
         # Base64 encode files for safe transmission
         COMPOSE_B64=$(base64 -w 0 docker-compose.yml)
         COMPOSE_PROD_B64=$(base64 -w 0 docker-compose.prod.yml)
         ENV_B64=$(base64 -w 0 deploy.env)
+        
         echo "compose_b64=$COMPOSE_B64" >> $GITHUB_OUTPUT
         echo "compose_prod_b64=$COMPOSE_PROD_B64" >> $GITHUB_OUTPUT
         echo "env_b64=$ENV_B64" >> $GITHUB_OUTPUT
@@ -252,14 +129,22 @@ jobs:
         COMPOSE_PROD_B64: ${{ steps.compose.outputs.compose_prod_b64 }}
         ENV_B64: ${{ steps.compose.outputs.env_b64 }}
       run: |
-        # Send deployment command
+        echo "🚀 Deploying to instances: $INSTANCE_IDS"
+        
+        # Send deployment command via SSM
         COMMAND_ID=$(aws ssm send-command \
           --instance-ids $INSTANCE_IDS \
           --document-name "AWS-RunShellScript" \
           --parameters 'commands=[
             "#!/bin/bash",
             "set -e",
+            "",
+            "# Navigate to project directory",
             "cd /home/ubuntu/crucible",
+            "",
+            "# Backup current configuration",
+            "cp -f docker-compose.yml docker-compose.yml.backup 2>/dev/null || true",
+            "cp -f .env .env.backup 2>/dev/null || true",
             "",
             "# Deploy new files",
             "echo \"'"$COMPOSE_B64"'\" | base64 -d > docker-compose.yml",
@@ -268,6 +153,16 @@ jobs:
             "",
             "# Restart service (systemd handles pull, migrate, start)",
             "systemctl restart crucible-compose.service",
+            "",
+            "# Wait for service to stabilize",
+            "sleep 10",
+            "",
+            "# Check service status",
+            "systemctl is-active crucible-compose.service && echo \"✅ Service is running\" || echo \"❌ Service failed to start\"",
+            "",
+            "# Show running containers",
+            "docker compose ps",
+            "",
             "echo \"✅ Deployment complete\""
           ]' \
           --output text \
@@ -276,15 +171,67 @@ jobs:
         echo "📋 SSM Command ID: $COMMAND_ID"
         echo "⏳ Waiting for deployment to complete..."
         
-        # Wait for command to complete
+        # Wait for command to complete (timeout after 5 minutes)
         aws ssm wait command-executed \
           --command-id "$COMMAND_ID" \
           --instance-id $(echo $INSTANCE_IDS | awk '{print $1}') || true
         
         # Get command output
+        STATUS=$(aws ssm get-command-invocation \
+          --command-id "$COMMAND_ID" \
+          --instance-id $(echo $INSTANCE_IDS | awk '{print $1}') \
+          --query 'Status' \
+          --output text)
+        
+        echo "📊 Deployment status: $STATUS"
+        
+        # Show command output
         echo "📄 Deployment output:"
         aws ssm get-command-invocation \
           --command-id "$COMMAND_ID" \
           --instance-id $(echo $INSTANCE_IDS | awk '{print $1}') \
-          --query '[Status,StandardOutputContent]' \
+          --query 'StandardOutputContent' \
           --output text
+        
+        # Show errors if any
+        if [ "$STATUS" != "Success" ]; then
+          echo "❌ Deployment failed! Error output:"
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id $(echo $INSTANCE_IDS | awk '{print $1}') \
+            --query 'StandardErrorContent' \
+            --output text
+          exit 1
+        fi
+    
+    - name: Verify deployment
+      if: success()
+      run: |
+        echo "🔍 Verifying deployment health..."
+        
+        # Get the first instance for health check
+        INSTANCE_ID=$(echo ${{ steps.params.outputs.instance_ids }} | awk '{print $1}')
+        
+        # Check container status
+        COMMAND_ID=$(aws ssm send-command \
+          --instance-ids $INSTANCE_ID \
+          --document-name "AWS-RunShellScript" \
+          --parameters 'commands=[
+            "cd /home/ubuntu/crucible",
+            "docker compose ps --format json"
+          ]' \
+          --output text \
+          --query 'Command.CommandId')
+        
+        sleep 5
+        
+        CONTAINERS=$(aws ssm get-command-invocation \
+          --command-id "$COMMAND_ID" \
+          --instance-id $INSTANCE_ID \
+          --query 'StandardOutputContent' \
+          --output text)
+        
+        echo "📦 Container status:"
+        echo "$CONTAINERS" | jq -r '. | "\\(.Name): \\(.State) (\\(.Status))"' 2>/dev/null || echo "$CONTAINERS"
+        
+        echo "✅ Deployment verification complete"

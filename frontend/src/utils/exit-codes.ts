@@ -120,8 +120,6 @@ export function getExitCodeInfo(exitCode: number): ExitCodeInfo {
  * Get a short badge-friendly version of the exit code message
  */
 export function getExitCodeBadge(exitCode: number): string {
-  const info = getExitCodeInfo(exitCode)
-  
   // Special cases for common codes
   switch (exitCode) {
     case 0:

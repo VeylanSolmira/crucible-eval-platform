@@ -1,0 +1,112 @@
+name: Deploy Base Utilities
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: false
+        type: string
+        default: 'production'
+      image-tag:
+        description: 'Image tag to deploy'
+        required: true
+        type: string
+    outputs:
+      ecr-registry:
+        description: 'ECR registry URL'
+        value: ${{ jobs.setup.outputs.ecr-registry }}
+      image-urls:
+        description: 'JSON object with all service image URLs'
+        value: ${{ jobs.setup.outputs.image-urls }}
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'crucible-platform' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'crucible-platform' }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    
+    outputs:
+      ecr-registry: ${{ steps.registry.outputs.ecr-registry }}
+      image-urls: ${{ steps.images.outputs.urls }}
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Get ECR registry
+      id: registry
+      run: |
+        ECR_REGISTRY=$(aws ecr describe-repositories \
+          --repository-names ${{ env.ECR_REPOSITORY }} \
+          --query 'repositories[0].repositoryUri' \
+          --output text | cut -d'/' -f1)
+        echo "ecr-registry=$ECR_REGISTRY" >> $GITHUB_OUTPUT
+        echo "📦 ECR Registry: $ECR_REGISTRY"
+    
+    - name: Get all service image URLs
+      id: images
+      env:
+        ECR_REGISTRY: ${{ steps.registry.outputs.ecr-registry }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+      run: |
+        # Build JSON object with all image URLs
+        services=(
+          "nginx"
+          "api"
+          "frontend"
+          "executor-service"
+          "executor-ml"
+          "celery-worker"
+          "storage-service"
+          "storage-worker"
+        )
+        
+        # Start JSON object
+        echo '{}' > images.json
+        
+        for service in "${services[@]}"; do
+          # Try environment-specific parameter first, fall back to generic
+          IMAGE_URL=$(aws ssm get-parameter \
+            --name "/${{ env.PROJECT_NAME }}/${{ inputs.environment }}/$service-image" \
+            --query 'Parameter.Value' --output text 2>/dev/null || \
+            aws ssm get-parameter \
+            --name "/${{ env.PROJECT_NAME }}/$service-image" \
+            --query 'Parameter.Value' --output text 2>/dev/null || \
+            echo "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service-$IMAGE_TAG")
+          
+          # Add to JSON
+          jq --arg key "$service" --arg val "$IMAGE_URL" \
+            '.[$key] = $val' images.json > tmp.json && mv tmp.json images.json
+        done
+        
+        # Output as single line JSON
+        IMAGE_URLS=$(jq -c . images.json)
+        echo "urls=$IMAGE_URLS" >> $GITHUB_OUTPUT
+        
+        # Also output individual URLs for backward compatibility
+        jq -r 'to_entries[] | "\(.key)_image=\(.value)"' images.json >> $GITHUB_OUTPUT
+    
+    - name: Get common secrets
+      id: secrets
+      run: |
+        # Get database password
+        DB_PASSWORD=$(aws secretsmanager get-secret-value \
+          --secret-id "${{ env.PROJECT_NAME }}/db-password" \
+          --query 'SecretString' \
+          --output text 2>/dev/null || echo "")
+        
+        if [ -n "$DB_PASSWORD" ]; then
+          echo "::add-mask::$DB_PASSWORD"
+          echo "db_password=$DB_PASSWORD" >> $GITHUB_OUTPUT
+        fi

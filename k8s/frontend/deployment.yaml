@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  labels:
+    app: crucible
+    component: frontend
+spec:
+  replicas: 2  # We want 2 pods!
+  selector:
+    matchLabels:
+      app: crucible
+      component: frontend
+  template:
+    # This is your Pod template - looks familiar?
+    metadata:
+      labels:
+        app: crucible
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: crucible-platform/frontend:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: "http://api-service:8080"
+        - name: HOSTNAME
+          value: "0.0.0.0"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

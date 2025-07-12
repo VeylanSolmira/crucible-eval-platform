@@ -1,0 +1,55 @@
+I've created a complete Docker image structure for the
+   executor service:
+
+  1. Directory Structure (/docker/)
+
+  docker/
+  ├── README.md                 # Overview and security
+  architecture
+  ├── executor-base/           # Minimal Python executor
+  │   ├── Dockerfile
+  │   └── README.md
+  └── executor-ml/            # ML-enabled executor
+      ├── Dockerfile
+      ├── README.md
+      ├── requirements.txt
+      └── test_ml_executor.py
+
+  2. Base Executor (executor-base)
+
+  - Extracts the hardcoded python:3.11-slim
+  - Adds non-root user for security
+  - Minimal attack surface
+  - ~150MB size
+
+  3. ML Executor (executor-ml)
+
+  - Multi-stage build for security
+  - PyTorch 2.0.1 (CPU-only)
+  - Transformers 4.35.0
+  - Offline mode enforced
+  - ~1.3GB size
+
+  4. Configuration System
+
+  - Created executor_config.py for image selection
+  - Supports different resource limits per image type
+  - Environment variable overrides
+  - ML workloads get 2GB RAM and 1 CPU
+
+  5. Demo Files
+
+  - hello_world_ml.py - Simple ML demo
+  - test_ml_executor.py - Test suite for ML image
+
+  Key Security Features:
+
+  - Multi-stage builds (no build tools in production)
+  - Non-root execution
+  - No package managers in final images
+  - Offline mode for ML (no model downloads)
+  - All existing runtime restrictions maintained
+
+  The executor service can now support multiple
+  specialized images while maintaining the strong
+  security model through the Docker proxy.

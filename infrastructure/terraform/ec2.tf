@@ -1,20 +1,21 @@
 # EC2 instance for running evaluation platform with gVisor
 
-# Use data source to get latest Ubuntu AMI
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
+# AMI is now pinned via var.ubuntu_ami_id to prevent instance recreation
+# Keeping this commented for reference when we want to find new AMIs
+# data "aws_ami" "ubuntu" {
+#   most_recent = true
+#   owners      = ["099720109477"] # Canonical
+# 
+#   filter {
+#     name   = "name"
+#     values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+#   }
+# 
+#   filter {
+#     name   = "virtualization-type"
+#     values = ["hvm"]
+#   }
+# }
 
 # Shared security group for common rules (always updates)
 resource "aws_security_group" "eval_server_shared" {
@@ -246,7 +247,7 @@ resource "aws_key_pair" "eval_server_key" {
 resource "aws_instance" "eval_server" {
   for_each = toset(["blue", "green"])  # Always create both
   
-  ami                    = data.aws_ami.ubuntu.id
+  ami                    = var.ubuntu_ami_id
   instance_type          = var.instance_type
   iam_instance_profile   = aws_iam_instance_profile.eval_server.name
   

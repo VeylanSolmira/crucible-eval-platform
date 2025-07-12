@@ -129,26 +129,25 @@ With 5 days remaining in Week 5, this plan focuses on high-priority items organi
   - [ ] Integration tests (manual trigger)
 
 ### 5. Kubernetes Basic Migration
-- [ ] Create base Kubernetes manifests
-  - [ ] Deployments for all services:
-    - [ ] api-service
-    - [ ] frontend
-    - [ ] celery-worker
-    - [ ] executor-service
-    - [ ] storage-service
-    - [ ] nginx
-  - [ ] Services for internal communication
-  - [ ] ConfigMaps for configuration
-  - [ ] Secrets for sensitive data
-  - [ ] Basic resource requests and limits
-- [ ] Test local Kubernetes deployment
-  - [ ] Use minikube or kind
-  - [ ] Verify all services communicate
-  - [ ] Test evaluation flow
-- [ ] Document Kubernetes deployment process
-  - [ ] Local setup instructions
-  - [ ] Service dependencies
-  - [ ] Troubleshooting guide
+- [ ] Follow incremental migration approach (see [Kubernetes Migration Guide](../../kubernetes/migration-guide.md))
+- [ ] Phase 1: Frontend Service Only
+  - [ ] Create frontend deployment and service
+  - [ ] Test with minikube/kind locally
+  - [ ] Understand basic K8s concepts (Pods, Deployments, Services)
+  - [ ] Practice kubectl commands
+- [ ] Phase 2: Add API Service
+  - [ ] Create API deployment and service
+  - [ ] Test inter-service communication
+  - [ ] Learn Kubernetes DNS and service discovery
+- [ ] Phase 3: Add Stateful Services
+  - [ ] ConfigMaps and Secrets
+  - [ ] Redis deployment
+  - [ ] Storage service with database connection
+- [ ] Phase 4: Complete Migration
+  - [ ] Migrate remaining services
+  - [ ] Handle complex cases (executors, Docker-in-Docker)
+  - [ ] Full system test
+- [ ] Document learnings and issues encountered
 
 ### 6. Advanced Demo Scenarios
 - [ ] **Concurrent Load**: 10+ evaluations at once

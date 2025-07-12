@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend-pod
+  labels:
+    app: frontend
+spec:
+  containers:
+  - name: frontend
+    image: crucible-platform/frontend:local
+    imagePullPolicy: Never  # Don't try to pull from registry
+    ports:
+    - containerPort: 3000
+    
+    # Environment variables the frontend needs
+    env:
+    - name: NEXT_PUBLIC_API_URL
+      value: "http://api-service:8080"  # We'll add the API service later
+    
+    # These are the compute resources you mentioned!
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"      # 0.1 CPU
+      limits:
+        memory: "256Mi"
+        cpu: "200m"      # 0.2 CPU

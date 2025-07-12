@@ -48,6 +48,19 @@ variable "allowed_ssh_ip" {
 # 4. To get the instance IP after deployment:
 #    tofu output eval_server_public_ip
 
+
+variable "key_name" {
+  description = "AWS EC2 key pair name"
+  type        = string
+  default     = ""
+}
+
+variable "allowed_ssh_cidr_blocks" {
+  description = "CIDR blocks allowed to SSH"
+  type        = list(string)
+  default     = ["73.41.64.209/32"]
+}
+
 variable "gpu_instances_enabled" {
   description = "Enable GPU instances for model testing (set to true to create)"
   type        = bool
@@ -121,6 +134,12 @@ variable "deployment_version" {
   description = "Version tag for this deployment"
   type        = string
   default     = "1.0"
+}
+
+variable "ubuntu_ami_id" {
+  description = "Ubuntu AMI ID to use (pinned to prevent updates)"
+  type        = string
+  default     = "ami-02de260c9d93d7b98"
 }
 
 # Public Access Variables

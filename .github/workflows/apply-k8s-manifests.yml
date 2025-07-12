@@ -1,0 +1,179 @@
+name: Apply K8s Manifests
+
+on:
+  workflow_dispatch:
+    inputs:
+      image-tag:
+        description: 'Image tag to use (defaults to latest)'
+        required: false
+        type: string
+        default: 'latest'
+      namespace:
+        description: 'K8s namespace'
+        required: false
+        type: string
+        default: 'crucible'
+  workflow_call:
+    inputs:
+      image-tag:
+        description: 'Image tag to use'
+        required: true
+        type: string
+      namespace:
+        description: 'K8s namespace'
+        required: false
+        type: string
+        default: 'crucible'
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'crucible-platform' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'crucible-platform' }}
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Get ECR registry
+      id: registry
+      run: |
+        ECR_REGISTRY=$(aws ecr describe-repositories \
+          --repository-names ${{ env.ECR_REPOSITORY }} \
+          --query 'repositories[0].repositoryUri' \
+          --output text | cut -d'/' -f1)
+        echo "ecr-registry=$ECR_REGISTRY" >> $GITHUB_OUTPUT
+        echo "📦 ECR Registry: $ECR_REGISTRY"
+    
+    - name: Get kubeconfig
+      run: |
+        echo "🔑 Getting kubeconfig for K8s cluster"
+        
+        # Try to get from SSM Parameter Store
+        aws ssm get-parameter \
+          --name "/${{ env.PROJECT_NAME }}/k8s-kubeconfig" \
+          --with-decryption \
+          --query 'Parameter.Value' \
+          --output text > /tmp/kubeconfig 2>/dev/null || true
+        
+        if [ ! -s "/tmp/kubeconfig" ]; then
+          echo "❌ No kubeconfig found in SSM Parameter Store"
+          echo "💡 To store kubeconfig:"
+          echo "   aws ssm put-parameter --name '/${{ env.PROJECT_NAME }}/k8s-kubeconfig' --value file://~/.kube/config --type SecureString"
+          exit 1
+        fi
+        
+        export KUBECONFIG=/tmp/kubeconfig
+        
+        # Verify connection
+        kubectl cluster-info
+        echo "✅ Connected to K8s cluster"
+    
+    - name: Create namespace
+      env:
+        KUBECONFIG: /tmp/kubeconfig
+        NAMESPACE: ${{ inputs.namespace }}
+      run: |
+        echo "📁 Ensuring namespace exists: $NAMESPACE"
+        kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Apply manifests
+      env:
+        KUBECONFIG: /tmp/kubeconfig
+        ECR_REGISTRY: ${{ steps.registry.outputs.ecr-registry }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+        NAMESPACE: ${{ inputs.namespace }}
+      run: |
+        echo "📋 Applying K8s manifests with image tag: $IMAGE_TAG"
+        
+        # Process and apply all deployment manifests
+        for manifest in k8s/*/deployment*.yaml; do
+          if [ -f "$manifest" ]; then
+            echo "📄 Processing $manifest"
+            
+            # Replace image references with ECR URLs
+            sed -e "s|crucible-platform/\([^:]*\):local|$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:\1-$IMAGE_TAG|g" \
+                -e "s|PLACEHOLDER_ECR_REGISTRY|$ECR_REGISTRY|g" \
+                -e "s|:latest|:$IMAGE_TAG|g" \
+                "$manifest" | kubectl apply -n $NAMESPACE -f -
+          fi
+        done
+        
+        # Apply service manifests (no image substitution needed)
+        echo "🔧 Applying service manifests"
+        for manifest in k8s/*/service*.yaml; do
+          if [ -f "$manifest" ]; then
+            echo "📄 Applying $manifest"
+            kubectl apply -n $NAMESPACE -f "$manifest"
+          fi
+        done
+        
+        # Apply other manifests
+        for pattern in "configmap*.yaml" "secret*.yaml" "ingress*.yaml" "hpa*.yaml" "pdb*.yaml"; do
+          for manifest in k8s/*/$pattern; do
+            if [ -f "$manifest" ]; then
+              echo "📄 Applying $manifest"
+              kubectl apply -n $NAMESPACE -f "$manifest"
+            fi
+          done
+        done
+    
+    - name: Wait for rollout
+      env:
+        KUBECONFIG: /tmp/kubeconfig
+        NAMESPACE: ${{ inputs.namespace }}
+      run: |
+        echo "⏳ Waiting for deployments to roll out"
+        
+        # Get all deployments in namespace
+        deployments=$(kubectl get deployments -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}')
+        
+        if [ -z "$deployments" ]; then
+          echo "⚠️  No deployments found in namespace $NAMESPACE"
+        else
+          for deployment in $deployments; do
+            echo "⏳ Waiting for $deployment..."
+            kubectl rollout status deployment/$deployment -n $NAMESPACE --timeout=5m || {
+              echo "⚠️  Rollout of $deployment failed or timed out"
+              kubectl describe deployment/$deployment -n $NAMESPACE
+            }
+          done
+        fi
+    
+    - name: Show deployment status
+      if: always()
+      env:
+        KUBECONFIG: /tmp/kubeconfig
+        NAMESPACE: ${{ inputs.namespace }}
+      run: |
+        echo "📊 Deployment status in namespace: $NAMESPACE"
+        echo ""
+        echo "🚀 Deployments:"
+        kubectl get deployments -n $NAMESPACE -o wide || echo "No deployments found"
+        echo ""
+        echo "🔧 Services:"
+        kubectl get services -n $NAMESPACE || echo "No services found"
+        echo ""
+        echo "🏃 Pods:"
+        kubectl get pods -n $NAMESPACE -o wide || echo "No pods found"
+        echo ""
+        echo "📋 Recent events:"
+        kubectl get events -n $NAMESPACE --sort-by='.lastTimestamp' | tail -20 || echo "No events found"

@@ -7,7 +7,7 @@ import { ExecutionMonitor } from './ExecutionMonitor'
 import { log } from '@/src/utils/logger'
 import { formatDistanceToNow } from 'date-fns'
 import { EvaluationStatus } from '@/shared/generated/typescript/evaluation-status'
-import { getExitCodeInfo, getExitCodeBadge, getExitCodeColorClasses } from '@/utils/exit-codes'
+import { getExitCodeInfo, getExitCodeBadge, getExitCodeColorClasses } from '../utils/exit-codes'
 
 type StatusFilter = 'all' | EvaluationStatus
 
