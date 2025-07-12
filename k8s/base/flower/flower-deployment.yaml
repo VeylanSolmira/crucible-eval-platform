@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: flower-service
+  labels:
+    app: flower
+spec:
+  selector:
+    app: flower
+  ports:
+  - name: http
+    port: 5555
+    targetPort: 5555
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flower
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flower
+  template:
+    metadata:
+      labels:
+        app: flower
+    spec:
+      containers:
+      - name: flower
+        image: mher/flower:2.0
+        ports:
+        - containerPort: 5555
+        env:
+        - name: CELERY_BROKER_URL
+          value: "redis://celery-redis:6379/0"
+        - name: FLOWER_PORT
+          value: "5555"
+        - name: FLOWER_BASIC_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: flower-auth
+              key: basic-auth
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 5555
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 5555
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 50Mi
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

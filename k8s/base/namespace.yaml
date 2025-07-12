@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crucible
+  labels:
+    name: crucible
+    app.kubernetes.io/part-of: crucible-platform

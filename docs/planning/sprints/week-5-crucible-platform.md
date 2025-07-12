@@ -133,7 +133,7 @@ With 5 days remaining in Week 5, this plan focuses on high-priority items organi
 - [ ] Phase 1: Frontend Service Only
   - [ ] Create frontend deployment and service
   - [ ] Test with minikube/kind locally
-  - [ ] Understand basic K8s concepts (Pods, Deployments, Services)
+  - [x] Understand basic K8s concepts (Pods, Deployments, Services)
   - [ ] Practice kubectl commands
 - [ ] Phase 2: Add API Service
   - [ ] Create API deployment and service

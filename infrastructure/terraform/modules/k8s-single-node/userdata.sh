@@ -55,4 +55,11 @@ kubectl label node ${cluster_name}-node node-role.kubernetes.io/worker=true
 # Create a namespace for our apps
 kubectl create namespace crucible
 
+# Install ECR credentials controller for automatic image pull secrets
+echo "Installing ECR credentials controller..."
+kubectl apply -f https://raw.githubusercontent.com/nabsul/k8s-ecr-login-renew/main/deploy/all-in-one.yaml
+
+# Wait for controller to be ready
+kubectl -n kube-system wait --for=condition=ready pod -l app=k8s-ecr-login-renew --timeout=60s
+
 echo "K3s installation complete!"

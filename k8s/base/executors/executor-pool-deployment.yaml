@@ -1,0 +1,157 @@
+# Alternative: Executor pool with HPA scaling
+# This maintains a warm pool of executors that scale based on demand
+apiVersion: v1
+kind: Service
+metadata:
+  name: executor-pool
+  labels:
+    app: executor-pool
+spec:
+  selector:
+    app: executor-pool
+  ports:
+  - port: 8083
+    name: http
+  clusterIP: None  # Headless service for direct pod access
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: executor-pool
+spec:
+  replicas: 1  # Start with 1, HPA will scale
+  selector:
+    matchLabels:
+      app: executor-pool
+  template:
+    metadata:
+      labels:
+        app: executor-pool
+    spec:
+      serviceAccountName: executor-runner
+      terminationGracePeriodSeconds: 300  # 5 min graceful shutdown
+      containers:
+      - name: executor
+        image: ${ECR_REGISTRY}/${PROJECT_NAME}/executor-pool:latest
+        ports:
+        - containerPort: 8083
+        env:
+        - name: EXECUTOR_MODE
+          value: "pool"  # Pool mode vs single-job mode
+        - name: IDLE_TIMEOUT
+          value: "300"  # Shutdown after 5 min idle
+        - name: MAX_CONCURRENT_EXECUTIONS
+          value: "1"    # One execution per pod
+        - name: STORAGE_SERVICE_URL
+          value: "http://storage-service:8082"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5"]  # Allow time for deregistration
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8083
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready  # Only ready when not executing
+            port: 8083
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - SYS_ADMIN
+        volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+      nodeSelector:
+        node.kubernetes.io/instance-type: t3.micro  # Start with t3.micro
+---
+# HPA to scale based on queue depth or CPU
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: executor-pool-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: executor-pool
+  minReplicas: 0  # Scale to zero when idle
+  maxReplicas: 100  # Max 100 executors
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Wait 5 min before scaling down
+      policies:
+      - type: Percent
+        value: 10  # Scale down slowly (10% at a time)
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30  # Scale up quickly
+      policies:
+      - type: Percent
+        value: 100  # Double the pods
+        periodSeconds: 30
+      - type: Pods
+        value: 10   # Or add 10 pods
+        periodSeconds: 30
+      selectPolicy: Max  # Use whichever scales faster
+  metrics:
+  - type: External
+    external:
+      metric:
+        name: celery_queue_length
+        selector:
+          matchLabels:
+            queue_name: "evaluation"
+      target:
+        type: AverageValue
+        averageValue: "2"  # 2 tasks per executor
+  # Fallback to CPU if queue metrics unavailable
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# PodDisruptionBudget to ensure availability during updates
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: executor-pool-pdb
+spec:
+  minAvailable: 0  # Allow scaling to zero
+  selector:
+    matchLabels:
+      app: executor-pool

@@ -74,4 +74,16 @@ fi
 apt-get update
 apt-get install -y awscli amazon-ec2-utils
 
+# Wait for K3s to be ready
+until kubectl get nodes > /dev/null 2>&1; do
+  echo "Waiting for K3s to be ready..."
+  sleep 5
+done
+
+# Install ECR credentials controller (only on first/server node)
+if [[ -z "$K3S_URL" ]]; then
+  echo "Installing ECR credentials controller..."
+  kubectl apply -f https://raw.githubusercontent.com/nabsul/k8s-ecr-login-renew/main/deploy/all-in-one.yaml
+fi
+
 echo "K3s installation complete!"

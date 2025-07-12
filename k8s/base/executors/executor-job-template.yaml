@@ -1,0 +1,116 @@
+# This is a template for creating executor Jobs on-demand
+# The Celery worker will use the Kubernetes API to create these
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: executor-job-template
+data:
+  job-template.yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: executor-{{.EvalID}}
+      labels:
+        app: executor
+        eval-id: "{{.EvalID}}"
+        executor-type: "{{.ExecutorType}}"
+    spec:
+      ttlSecondsAfterFinished: 300  # Clean up after 5 minutes
+      activeDeadlineSeconds: 3600    # 1 hour max runtime
+      backoffLimit: 2               # Retry twice on failure
+      template:
+        metadata:
+          labels:
+            app: executor
+            eval-id: "{{.EvalID}}"
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: executor-runner
+          nodeSelector:
+            node.kubernetes.io/instance-type: "{{.InstanceType}}"  # t3.micro, etc.
+          containers:
+          - name: executor
+            image: ${ECR_REGISTRY}/${PROJECT_NAME}/executor:latest
+            env:
+            - name: EVAL_ID
+              value: "{{.EvalID}}"
+            - name: EXECUTOR_TYPE
+              value: "{{.ExecutorType}}"
+            - name: STORAGE_SERVICE_URL
+              value: "http://storage-service:8082"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: MAX_EXECUTION_TIME
+              value: "{{.MaxExecutionTime}}"
+            - name: MEMORY_LIMIT
+              value: "{{.MemoryLimit}}"
+            - name: CPU_LIMIT
+              value: "{{.CPULimit}}"
+            resources:
+              requests:
+                memory: "{{.MemoryRequest}}"
+                cpu: "{{.CPURequest}}"
+              limits:
+                memory: "{{.MemoryLimit}}"
+                cpu: "{{.CPULimit}}"
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+                add:
+                - SYS_ADMIN  # For container management
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 500Mi
+          - name: docker-socket
+            hostPath:
+              path: /var/run/docker.sock
+              type: Socket
+---
+# ServiceAccount for Celery workers to create Jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: celery-job-creator
+---
+# Role allowing Job creation
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: job-creator
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "watch", "delete"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: celery-job-creator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: job-creator
+subjects:
+- kind: ServiceAccount
+  name: celery-job-creator
+---
+# ServiceAccount for executor pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: executor-runner

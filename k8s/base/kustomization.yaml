@@ -2,19 +2,38 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  # Core services
-  # - api/deployment.yaml
-  # - api/service.yaml
-  # - frontend/deployment.yaml
-  # - frontend/service.yaml
-  - frontend/pod.yaml
+  # Namespace
+  - namespace.yaml
   
-  # Supporting services
-  # - evaluator/evaluator-pod.yaml
-  # - flower/flower-service.yaml
+  # Config and Secrets
+  - config/configmap.yaml
+  - config/secrets.yaml
+  
+  # Core databases
+  - postgres/postgres-statefulset.yaml
+  - redis/redis-main.yaml
+  - redis/redis-celery.yaml
+  
+  # Core services
+  - api/deployment.yaml
+  - api/service.yaml
+  - storage/storage-service.yaml
+  - storage/storage-worker.yaml
+  
+  # Frontend
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+  
+  # Task processing
+  - celery/celery-worker.yaml
+  - executors/executor-deployment.yaml
+  - docker-proxy/docker-proxy-daemonset.yaml
+  
+  # Monitoring
+  - flower/flower-deployment.yaml
   
   # Network policies
-  # - network-policy.yaml
+  - network-policy.yaml
 
 # Common labels applied to all resources
 labels:
@@ -23,3 +42,18 @@ labels:
   
 # Namespace for all resources
 namespace: crucible
+
+# Images to be replaced by production values
+images:
+- name: ${ECR_REGISTRY}/${PROJECT_NAME}/api-service
+  newTag: latest
+- name: ${ECR_REGISTRY}/${PROJECT_NAME}/storage-service
+  newTag: latest
+- name: ${ECR_REGISTRY}/${PROJECT_NAME}/storage-worker
+  newTag: latest
+- name: ${ECR_REGISTRY}/${PROJECT_NAME}/celery-worker
+  newTag: latest
+- name: ${ECR_REGISTRY}/${PROJECT_NAME}/executor
+  newTag: latest
+- name: ${ECR_REGISTRY}/${PROJECT_NAME}/frontend
+  newTag: latest

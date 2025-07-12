@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: crucible-platform
+  name: api-service
   labels:
-    app: crucible-platform
+    app: api-service
     component: api
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: crucible-platform
+      app: api-service
   template:
     metadata:
       labels:
-        app: crucible-platform
+        app: api-service
         version: v1
     spec:
       # Security: Use non-root user
@@ -21,10 +21,12 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       
       containers:
-      - name: crucible-platform
-        image: crucible-platform:latest
+      - name: api-service
+        image: ${ECR_REGISTRY}/${PROJECT_NAME}/api-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -43,7 +45,7 @@ spec:
         
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health
             port: http
           initialDelaySeconds: 5
           periodSeconds: 5
@@ -52,11 +54,11 @@ spec:
         # Resources
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "128Mi"
+            cpu: "250m"
           limits:
-            memory: "2Gi"
-            cpu: "2000m"
+            memory: "256Mi"
+            cpu: "500m"
         
         # Security context
         securityContext:
@@ -69,10 +71,34 @@ spec:
         
         # Environment variables
         env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
         - name: LOG_LEVEL
-          value: "info"
-        - name: EVALUATION_TIMEOUT
-          value: "300"
+          value: "INFO"
+        - name: QUEUE_SERVICE_URL
+          value: "http://queue:8081"
+        - name: STORAGE_SERVICE_URL
+          value: "http://storage-service:8082"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: database-url
+        - name: INTERNAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: internal-api-key
+        - name: ENABLE_CACHING
+          value: "false"
+        - name: CELERY_ENABLED
+          value: "true"
+        - name: CELERY_BROKER_URL
+          value: "redis://celery-redis:6379/0"
+        - name: CELERY_PERCENTAGE
+          value: "1.0"
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -86,16 +112,9 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
-        - name: var-run
-          mountPath: /var/run
-        - name: logs
-          mountPath: /var/log/crucible
       
       # Volumes
       volumes:
       - name: tmp
-        emptyDir: {}
-      - name: var-run
-        emptyDir: {}
-      - name: logs
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 100Mi

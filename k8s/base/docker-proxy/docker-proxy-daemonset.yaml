@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-proxy
+  labels:
+    app: docker-proxy
+spec:
+  ports:
+  - port: 2375
+    name: docker
+  selector:
+    app: docker-proxy
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: docker-proxy
+spec:
+  selector:
+    matchLabels:
+      app: docker-proxy
+  template:
+    metadata:
+      labels:
+        app: docker-proxy
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: docker-proxy
+        image: tecnativa/docker-socket-proxy:0.1
+        ports:
+        - containerPort: 2375
+          hostPort: 2375
+        env:
+        # Container operations (all required by executor)
+        - name: CONTAINERS
+          value: "1"
+        - name: CONTAINERS_CREATE
+          value: "1"
+        - name: CONTAINERS_START
+          value: "1"
+        - name: CONTAINERS_STOP
+          value: "1"
+        - name: CONTAINERS_WAIT
+          value: "1"
+        - name: CONTAINERS_REMOVE
+          value: "1"
+        # Image operations
+        - name: IMAGES
+          value: "1"
+        # Required for API operations
+        - name: POST
+          value: "1"
+        - name: PING
+          value: "1"
+        - name: VERSION
+          value: "1"
+        # Explicitly deny everything else
+        - name: EXEC
+          value: "0"
+        - name: VOLUMES
+          value: "0"
+        - name: NETWORKS
+          value: "0"
+        - name: BUILD
+          value: "0"
+        - name: INFO
+          value: "0"
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /_ping
+            port: 2375
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_ping
+            port: 2375
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        securityContext:
+          runAsUser: 0  # Required for Docker socket access
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
