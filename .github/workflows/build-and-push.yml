@@ -1,6 +1,13 @@
 name: Build and Push Images
 
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: false
+        type: string
+        default: 'production'
   workflow_call:
     inputs:
       environment:
