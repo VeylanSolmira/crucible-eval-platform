@@ -1,0 +1,116 @@
+# Example: Running Destructive Tests in Isolated Namespace
+#
+# For destructive tests (e.g., killing services), we:
+# 1. Create a minimal test namespace
+# 2. Deploy only what's needed
+# 3. Run destructive tests
+# 4. Clean up
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crucible-test-destructive
+  labels:
+    purpose: destructive-testing
+---
+# Minimal Redis for testing failover
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-redis
+  namespace: crucible-test-destructive
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-redis
+  template:
+    metadata:
+      labels:
+        app: test-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-redis
+  namespace: crucible-test-destructive
+spec:
+  selector:
+    app: test-redis
+  ports:
+  - port: 6379
+---
+# Test runner job for destructive tests
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: destructive-tests
+  namespace: crucible-test-destructive
+spec:
+  template:
+    spec:
+      serviceAccountName: test-runner-destructive
+      containers:
+      - name: test-runner
+        image: crucible-test-runner:latest
+        env:
+        - name: IN_CLUSTER_TESTS
+          value: "true"
+        - name: TEST_NAMESPACE
+          value: "crucible-test-destructive"
+        - name: DESTRUCTIVE_TESTS
+          value: "true"
+        command:
+        - python
+        - -m
+        - pytest
+        - tests/integration/test_resilience.py
+        - -v
+        - -m
+        - destructive
+      restartPolicy: Never
+---
+# Service account with permissions to delete pods (for destructive tests)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-runner-destructive
+  namespace: crucible-test-destructive
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: test-runner-destructive
+  namespace: crucible-test-destructive
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "delete"]  # Can delete pods for testing
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "patch"]   # Can scale deployments
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: test-runner-destructive
+  namespace: crucible-test-destructive
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: test-runner-destructive
+subjects:
+- kind: ServiceAccount
+  name: test-runner-destructive
+  namespace: crucible-test-destructive

@@ -1,0 +1,500 @@
+# Shared executor configuration using YAML anchors
+x-executor-base: &executor-base
+  image: ${EXECUTOR_SERVICE_IMAGE:-${PROJECT_NAME:-crucible-platform}/executor:local}
+  environment:
+    - PYTHONUNBUFFERED=1
+    - LOG_LEVEL=INFO
+    - DOCKER_HOST=tcp://docker-proxy:2375
+    - REDIS_HOST=redis
+    - REDIS_PORT=6379
+    - HEALTH_CHECK_URL=http://localhost:8083/health
+    - MAX_CONCURRENT_EXECUTIONS=1  # Each executor can handle 1 task at a time
+    - EXECUTOR_IMAGE=${ECR_EXECUTOR_ML_IMAGE:-executor-ml:latest}  # Use ML-enabled executor image from ECR in prod
+  depends_on:
+    docker-proxy:
+      condition: service_started
+    redis:
+      condition: service_healthy
+  networks:
+    - default
+    - docker-api
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "/healthcheck.py"]
+    interval: 30s
+    timeout: 3s
+    retries: 3
+  # Security: Limited resources for the executor itself
+  mem_limit: 128m
+  cpus: 0.25
+  # Additional security hardening
+  security_opt:
+    - no-new-privileges:true
+  read_only: true
+  tmpfs:
+    - /tmp:size=100M,noexec
+
+services:
+  # Build base image first (used by all Python services)
+  # Run: docker-compose build base
+  base:
+    image: ${BASE_IMAGE:-crucible-base}
+    build:
+      context: .
+      dockerfile: shared/docker/base.Dockerfile
+    command: "true"  # Exit immediately with success
+    restart: "no"  # Never restart
+
+  # Build executor-ml image (includes ML libraries)
+  # This is used by executor services for running evaluations
+  executor-ml-image:
+    image: ${ECR_EXECUTOR_ML_IMAGE:-executor-ml:latest}
+    build:
+      context: .
+      dockerfile: evaluation-environments/executor-ml/Dockerfile
+    command: "true"  # Exit immediately with success
+    restart: "no"  # Never restart
+
+  # Docker Socket Proxy - Secure access to Docker API
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.1
+    container_name: docker-socket-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Container operations (all required by executor)
+      CONTAINERS: 1         # List containers
+      CONTAINERS_CREATE: 1  # Create containers
+      CONTAINERS_START: 1   # Start containers (implicit in run)
+      CONTAINERS_STOP: 1    # Stop containers on timeout
+      CONTAINERS_WAIT: 1    # Wait for completion
+      CONTAINERS_REMOVE: 1  # Cleanup
+      # Image operations
+      IMAGES: 1            # List and inspect images
+      # Required for API operations
+      POST: 1              # HTTP POST for create/pull
+      PING: 1              # Health checks
+      # Explicitly deny everything else
+      EXEC: 0              # No exec into containers
+      VOLUMES: 0           # No volume management
+      NETWORKS: 0          # No network management
+      BUILD: 0             # No building images
+      INFO: 0              # Not used by executor
+      VERSION: 1           # Required by Docker Python client initialization
+    networks:
+      - docker-api
+    restart: unless-stopped
+    mem_limit: 50m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2375/_ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+  # API Service (Microservices Mode)
+  api-service:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${API_IMAGE:-${PROJECT_NAME:-crucible-platform}/api-service:local}
+    container_name: api-service
+    # Port exposed only internally for nginx proxy
+    # ports:
+    #   - "8080:8080"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      - QUEUE_SERVICE_URL=http://queue:8081
+      - STORAGE_SERVICE_URL=http://storage-service:8082
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev-internal-api-key}
+      - ENABLE_CACHING=false  # Disable caching to avoid stale data in distributed setup
+      # Celery configuration - 50% traffic split
+      - CELERY_ENABLED=true
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - CELERY_PERCENTAGE=1.0  # 100% of traffic to Celery
+    depends_on:
+      base:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      # queue:  # DEACTIVATED - using Celery
+      #   condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 128m
+
+  crucible-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # For production behind nginx, use empty to enable relative URLs
+        API_URL: ${FRONTEND_API_URL:-}
+    image: ${FRONTEND_IMAGE:-${PROJECT_NAME:-crucible-platform}/frontend:local}
+    container_name: ${CONTAINER_NAME:-crucible-platform}-frontend
+    # Port exposed only internally for nginx proxy
+    # ports:
+    #   - "3000:3000"
+    environment:
+      - API_URL=http://api-service:8080
+      - NODE_ENV=production
+    depends_on:
+      - api-service
+    restart: unless-stopped
+    # Run as non-root user (configured in Dockerfile)
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: crucible-postgres
+    environment:
+      POSTGRES_DB: crucible
+      POSTGRES_USER: crucible
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # For development access
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crucible"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Database migration service - run with: docker compose run --rm migrate
+  migrate:
+    image: ${STORAGE_SERVICE_IMAGE:-${PROJECT_NAME:-crucible-platform}/storage-service:local}
+    container_name: crucible-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+      PYTHONPATH: /app
+    working_dir: /app/storage/models/migrations
+    entrypoint: ["alembic"]
+    command: ["upgrade", "head"]
+    profiles:
+      - tools  # Only run when explicitly requested
+
+
+  # Executor Services - Python execution environments
+  # These ARE the sandboxes where code runs
+  # NOTE: Only needed if CREATE_ISOLATED_CONTAINERS=false
+  # When true, queue-worker creates fresh containers for each execution
+  
+  executor-1:
+    <<: *executor-base
+    build:
+      context: .
+      dockerfile: executor-service/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    container_name: executor-1
+    depends_on:
+      base:
+        condition: service_completed_successfully
+      executor-ml-image:
+        condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # Additional executors commented out for t2.micro resource constraints
+  # Uncomment for larger instances or production
+  executor-2:
+    <<: *executor-base
+    container_name: executor-2
+    depends_on:
+      executor-1:
+        condition: service_started
+      docker-proxy:
+        condition: service_started
+      redis:
+        condition: service_healthy
+  
+  # executor-3 disabled for t2.micro - only 2 executors
+  # executor-3:
+  #   <<: *executor-base
+  #   container_name: executor-3
+  #   depends_on:
+  #     executor-1:
+  #       condition: service_started
+  #     docker-proxy:
+  #       condition: service_started
+  #     redis:
+  #       condition: service_healthy
+
+  # Celery Worker - Handles 50% of evaluation traffic
+  celery-worker:
+    build:
+      context: .
+      dockerfile: celery-worker/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${CELERY_WORKER_IMAGE:-${PROJECT_NAME:-crucible-platform}/celery-worker:local}
+    container_name: celery-worker-1
+    environment:
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://celery-redis:6379/0
+      - STORAGE_SERVICE_URL=http://storage-service:8082
+      - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      # Match concurrency to executor count to prevent over-provisioning
+      - CELERY_CONCURRENCY=${EXECUTOR_COUNT:-2}
+      # Dynamic routing to all executors (legacy queue deactivated)
+      - EXECUTOR_COUNT=2
+      - EXECUTOR_BASE_URL=http://executor
+      - EXECUTOR_START_INDEX=1  # Use all executors
+    depends_on:
+      base:
+        condition: service_completed_successfully
+      celery-redis:
+        condition: service_healthy
+      executor-2:
+        condition: service_started
+      # executor-3:  # Disabled for t2.micro
+      #   condition: service_started
+      storage-service:
+        condition: service_healthy
+    restart: unless-stopped
+    # Run worker processes to match executor count
+    # This prevents over-provisioning with prefetch_multiplier=1
+    command: ["sh", "-c", "celery -A tasks worker --loglevel=info --concurrency=${EXECUTOR_COUNT:-2}"]
+    healthcheck:
+      test: ["CMD", "celery", "-A", "tasks", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 256m
+
+  # Flower - Celery monitoring dashboard
+  flower:
+    image: mher/flower:2.0
+    container_name: crucible-flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://celery-redis:6379/0
+      - FLOWER_PORT=5555
+      # Basic auth for security (change in production)
+      - FLOWER_BASIC_AUTH=admin:${FLOWER_PASSWORD:-changeme}
+    depends_on:
+      celery-redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      # Flower 2.0+ provides a dedicated /healthcheck endpoint that doesn't require auth
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:5555/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    mem_limit: 128m
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M,noexec
+
+  # Storage Worker - Handles all database writes via events
+  storage-worker:
+    build:
+      context: .
+      dockerfile: storage-worker/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${STORAGE_WORKER_IMAGE:-${PROJECT_NAME:-crucible-platform}/storage-worker:local}
+    container_name: storage-worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    depends_on:
+      base:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/health').read()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 128m
+
+  # Storage Service - RESTful API for data access
+  storage-service:
+    build:
+      context: .
+      dockerfile: storage-service/Dockerfile
+      args:
+        - BASE_IMAGE=crucible-base
+    image: ${STORAGE_SERVICE_IMAGE:-${PROJECT_NAME:-crucible-platform}/storage-service:local}
+    container_name: storage-service
+    ports:
+      - "8082:8082"  # For development access
+    environment:
+      - DATABASE_URL=postgresql://crucible:${DB_PASSWORD:-changeme}@postgres:5432/crucible
+      - REDIS_URL=redis://redis:6379
+      - STORAGE_BACKEND=database
+      - FALLBACK_BACKEND=file
+      - ENABLE_CACHING=true
+      - FILE_STORAGE_PATH=/app/data
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data  # For file storage backend
+    depends_on:
+      base:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8082/health').read()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 256m
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,noexec
+
+  # Redis for Event Bus
+  redis:
+    image: redis:7-alpine
+    container_name: crucible-redis
+    ports:
+      - "6379:6379"  # For development access
+    volumes:
+      - redis-data:/data
+    # Event broker configuration - balanced for pub/sub with some persistence
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy volatile-lru
+      --save "900 1"
+      --save "300 10"
+      --save "60 10000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 100m  # Increased for event broker usage
+
+  # Separate Redis for Celery (isolation from main event bus)
+  celery-redis:
+    image: redis:7-alpine
+    container_name: crucible-celery-redis
+    ports:
+      - "6380:6379"  # Different port to avoid conflict
+    volumes:
+      - celery-redis-data:/data
+    # Celery queue configuration - optimized for task queueing
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save "900 1"
+      --save "300 10"
+      --save "60 10000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 300m  # Higher limit for task queuing
+
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    image: ${NGINX_IMAGE:-${PROJECT_NAME:-crucible-platform}/nginx:local}
+    container_name: crucible-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+      # Only expose dev port if explicitly enabled
+      - "${NGINX_DEV_PORT:-127.0.0.1:8000}:8000"  # HTTP-only dev port (localhost only by default)
+    volumes:
+      - acme-challenge:/var/www/html/.well-known/acme-challenge
+      # SSL volume mount defined in environment-specific compose files
+    environment:
+      # SSL certificates can be provided via environment variables
+      - SSL_CERT=${SSL_CERT:-}
+      - SSL_KEY=${SSL_KEY:-}
+    depends_on:
+      - api-service
+      - crucible-frontend
+      - flower
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  redis-data:
+    driver: local
+  celery-redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+  storage:
+    driver: local
+  ssl-certs:  # Docker volume for nginx certificates (local dev)
+    driver: local
+  acme-challenge:  # For Let's Encrypt challenges
+    driver: local
+
+networks:
+  default:
+    driver: bridge
+  docker-api:
+    driver: bridge
+    internal: true  # No external access

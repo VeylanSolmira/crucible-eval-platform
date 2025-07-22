@@ -49,7 +49,7 @@ if CELERY_ENABLED:
 
 
 def submit_evaluation_to_celery(
-    eval_id: str, code: str, language: str = "python", priority: bool = False
+    eval_id: str, code: str, language: str = "python", priority: bool = False, timeout: int = 300
 ) -> Optional[str]:
     """
     Submit evaluation task to Celery if enabled.
@@ -59,6 +59,7 @@ def submit_evaluation_to_celery(
         code: Code to evaluate
         language: Programming language
         priority: Whether this is a high-priority task
+        timeout: Execution timeout in seconds
 
     Returns:
         Celery task ID if submitted, None otherwise
@@ -67,16 +68,21 @@ def submit_evaluation_to_celery(
         return None
 
     try:
-        # Use the new task chaining approach: assign_executor chains to evaluate_code
-        # This allows proper retry handling without Redis limitations
-        task_name = "tasks.assign_executor"
+        # Call evaluate_code directly - it now uses the dispatcher service
+        task_name = "celery_worker.tasks.evaluate_code"
+        # Map boolean priority to queue for backward compatibility
         queue = "high_priority" if priority else "evaluation"
+        # Convert boolean to int: True -> 1 (high), False -> 0 (normal)
+        priority_level = 1 if priority else 0
+        
+        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}")
 
         result = celery_app.send_task(
             task_name,
-            args=[eval_id, code, language],
+            args=[eval_id, code, language, timeout, priority_level],
             queue=queue,
-            # Let Celery auto-generate unique task IDs to support retries
+            # Note: priority parameter doesn't work with Redis broker
+            # We use separate queues instead
         )
         
         task_id = result.id
@@ -96,10 +102,10 @@ def submit_evaluation_to_celery(
                 logger.error(f"Failed to store task mapping: {e}")
 
         logger.info(
-            f"Submitted evaluation {eval_id} to Celery queue '{queue}', assigner_task_id: {task_id}"
+            f"Submitted evaluation {eval_id} to Celery queue '{queue}', task_id: {task_id}"
         )
         logger.debug(
-            f"Task will chain: assign_executor -> evaluate_code -> release_executor"
+            f"Task will create Kubernetes Job via dispatcher service"
         )
         return task_id
 
@@ -145,38 +151,16 @@ def cancel_celery_task(eval_id: str, terminate: bool = False) -> dict:
     try:
         # Look up the actual task ID from our mapping
         task_id = None
-        assigner_task_id = None
         if redis_client:
             try:
-                # First check for the main task mapping
+                # Check for the task mapping
                 task_id = redis_client.get(f"task_mapping:{eval_id}")
                 if task_id:
                     task_id = task_id.decode('utf-8')
-                
-                # Also check for assigner task (if still in assignment phase)
-                assigner_task_id = redis_client.get(f"assigner:{eval_id}")
-                if assigner_task_id:
-                    assigner_task_id = assigner_task_id.decode('utf-8')
             except Exception as e:
                 logger.error(f"Failed to look up task mapping for {eval_id}: {e}")
         
-        # If we have an assigner task, cancel it first
-        if assigner_task_id:
-            try:
-                from celery.result import AsyncResult
-                assigner_result = AsyncResult(assigner_task_id, app=celery_app)
-                assigner_result.revoke()
-                logger.info(f"Cancelled assigner task {assigner_task_id} for {eval_id}")
-            except Exception as e:
-                logger.error(f"Failed to cancel assigner task: {e}")
-        
         if not task_id:
-            if assigner_task_id:
-                return {
-                    "cancelled": True, 
-                    "reason": "Cancelled during assignment phase", 
-                    "message": f"Cancelled assigner task for evaluation {eval_id}"
-                }
             return {
                 "cancelled": False, 
                 "reason": "Task not found", 

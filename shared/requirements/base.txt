@@ -1,0 +1,13 @@
+# Core dependencies shared by all FastAPI services
+# These are pinned to ensure consistency across services
+
+# FastAPI framework
+fastapi==0.104.1
+pydantic==2.5.0
+uvicorn[standard]==0.24.0
+
+# HTTP client (for inter-service communication)
+httpx==0.25.2
+
+# Logging
+structlog==23.2.0

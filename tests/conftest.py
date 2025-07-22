@@ -2,34 +2,95 @@
 Shared test configuration and fixtures for all tests.
 """
 
+import pytest
 import urllib3
 
 # Disable SSL warnings for self-signed certificates in test environment
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# API Configuration
-API_BASE_URL = "https://localhost/api"
-API_DEV_URL = "http://localhost:8000/api"
+# Register custom markers
+def pytest_configure(config):
+    """Register custom markers for test classification."""
+    config.addinivalue_line(
+        "markers", 
+        "blackbox: Test that only uses external APIs and should work regardless of implementation"
+    )
+    config.addinivalue_line(
+        "markers", 
+        "whitebox: Test that depends on internal implementation details (Docker, file paths, etc.)"
+    )
+    config.addinivalue_line(
+        "markers", 
+        "graybox: Test that uses some internal knowledge but mostly tests behavior"
+    )
+    
+    # Location-based markers for Kubernetes testing
+    config.addinivalue_line(
+        "markers",
+        "requires_cluster_admin: Test requires cluster admin access (must run outside cluster)"
+    )
+    config.addinivalue_line(
+        "markers",
+        "requires_kubectl: Test requires kubectl access to verify Kubernetes resources"
+    )
+    config.addinivalue_line(
+        "markers",
+        "in_cluster_only: Test must run inside Kubernetes cluster for service access"
+    )
+    config.addinivalue_line(
+        "markers",
+        "location_agnostic: Test can run anywhere (default if no location marker)"
+    )
+    
+    # Production requirement markers
+    config.addinivalue_line(
+        "markers",
+        "production: Test that validates production-critical requirements (must pass in prod)"
+    )
 
-# SSL Configuration
-VERIFY_SSL = False  # Set to True for production with valid certs
+# Test environment detection
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+# This is optional - in containers, env vars should be set directly
+try:
+    load_dotenv()
+except Exception:
+    # Ignore errors - .env file is optional
+    pass
+
+# Import configuration from k8s_test_config
+from k8s_test_config import API_URL, VERIFY_SSL, REQUEST_TIMEOUT
 
 # Default request configuration
 DEFAULT_REQUEST_CONFIG = {
     "verify": VERIFY_SSL,
-    "timeout": 5
+    "timeout": REQUEST_TIMEOUT
 }
-
-# Test environment detection
-import os
-USE_DEV_API = os.environ.get("USE_DEV_API", "false").lower() == "true"
 
 def get_api_url():
     """Get the appropriate API URL based on environment"""
-    return API_DEV_URL if USE_DEV_API else API_BASE_URL
+    return API_URL
 
 def get_request_config(**overrides):
     """Get request configuration with optional overrides"""
     config = DEFAULT_REQUEST_CONFIG.copy()
     config.update(overrides)
     return config
+
+# Custom hook to print test results in a parseable format
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Print test results in a simple JSON format after all tests complete."""
+    import json
+    
+    # Get the test results from the terminal reporter stats
+    stats = terminalreporter.stats
+    passed = len(stats.get('passed', []))
+    failed = len(stats.get('failed', []))
+    skipped = len(stats.get('skipped', []))
+    
+    # Print in a specific format that's easy to find
+    results = {"passed": passed, "failed": failed, "skipped": skipped}
+    print(f"\nTEST_RESULTS_JSON:{json.dumps(results)}")
+    print()  # Extra newline for clarity

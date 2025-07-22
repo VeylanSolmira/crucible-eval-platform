@@ -1,0 +1,23 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority-evaluation
+value: 1000
+globalDefault: false
+description: "High priority class for urgent evaluation jobs"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: normal-priority-evaluation
+value: 100
+globalDefault: false
+description: "Normal priority class for standard evaluation jobs"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority-evaluation
+value: 10
+globalDefault: false
+description: "Low priority class for batch evaluation jobs"

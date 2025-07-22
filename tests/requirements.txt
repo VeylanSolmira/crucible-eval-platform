@@ -1,0 +1,48 @@
+# Test dependencies for Crucible platform tests
+# This file includes both test framework dependencies and minimal application dependencies
+
+# Core dependencies from shared (ensures matching versions)
+-r ../shared/requirements/base.txt
+-r ../shared/requirements/redis.txt
+-r ../shared/requirements/testing.txt
+
+# Additional test-only dependencies
+# fakeredis>=2.18.0  # NOT USED - no tests use fakeredis
+
+# Test utilities
+# freezegun>=1.2.0  # NOT USED - no time mocking in tests
+# factory-boy>=3.3.0  # NOT USED - no test factories defined
+
+# Load testing
+# locust>=2.15.0  # NOT USED - mentioned in docs but not implemented
+
+# Documentation
+# pytest-html>=3.2.0  # NOT USED - no HTML reports configured
+# allure-pytest>=2.13.0  # NOT USED - no Allure integration
+# pytest-json-report>=1.5.0  # NOT USED - no JSON reports generated
+
+# Application dependencies needed for test imports
+# (Minimal set required for modules that tests import from)
+
+# API module dependencies
+fastapi==0.104.1
+pydantic==2.5.0
+celery==5.3.4
+
+# Storage module dependencies  
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1
+
+# Shared module dependencies
+pyyaml==6.0.1
+structlog==23.2.0
+
+# Service dependencies for unit tests
+kubernetes==28.1.0  # For dispatcher service tests
+uvicorn[standard]==0.24.0  # For API/service tests
+tenacity>=8.2.0  # For resilient connections in storage worker
+asyncpg>=0.27.0  # For async PostgreSQL in tests
+
+# Environment and configuration
+python-dotenv==1.0.0

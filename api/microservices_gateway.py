@@ -36,10 +36,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Service URLs from environment
-QUEUE_SERVICE_URL = os.getenv("QUEUE_SERVICE_URL", "http://queue:8081")
-STORAGE_SERVICE_URL = os.getenv("STORAGE_SERVICE_URL", "http://storage-service:8082")
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev-internal-api-key")
+QUEUE_SERVICE_URL = os.getenv("QUEUE_SERVICE_URL")
+STORAGE_SERVICE_URL = os.getenv("STORAGE_SERVICE_URL")
+REDIS_URL = os.getenv("REDIS_URL")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
+
+# Validate required configuration
+required_config = {
+    "QUEUE_SERVICE_URL": QUEUE_SERVICE_URL,
+    "STORAGE_SERVICE_URL": STORAGE_SERVICE_URL,
+    "REDIS_URL": REDIS_URL,
+    "INTERNAL_API_KEY": INTERNAL_API_KEY
+}
+
+missing_config = [key for key, value in required_config.items() if not value]
+if missing_config:
+    raise RuntimeError(f"Missing required environment variables: {', '.join(missing_config)}")
 
 # Security validation constants
 # These limits prevent DoS attacks and resource exhaustion
@@ -98,9 +110,12 @@ def create_http_client(timeout: float = 30.0) -> httpx.AsyncClient:
         timeout=timeout
     )
 
-# Initialize Redis for event publishing
-redis_client = redis.from_url(REDIS_URL)
-logger.info("Connected to Redis for event publishing")
+# Redis client will be initialized in startup event
+redis_client = None
+
+# Import resilient connection utilities
+from shared.utils.resilient_connections import get_async_redis_client
+
 logger.info(f"Storage service URL: {STORAGE_SERVICE_URL}")
 
 # Status enum now imported from shared contracts
@@ -309,6 +324,12 @@ async def poll_completed_evaluations():
 @app.on_event("startup")
 async def startup():
     """Start background tasks"""
+    global redis_client
+    
+    # Initialize async Redis client with retry logic
+    redis_client = await get_async_redis_client(REDIS_URL)
+    logger.info("Connected to async Redis for event publishing with retry logic")
+    
     # Run initial health check immediately
     await check_service_health_once()
 
@@ -344,7 +365,7 @@ async def root():
             "evaluate_batch": "/api/eval-batch",
             "status": "/api/eval/{eval_id}",
             "evaluations": "/api/evaluations",
-            "queue": "/api/queue-status",
+            "queue": "/api/queue/status",
             "platform": "/api/status",
             "statistics": "/api/statistics",
             "health": "/health",
@@ -359,10 +380,17 @@ async def health():
     all_healthy = all(
         [service_health["gateway"], service_health["queue"], service_health["storage"]]
     )
+    
+    # Convert boolean values to string status
+    services_status = {}
+    for service, status in service_health.items():
+        if service == "last_check":
+            continue  # Skip timestamp
+        services_status[service] = "healthy" if status else "unhealthy"
 
     return {
         "status": "healthy" if all_healthy else "degraded",
-        "services": service_health,
+        "services": services_status,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -374,7 +402,7 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
 
     # Generate eval ID if not provided
     if not eval_id:
-        eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        eval_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
 
     try:
         # Publish event for storage worker to handle - this is now "queued" since we're submitting to Celery
@@ -393,11 +421,13 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
         )
 
         # Submit to Celery (100% traffic now)
+        logger.info(f"Submitting to Celery with timeout={request.timeout}")
         celery_task_id = submit_evaluation_to_celery(
             eval_id=eval_id,
             code=request.code,
             language=request.language,
             priority=request.priority,
+            timeout=request.timeout,
         )
         if celery_task_id:
             logger.info(f"Submitted evaluation {eval_id} to Celery: {celery_task_id}")
@@ -437,7 +467,7 @@ async def evaluate(request: EvaluationRequest):
         raise HTTPException(status_code=503, detail="Queue service unavailable")
 
     # Generate eval ID and immediately acknowledge with "submitted" status
-    eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+    eval_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
     
     # Publish submitted event first
     await publish_evaluation_event(
@@ -540,7 +570,7 @@ async def evaluate_batch(request: BatchEvaluationRequest, response: Response):
     eval_ids = []
     
     for eval_request in request.evaluations:
-        eval_id = f"eval_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        eval_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
         eval_ids.append(eval_id)
         
         # Publish submitted event
@@ -795,8 +825,8 @@ async def get_evaluation_logs(eval_id: str):
 
 @app.post("/api/eval/{eval_id}/kill")
 async def kill_evaluation(eval_id: str):
-    """Kill a running evaluation"""
-    # Step 1: Get executor assignment from storage service
+    """Kill a running evaluation (Kubernetes version)"""
+    # Step 1: Get running info from storage to find the job name
     async with create_http_client() as client:
         try:
             response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}/running")
@@ -813,66 +843,165 @@ async def kill_evaluation(eval_id: str):
                 content={"error": "Failed to get evaluation status"}, status_code=500
             )
 
-    # Step 2: Kill container on assigned executor
-    executor_id = running_info.get("executor_id")
-    if not executor_id:
-        return JSONResponse(content={"error": "Invalid running information"}, status_code=500)
+    # Step 2: Delete the Kubernetes job through dispatcher
+    job_name = running_info.get("executor_id")  # In K8s, executor_id is the job name
+    if not job_name:
+        return JSONResponse(content={"error": "Job name not found in running info"}, status_code=500)
 
-    executor_url = f"http://{executor_id}:8083"
-
-    async with create_http_client() as executor_client:
+    dispatcher_url = os.getenv("DISPATCHER_SERVICE_URL")
+    if not dispatcher_url:
+        logger.error("DISPATCHER_SERVICE_URL environment variable not set")
+        return JSONResponse(
+            content={"error": "Service misconfiguration: dispatcher URL not configured"}, 
+            status_code=500
+        )
+    
+    async with create_http_client() as dispatcher_client:
         try:
-            kill_response = await executor_client.post(f"{executor_url}/kill/{eval_id}")
-            return kill_response.json()
+            # Call dispatcher to delete the job
+            delete_response = await dispatcher_client.delete(f"{dispatcher_url}/job/{job_name}")
+            delete_response.raise_for_status()
+            
+            result = delete_response.json()
+            return {
+                "eval_id": eval_id,
+                "job_name": result.get("job_name"),
+                "status": "killed",
+                "message": "Evaluation job deleted successfully"
+            }
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return JSONResponse(content={"error": "Job not found"}, status_code=404)
+            logger.error(f"Failed to delete job {job_name}: {e}")
+            return JSONResponse(
+                content={"error": f"Failed to kill evaluation: {str(e)}"}, status_code=500
+            )
         except Exception as e:
-            logger.error(f"Failed to kill container on {executor_id}: {e}")
+            logger.error(f"Failed to delete job {job_name}: {e}")
             return JSONResponse(
                 content={"error": f"Failed to kill evaluation: {str(e)}"}, status_code=500
             )
 
 
 @app.post("/api/eval/{eval_id}/cancel")
-async def cancel_evaluation(eval_id: str, terminate: bool = False):
+async def cancel_evaluation(eval_id: str):
     """
-    Cancel a queued or running evaluation task.
-
-    This cancels the Celery task, preventing it from running if queued,
-    or optionally terminating it if already running.
-
-    Different from /kill which stops the Docker container execution.
+    Cancel an evaluation in any state (Kubernetes version).
+    
+    Non-disjoint semantics:
+    - Always works regardless of state
+    - If queued: Remove from queue (if using Celery)
+    - If running: Delete the Kubernetes job
+    - If terminal: Return current status
+    
+    Handles race conditions by checking status after queue operations.
     """
-    # First check if Celery is enabled
-    if not CELERY_ENABLED:
-        return JSONResponse(
-            content={"error": "Celery not enabled - using legacy queue system"}, status_code=503
-        )
+    # Step 1: Get evaluation status
+    async with create_http_client() as client:
+        try:
+            # Check if evaluation exists
+            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            if response.status_code == 404:
+                return JSONResponse(content={"error": "Evaluation not found"}, status_code=404)
+            
+            eval_data = response.json()
+            status = eval_data.get("status")
+            
+            # If already in terminal state, just return success
+            if status in ["completed", "failed", "cancelled"]:
+                return {
+                    "eval_id": eval_id,
+                    "status": status,
+                    "message": f"Evaluation already in terminal state: {status}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to get evaluation info for {eval_id}: {e}")
+            return JSONResponse(
+                content={"error": "Failed to get evaluation status"}, status_code=500
+            )
 
-    # Cancel the Celery task
-    result = cancel_celery_task(eval_id, terminate=terminate)
-
-    if result.get("cancelled"):
-        # Update storage to reflect cancellation
-        async with create_http_client() as client:
-            try:
+    # Step 2: If using Celery and evaluation is queued, try to cancel from queue
+    if CELERY_ENABLED and status in ["submitted", "queued"]:
+        try:
+            result = cancel_celery_task(eval_id, terminate=True)
+            if not result.get("cancelled"):
+                logger.warning(f"Failed to cancel Celery task for {eval_id}: {result}")
+        except Exception as e:
+            logger.error(f"Error cancelling Celery task: {e}")
+        
+        # After Celery cancellation, check status again (race condition handling)
+        try:
+            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            eval_data = response.json()
+            status = eval_data.get("status")
+            
+            # If it transitioned to running/provisioning while we were cancelling, use kill
+            if status in ["running", "provisioning"]:
+                kill_response = await kill_evaluation(eval_id)
+                
+                # Check if it's a JSONResponse (error case)
+                if isinstance(kill_response, JSONResponse):
+                    if kill_response.status_code != 404:
+                        logger.error(f"Kill endpoint returned error during race condition handling: {kill_response.status_code}")
+                else:
+                    # Success case
+                    return {
+                        "eval_id": eval_id,
+                        "job_name": kill_response.get("job_name"),
+                        "status": "cancelled",
+                        "message": "Evaluation cancelled successfully (was queued, became running)"
+                    }
+        except Exception as e:
+            logger.error(f"Error checking status after queue cancellation: {e}")
+    
+    # Step 3: If running/provisioning (or became running), use kill endpoint
+    elif status in ["running", "provisioning"]:
+        # Use our own kill endpoint for consistency
+        kill_response = await kill_evaluation(eval_id)
+        
+        # Check if it's a JSONResponse (error case)
+        if isinstance(kill_response, JSONResponse):
+            # If it's a 404, the evaluation isn't running, continue to update status
+            if kill_response.status_code == 404:
+                logger.info(f"Evaluation {eval_id} not in running state, continuing with status update")
+            else:
+                # Other errors, but we'll still try to update status
+                logger.error(f"Kill endpoint returned error: {kill_response.status_code}")
+        else:
+            # Success case - kill endpoint returned a dict
+            return {
+                "eval_id": eval_id,
+                "job_name": kill_response.get("job_name"),
+                "status": "cancelled",
+                "message": "Evaluation cancelled successfully"
+            }
+    
+    # Step 5: Update status to cancelled (if not already terminal)
+    # This handles cases where: job wasn't found, job deletion failed, or evaluation was just queued
+    async with create_http_client() as client:
+        try:
+            # Final status check to avoid overwriting terminal states
+            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            eval_data = response.json()
+            current_status = eval_data.get("status")
+            
+            if current_status not in ["completed", "failed", "cancelled"]:
                 await client.put(
                     f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
-                    json={"status": "cancelled", "error": "Task cancelled by user"},
+                    json={"status": "cancelled", "error": "Cancelled by user"},
                 )
-            except Exception as e:
-                logger.error(f"Failed to update storage after cancellation: {e}")
-
-        return {
-            "eval_id": eval_id,
-            "status": "cancelled",
-            "message": result.get("message", "Task cancelled successfully"),
-        }
-    else:
-        # Cancellation failed or not applicable
-        status_code = 400 if "already" in result.get("message", "") else 500
-        return JSONResponse(
-            content={"error": result.get("message", "Failed to cancel task"), "details": result},
-            status_code=status_code,
-        )
+            
+            return {
+                "eval_id": eval_id,
+                "status": "cancelled",
+                "message": "Evaluation cancelled successfully"
+            }
+        except Exception as e:
+            logger.error(f"Failed to update evaluation status: {e}")
+            return JSONResponse(
+                content={"error": "Failed to update evaluation status"}, status_code=500
+            )
 
 
 @app.get("/api/evaluations")
@@ -972,18 +1101,56 @@ async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[st
         return {"evaluations": [], "count": 0, "error": str(e)}
 
 
-@app.get("/api/queue-status", response_model=QueueStatusResponse)
+
+
+@app.get("/api/queue/status", response_model=QueueStatusResponse)
 async def get_queue_status():
-    """Get queue status - now returns Celery status since legacy queue is deactivated"""
-    # Legacy queue deactivated - return empty status
-    # TODO: Replace with Celery queue metrics
-    return QueueStatusResponse(
-        queued=0,
-        processing=0,
-        queue_length=0,
-        total_tasks=0,
-        error=None
-    )
+    """Get actual queue status from Celery."""
+    from api.celery_client import celery_app, CELERY_ENABLED
+    
+    if not CELERY_ENABLED:
+        return QueueStatusResponse(
+            queued=0,
+            processing=0,
+            queue_length=0,
+            total_tasks=0,
+            error="Celery is not enabled"
+        )
+    
+    try:
+        # Get queue information from Celery
+        inspect = celery_app.control.inspect()
+        
+        # Get active tasks (currently processing)
+        active = inspect.active()
+        active_count = sum(len(tasks) for tasks in (active or {}).values())
+        
+        # Get reserved tasks (queued but not yet processing)
+        reserved = inspect.reserved()
+        reserved_count = sum(len(tasks) for tasks in (reserved or {}).values())
+        
+        # Get scheduled tasks
+        scheduled = inspect.scheduled()
+        scheduled_count = sum(len(tasks) for tasks in (scheduled or {}).values())
+        
+        queued_count = reserved_count + scheduled_count
+        
+        return QueueStatusResponse(
+            queued=queued_count,
+            processing=active_count,
+            queue_length=queued_count,  # Same as queued for backward compatibility
+            total_tasks=queued_count + active_count,
+            error=None
+        )
+    except Exception as e:
+        logger.error(f"Failed to get queue status: {e}")
+        return QueueStatusResponse(
+            queued=0,
+            processing=0,
+            queue_length=0,
+            total_tasks=0,
+            error=str(e)
+        )
 
 
 @app.get("/api/celery-status")

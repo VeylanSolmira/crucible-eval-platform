@@ -7,7 +7,8 @@ set -e
 echo "Generating OpenAPI specs for all services..."
 
 # Services that need OpenAPI spec generation
-SERVICES=(api storage-service executor-service)
+# Note: executor-service has been removed (deprecated)
+SERVICES=(api storage_service)
 
 # Track if all succeeded
 all_success=true

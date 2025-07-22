@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-exact-code
+  namespace: crucible
+spec:
+  template:
+    spec:
+      containers:
+      - name: test
+        image: executor-ml:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "-u", "-c"]
+        args:
+        - |
+          # Import json first before we test library availability
+          import json as json_module
+          
+          libraries_to_test = [
+              'numpy', 'pandas', 'requests', 'matplotlib', 
+              'scipy', 'sklearn', 'tensorflow', 'torch',
+              'json', 'hashlib', 'datetime', 'os', 'sys'
+          ]
+          
+          results = {"available": [], "unavailable": []}
+          
+          for lib in libraries_to_test:
+              try:
+                  __import__(lib)
+                  results["available"].append(lib)
+              except ImportError:
+                  results["unavailable"].append(lib)
+          
+          # Test that standard library works
+          import hashlib
+          import datetime
+          
+          test_results = []
+          test_results.append(f"Hash test: {hashlib.sha256(b'test').hexdigest()[:10]}...")
+          test_results.append(f"Date test: {datetime.datetime.now().year}")
+          
+          # Create the final output
+          final_data = {
+              "available": results["available"],
+              "unavailable": results["unavailable"],
+              "tests": test_results
+          }
+          # Print only the JSON output
+          print(json_module.dumps(final_data, indent=2))
+      restartPolicy: Never

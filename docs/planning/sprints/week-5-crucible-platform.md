@@ -130,22 +130,20 @@ With 5 days remaining in Week 5, this plan focuses on high-priority items organi
 
 ### 5. Kubernetes Basic Migration
 - [ ] Follow incremental migration approach (see [Kubernetes Migration Guide](../../kubernetes/migration-guide.md))
-- [ ] Phase 1: Frontend Service Only
-  - [ ] Create frontend deployment and service
-  - [ ] Test with minikube/kind locally
+- [x] Phase 1: Frontend Service Only
+  - [x] Create frontend deployment and service
+  - [x] Test with minikube/kind locally
   - [x] Understand basic K8s concepts (Pods, Deployments, Services)
-  - [ ] Practice kubectl commands
-- [ ] Phase 2: Add API Service
-  - [ ] Create API deployment and service
-  - [ ] Test inter-service communication
-  - [ ] Learn Kubernetes DNS and service discovery
-- [ ] Phase 3: Add Stateful Services
-  - [ ] ConfigMaps and Secrets
-  - [ ] Redis deployment
-  - [ ] Storage service with database connection
+- [x] Phase 2: Add API Service
+  - [x] Create API deployment and service
+  - [x] Test inter-service communication
+- [x] Phase 3: Add Stateful Services
+  - [x] ConfigMaps and Secrets
+  - [x] Redis deployment
+  - [x] Storage service with database connection
 - [ ] Phase 4: Complete Migration
-  - [ ] Migrate remaining services
-  - [ ] Handle complex cases (executors, Docker-in-Docker)
+  - [x] Migrate remaining services
+  - [x] Handle complex cases (executors, Docker-in-Docker)
   - [ ] Full system test
 - [ ] Document learnings and issues encountered
 
@@ -205,11 +203,18 @@ With 5 days remaining in Week 5, this plan focuses on high-priority items organi
 
 ### 1. Production Kubernetes
 - [ ] Advanced Kubernetes features:
-  - [ ] Network policies for isolation
-  - [ ] Pod security policies
-  - [ ] RBAC configuration
-  - [ ] Resource quotas and limits
+  - [x] Network policies for isolation (basic + advanced)
+  - [x] Pod security standards (replaced deprecated PSPs)
+  - [x] RBAC configuration with least privilege
+  - [x] Resource quotas and limits
+  - [x] Priority classes and pod disruption budgets
   - [ ] Horizontal Pod Autoscaling
+- [ ] Production overlay validation:
+  - [ ] Update production overlay with security features
+  - [ ] Validate manifests with kustomize build
+  - [ ] Security scanning with kubesec/OPA
+  - [ ] Check deprecated APIs with pluto
+  - [ ] GitHub workflow for automated validation
 - [ ] Create Helm charts
   - [ ] Configurable values.yaml
   - [ ] Environment-specific overrides

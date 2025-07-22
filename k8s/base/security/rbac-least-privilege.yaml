@@ -1,0 +1,191 @@
+# RBAC with Least Privilege Principle
+# Each service gets only the permissions it needs
+#
+# ServiceAccount for API service (read-only access)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-service
+  annotations:
+    description: "API service - read evaluations, create events"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: api-service-role
+rules:
+# Read config maps
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+# Read secrets (for database passwords)
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["postgres-secret", "redis-secret"]
+# Create events for audit trail
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: api-service-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: api-service-role
+subjects:
+- kind: ServiceAccount
+  name: api-service
+---
+# ServiceAccount for Dispatcher (create/manage Jobs)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: job-dispatcher
+  annotations:
+    description: "Dispatcher - creates and manages evaluation Jobs"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: job-dispatcher-role
+rules:
+# Create and manage Jobs
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "watch", "delete", "patch", "update"]
+- apiGroups: ["batch"]
+  resources: ["jobs/status"]
+  verbs: ["get", "patch", "update"]
+# Read pods for logs
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+# Read namespace for health check
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get"]
+# Create events for audit
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: job-dispatcher-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: job-dispatcher-role
+subjects:
+- kind: ServiceAccount
+  name: job-dispatcher
+---
+# ServiceAccount for Storage Service (database access only)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: storage-service
+  annotations:
+    description: "Storage service - manages evaluation data"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: storage-service-role
+rules:
+# Read secrets for database connection
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["postgres-secret"]
+# Read config maps
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+  resourceNames: ["storage-config"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: storage-service-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: storage-service-role
+subjects:
+- kind: ServiceAccount
+  name: storage-service
+---
+# ServiceAccount for Celery Workers (minimal permissions)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: celery-worker
+  annotations:
+    description: "Celery workers - process evaluation tasks"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: celery-worker-role
+rules:
+# No Kubernetes API access needed
+# Workers only communicate with Redis and other services
+[]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: celery-worker-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: celery-worker-role
+subjects:
+- kind: ServiceAccount
+  name: celery-worker
+---
+# ServiceAccount for evaluation Jobs (no permissions)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: evaluation-runner
+  annotations:
+    description: "Evaluation pods - run untrusted code with no permissions"
+automountServiceAccountToken: false  # Don't mount token at all
+---
+# Audit ServiceAccount for compliance logging
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: audit-logger
+  annotations:
+    description: "Audit logger - read all resources for compliance"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: audit-logger-role
+rules:
+# Read all resources in namespace
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+# But no write permissions
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: audit-logger-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: audit-logger-role
+subjects:
+- kind: ServiceAccount
+  name: audit-logger

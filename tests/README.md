@@ -36,7 +36,49 @@ tests/
 
 ## Running Tests
 
-### All Tests
+### Kubernetes Test Orchestrator
+
+For running tests inside the Kubernetes cluster (recommended for integration tests):
+
+```bash
+# Run all tests in cluster
+python tests/test_orchestrator.py
+
+# Run specific test suites
+python tests/test_orchestrator.py unit integration
+
+# Run specific test files (use relative path from tests/ directory)
+python tests/test_orchestrator.py --test-files integration/test_celery_connection.py
+
+# Run multiple specific test files
+python tests/test_orchestrator.py --test-files integration/test_celery_connection.py integration/test_celery_tasks.py
+
+# Skip building test image (uses latest)
+python tests/test_orchestrator.py integration --skip-build
+
+# Run tests in parallel
+python tests/test_orchestrator.py --parallel
+
+# Include slow tests
+python tests/test_orchestrator.py --include-slow
+
+# Include destructive tests
+python tests/test_orchestrator.py --include-destructive
+```
+
+The test orchestrator:
+1. Runs smoke tests to verify cluster readiness
+2. Builds and pushes a test runner Docker image
+3. Creates a coordinator job in Kubernetes
+4. Runs tests inside the cluster with proper service access
+5. Streams logs and aggregates results
+
+This is especially useful for integration tests that need to access cluster services like Redis, PostgreSQL, etc.
+
+### Local Testing
+
+For running tests locally (requires port forwarding):
+
 ```bash
 # From project root
 pytest tests/

@@ -14,14 +14,14 @@ spec:
     spec:
       containers:
       - name: celery-worker
-        image: ${ECR_REGISTRY}/${PROJECT_NAME}/celery-worker:latest
+        image: crucible-platform/celery-worker
         imagePullPolicy: Always
-        command: ["sh", "-c", "celery -A tasks worker --loglevel=info --concurrency=${EXECUTOR_COUNT:-2}"]
+        command: ["sh", "-c", "celery -A celery_worker.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-2} -Q high_priority,evaluation,batch,maintenance"]
         env:
         - name: CELERY_BROKER_URL
           value: "redis://celery-redis:6379/0"
         - name: CELERY_RESULT_BACKEND
-          value: "redis://celery-redis:6379/0"
+          value: "redis://celery-redis:6379/1"
         - name: STORAGE_SERVICE_URL
           value: "http://storage-service:8082"
         - name: REDIS_URL
@@ -32,12 +32,8 @@ spec:
           value: "INFO"
         - name: CELERY_CONCURRENCY
           value: "2"
-        - name: EXECUTOR_COUNT
-          value: "2"
-        - name: EXECUTOR_BASE_URL
-          value: "http://executor"
-        - name: EXECUTOR_START_INDEX
-          value: "1"
+        - name: DISPATCHER_SERVICE_URL
+          value: "http://dispatcher-service:8090"
         - name: CELERY_WORKER_MAX_TASKS_PER_CHILD
           value: "100"
         - name: CELERY_WORKER_PREFETCH_MULTIPLIER
@@ -54,7 +50,7 @@ spec:
             command:
             - celery
             - -A
-            - tasks
+            - celery_worker.celery_app
             - inspect
             - ping
           initialDelaySeconds: 30
@@ -65,7 +61,7 @@ spec:
             command:
             - celery
             - -A
-            - tasks
+            - celery_worker.celery_app
             - inspect
             - ping
           initialDelaySeconds: 10

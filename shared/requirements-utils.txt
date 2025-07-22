@@ -1,0 +1,3 @@
+# Requirements for shared utilities
+# Only truly shared utility libraries
+tenacity>=8.2.0

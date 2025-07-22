@@ -1,0 +1,26 @@
+# Calico configuration for Kind
+# Based on: https://projectcalico.docs.tigera.io/getting-started/kubernetes/quickstart
+apiVersion: operator.tigera.io/v1
+kind: Installation
+metadata:
+  name: default
+spec:
+  # Configures Calico networking
+  calicoNetwork:
+    # Use IPIP encapsulation for Kind compatibility
+    ipPools:
+    - blockSize: 26
+      cidr: 192.168.0.0/16
+      encapsulation: VXLANCrossSubnet
+      natOutgoing: Enabled
+      nodeSelector: all()
+  # Set MTU to 1430 for Kind (Docker bridge default is 1500, minus VXLAN overhead)
+  calicoNetwork:
+    mtu: 1430
+---
+# This section configures the Calico API server
+apiVersion: operator.tigera.io/v1
+kind: APIServer
+metadata:
+  name: default
+spec: {}

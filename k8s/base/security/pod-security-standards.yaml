@@ -1,0 +1,38 @@
+# Pod Security Standards for Kubernetes 1.23+
+# Replaces deprecated Pod Security Policies
+#
+# This enforces security standards at the namespace level
+# using the built-in Pod Security admission controller
+#
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crucible
+  labels:
+    # Enforce restricted security standard
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    
+    # Audit and warn for baseline violations
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+---
+# Exemptions for specific workloads that need elevated permissions
+# (e.g., monitoring agents, CNI plugins)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pod-security-exemptions
+  namespace: crucible
+data:
+  exemptions.yaml: |
+    exemptions:
+      # Kustomize-managed exemptions
+      usernames: []
+      runtimeClasses: []
+      namespaces: 
+        - kube-system
+        - kube-public
+        - kube-node-lease

@@ -3,11 +3,8 @@
 Unit tests for Celery retry configuration logic.
 """
 import pytest
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "celery-worker"))
 
-from retry_config import (
+from celery_worker.retry_config import (
     calculate_retry_delay, 
     get_retry_message, 
     RETRYABLE_HTTP_CODES,
@@ -16,6 +13,7 @@ from retry_config import (
 )
 
 
+@pytest.mark.whitebox
 @pytest.mark.unit
 class TestRetryConfig:
     """Test retry configuration logic."""

@@ -26,7 +26,7 @@ spec:
       
       containers:
       - name: api-service
-        image: ${ECR_REGISTRY}/${PROJECT_NAME}/api-service:latest
+        image: crucible-platform/api-service
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -99,6 +99,8 @@ spec:
           value: "redis://celery-redis:6379/0"
         - name: CELERY_PERCENTAGE
           value: "1.0"
+        - name: DISPATCHER_SERVICE_URL
+          value: "http://dispatcher-service:8090"
         - name: POD_NAME
           valueFrom:
             fieldRef:

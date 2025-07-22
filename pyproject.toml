@@ -16,6 +16,8 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# Fix pytest-asyncio warning
+asyncio_default_fixture_loop_scope = "function"
 # Custom markers
 markers = [
     # Test Categories
@@ -31,6 +33,7 @@ markers = [
     "redis: marks tests as requiring Redis",
     "celery: marks tests as requiring Celery workers",
     "docker: marks tests as requiring Docker daemon",
+    "kubernetes: marks tests as requiring Kubernetes cluster",
     "database: marks tests as requiring PostgreSQL database",
     "storage: marks tests as requiring storage service",
     "executor: marks tests as requiring executor service",
@@ -47,4 +50,5 @@ markers = [
     "resilience: marks tests for resilience and recovery",
     "concurrency: marks tests for concurrent execution",
     "timeout: marks tests for timeout functionality",
+    "network_isolation: marks tests that require network policy enforcement",
 ]

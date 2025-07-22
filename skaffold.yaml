@@ -1,0 +1,162 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: crucible-platform
+build:
+  artifacts:
+    - image: crucible-platform/base
+      context: .
+      docker:
+        dockerfile: shared/docker/base.Dockerfile
+    - image: crucible-platform/api-service
+      context: .
+      sync:
+        manual:
+          - src: api/**/*.py
+            dest: /app
+            strip: api/
+      docker:
+        dockerfile: api/Dockerfile
+        buildArgs:
+          BASE_IMAGE: crucible-platform/base
+          CACHEBUST: '{{.TIMESTAMP}}'
+    - image: crucible-platform/storage-service
+      context: .
+      sync:
+        manual:
+          - src: storage_service/**/*.py
+            dest: /app
+            strip: storage_service/
+      docker:
+        dockerfile: storage_service/Dockerfile
+        buildArgs:
+          BASE_IMAGE: crucible-platform/base
+          CACHEBUST: '{{.TIMESTAMP}}'
+    - image: crucible-platform/storage-worker
+      context: .
+      sync:
+        manual:
+          - src: storage_worker/**/*.py
+            dest: /app
+            strip: storage_worker/
+      docker:
+        dockerfile: storage_worker/Dockerfile
+        buildArgs:
+          BASE_IMAGE: crucible-platform/base
+          CACHEBUST: '{{.TIMESTAMP}}'
+    - image: crucible-platform/celery-worker
+      context: .
+      sync:
+        manual:
+          - src: celery_worker/**/*.py
+            dest: /app
+            strip: celery_worker/
+      docker:
+        dockerfile: celery_worker/Dockerfile
+        buildArgs:
+          BASE_IMAGE: crucible-platform/base
+          CACHEBUST: '{{.TIMESTAMP}}'
+    - image: crucible-platform/dispatcher-service
+      context: .
+      sync:
+        manual:
+          - src: dispatcher_service/**/*.py
+            dest: /app
+            strip: dispatcher_service/
+      docker:
+        dockerfile: dispatcher_service/Dockerfile
+        buildArgs:
+          CACHEBUST: '{{.TIMESTAMP}}'
+    - image: crucible-platform/frontend
+      context: .
+      docker:
+        dockerfile: frontend/Dockerfile
+    - image: crucible-platform/executor-ml
+      context: .
+      docker:
+        dockerfile: evaluation-environments/executor-ml/Dockerfile
+  tagPolicy:
+    sha256: {}
+  local:
+    push: false
+    useBuildkit: true
+    concurrency: 4
+manifests:
+  kustomize:
+    paths:
+      - k8s/overlays/local
+deploy:
+  kubectl: {}
+  logs:
+    prefix: container
+portForward:
+  - resourceType: service
+    resourceName: frontend-service
+    namespace: crucible
+    port: 3000
+    localPort: 3000
+  - resourceType: service
+    resourceName: api-service
+    namespace: crucible
+    port: 8080
+    localPort: 8080
+  - resourceType: service
+    resourceName: flower-service
+    namespace: crucible
+    port: 5555
+    localPort: 5555
+profiles:
+  - name: no-cache
+    patches:
+      - op: add
+        path: /build/artifacts/0/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/1/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/2/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/3/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/4/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/5/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/6/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/7/docker/noCache
+        value: true
+  - name: prod
+    build:
+      tagPolicy:
+        gitCommit: {}
+    manifests:
+      kustomize:
+        paths:
+          - k8s/overlays/production
+  - name: debug
+    patches:
+      - op: add
+        path: /build/artifacts/0/sync
+        value:
+          manual:
+            - dest: /app
+              src: api/**/*.py
+            - dest: /app
+              src: storage_service/**/*.py
+            - dest: /app
+              src: storage_worker/**/*.py
+            - dest: /app
+              src: celery_worker/**/*.py
+            - dest: /app
+              src: dispatcher_service/**/*.py
+  - name: quiet
+    deploy:
+      logs:
+        prefix: none

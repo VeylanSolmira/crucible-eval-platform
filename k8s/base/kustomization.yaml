@@ -8,9 +8,11 @@ resources:
   # Config and Secrets
   - config/configmap.yaml
   - config/secrets.yaml
+  - config/executor-images-configmap.yaml
   
   # Core databases
   - postgres/postgres-statefulset.yaml
+  - postgres/migration-job.yaml
   - redis/redis-main.yaml
   - redis/redis-celery.yaml
   
@@ -18,7 +20,7 @@ resources:
   - api/deployment.yaml
   - api/service.yaml
   - storage/storage-service.yaml
-  - storage/storage-worker.yaml
+  - storage/storage_worker.yaml
   
   # Frontend
   - frontend/deployment.yaml
@@ -26,14 +28,17 @@ resources:
   
   # Task processing
   - celery/celery-worker.yaml
-  - executors/executor-deployment.yaml
-  - docker-proxy/docker-proxy-daemonset.yaml
+  - dispatcher/dispatcher_deployment.yaml
   
   # Monitoring
   - flower/flower-deployment.yaml
   
   # Network policies
-  - network-policy.yaml
+  - security/network-policies-basic.yaml  # Essential evaluation pod isolation
+  
+  # Security
+  - gvisor-runtimeclass.yaml
+  - priority-classes.yaml
 
 # Common labels applied to all resources
 labels:
@@ -45,15 +50,15 @@ namespace: crucible
 
 # Images to be replaced by production values
 images:
-- name: ${ECR_REGISTRY}/${PROJECT_NAME}/api-service
+- name: crucible-platform/api-service
   newTag: latest
-- name: ${ECR_REGISTRY}/${PROJECT_NAME}/storage-service
+- name: crucible-platform/storage-service
   newTag: latest
-- name: ${ECR_REGISTRY}/${PROJECT_NAME}/storage-worker
+- name: crucible-platform/storage-worker
   newTag: latest
-- name: ${ECR_REGISTRY}/${PROJECT_NAME}/celery-worker
+- name: crucible-platform/celery-worker
   newTag: latest
-- name: ${ECR_REGISTRY}/${PROJECT_NAME}/executor
+- name: crucible-platform/dispatcher-service
   newTag: latest
-- name: ${ECR_REGISTRY}/${PROJECT_NAME}/frontend
+- name: crucible-platform/frontend
   newTag: latest

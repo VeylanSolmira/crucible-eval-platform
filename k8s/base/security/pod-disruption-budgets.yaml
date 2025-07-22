@@ -1,0 +1,69 @@
+# Pod Disruption Budgets for high availability
+# Prevents too many pods from being evicted simultaneously
+#
+# PostgreSQL - always maintain availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres
+  unhealthyPodEvictionPolicy: IfHealthyBudget
+---
+# Redis - maintain quorum
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis
+---
+# API service - maintain 50% availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-service-pdb
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: api-service
+---
+# Storage service - maintain at least 1 instance
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: storage-service-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: storage-service
+---
+# Dispatcher - allow disruption but maintain 1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dispatcher-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: dispatcher
+---
+# Celery workers - allow 25% disruption
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: celery-worker-pdb
+spec:
+  maxUnavailable: 25%
+  selector:
+    matchLabels:
+      app: celery-worker

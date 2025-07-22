@@ -1,0 +1,31 @@
+# ResourceQuota for evaluation jobs in local development
+# Prevents runaway resource consumption while allowing reasonable test parallelism
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: evaluation-quota
+  namespace: crucible
+spec:
+  hard:
+    # Job limits - generous for testing but prevents runaway creation
+    count/jobs.batch: "50"              # Maximum 50 concurrent jobs
+    
+    # Pod limits - includes evaluation pods and test runner pods
+    pods: "100"                         # Maximum 100 pods total
+    
+    # CPU limits - reasonable for local development
+    # Most evaluations request 400m, limits 1 CPU
+    requests.cpu: "8"                   # ~20 concurrent jobs * 400m
+    limits.cpu: "16"                    # Prevents excessive CPU allocation
+    
+    # Memory limits - realistic for local development  
+    # Most evaluations request 512Mi, limit 1Gi
+    requests.memory: "8Gi"              # ~16 concurrent jobs * 512Mi
+    limits.memory: "16Gi"              # Prevents excessive memory allocation
+    
+    # Storage limits - evaluations use emptyDir volumes
+    requests.ephemeral-storage: "20Gi"  # For emptyDir volumes
+    
+  # Note: We cannot use scopeSelector with PriorityClass
+  # The quota applies to all pods in the namespace
+  # System pods should have minimal resource requests to leave room for evaluations

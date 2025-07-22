@@ -1,0 +1,183 @@
+# Memory optimization for local development
+# Reduces memory requests to minimum viable for dev work
+# Total reduction: ~1.2GB (from 1.7GB to ~500MB)
+
+# API Service - reduce from 128Mi to 64Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: api-service
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"  # Keep limit for burst capacity
+            cpu: "500m"
+---
+# Storage Service - reduce from 256Mi to 64Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: storage-service
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "384Mi"
+            cpu: "500m"
+---
+# Storage Worker - reduce from 128Mi to 64Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: storage-worker
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# Celery Worker - reduce from 256Mi to 128Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: celery-worker
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+---
+# Dispatcher - reduce from 128Mi to 64Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# PostgreSQL - reduce from 256Mi to 128Mi (still needs decent memory)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  template:
+    spec:
+      containers:
+      - name: postgres
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+---
+# Redis Main - reduce from 100Mi to 64Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  template:
+    spec:
+      containers:
+      - name: redis
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# Redis Celery - reduce from 200Mi to 64Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-redis
+spec:
+  template:
+    spec:
+      containers:
+      - name: redis
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "300Mi"
+            cpu: "500m"
+---
+# Frontend - reduce from 128Mi to 32Mi (just nginx)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: frontend
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+# Flower - reduce from 128Mi to 64Mi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flower
+spec:
+  template:
+    spec:
+      containers:
+      - name: flower
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"

@@ -3,6 +3,60 @@
 ## Overview
 This document tracks all future work items for the METR platform after the MVP demo. Items are organized by priority and dependencies.
 
+## Library and Package Management
+
+### Evaluation Environment Library Decisions
+- [ ] Define standard library sets for each executor type
+  - [ ] **executor-minimal**: Core Python only (no external packages)
+    - Standard library modules only
+    - Smallest possible image size (~50MB)
+    - For basic Python evaluation tasks
+  - [ ] **executor-base**: Common data science packages
+    - numpy, pandas, matplotlib
+    - requests, beautifulsoup4
+    - Standard ML data processing
+    - Target size: ~300MB
+  - [ ] **executor-ml**: Full ML/AI environment  
+    - Current: numpy, torch, requests
+    - Missing: pandas, matplotlib, scipy, sklearn, tensorflow
+    - Consider: transformers, huggingface_hub, openai
+    - Balance size vs functionality (~1-2GB)
+  - [ ] **executor-gpu**: GPU-enabled ML environment
+    - All executor-ml packages
+    - CUDA-enabled versions
+    - GPU-specific libraries (cupy, rapids)
+    - Size: 4GB+
+
+### Library Security Review
+- [ ] Security audit all included packages
+  - [ ] Check for known vulnerabilities (safety, pip-audit)
+  - [ ] Review package permissions and capabilities
+  - [ ] Establish update cadence for security patches
+- [ ] Create allowlist/blocklist system
+  - [ ] Define criteria for package inclusion
+  - [ ] Document security implications of each package
+  - [ ] Create approval process for new packages
+- [ ] Network isolation considerations
+  - [ ] Which packages require network access
+  - [ ] How to handle packages that phone home
+  - [ ] SSL certificate bundle management
+
+### Package Version Management
+- [ ] Establish version pinning strategy
+  - [ ] Lock files for reproducibility
+  - [ ] Regular update schedule
+  - [ ] Compatibility testing between packages
+- [ ] Create package documentation
+  - [ ] Available packages per environment
+  - [ ] Version information
+  - [ ] Usage examples and limitations
+- [ ] User communication
+  - [ ] How to request new packages
+  - [ ] Update notifications
+  - [ ] Migration guides for breaking changes
+
+**Current Status**: Test shows numpy, torch, requests available; pandas, matplotlib, scipy, sklearn, tensorflow missing from executor-ml
+
 ## Post-Kubernetes Migration Tasks
 
 ### Multi-Executor Image Architecture

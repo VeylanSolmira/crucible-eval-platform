@@ -12,16 +12,22 @@ import pytest
 from celery import Celery
 import redis
 
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from k8s_test_config import CELERY_BROKER_URL
 
+
+@pytest.mark.whitebox
 @pytest.mark.integration
 @pytest.mark.celery
+@pytest.mark.in_cluster_only  # Requires direct access to Celery Redis service
 class TestCeleryConnection:
     """Test Celery connection and configuration."""
     
     @pytest.fixture(scope="class")
     def broker_url(self):
-        """Get broker URL from environment."""
-        return os.environ.get("CELERY_BROKER_URL", "redis://celery-redis:6379/0")
+        """Get broker URL from environment or k8s config."""
+        return CELERY_BROKER_URL
     
     @pytest.fixture(scope="class")
     def redis_client(self, broker_url):

@@ -108,12 +108,27 @@ class TestEvaluationFlow:
 
 ## Current Status
 
-E2E tests are planned but not yet implemented. Priority flows to test:
-1. Code submission and execution
+We have two types of E2E tests:
+
+### API-based E2E Tests (Implemented)
+Located in this directory, these test complete workflows through APIs:
+- `test_core_flows.py` - Fundamental evaluation workflows (health, submit, lifecycle, errors)
+- `test_evaluation_lifecycle.py` - Complete lifecycle from submission to completion
+- `test_redis_state_management.py` - Full evaluation with Redis state tracking and cleanup
+- `test_fast_failing_containers.py` - Quick-failing evaluations with error capture
+- `test_network_isolation.py` - Security validation for network isolation
+- `test_filesystem_isolation.py` - Security validation for filesystem isolation
+- `test_load.py` - Load testing the full system end-to-end
+- `test_priority_queue_e2e.py` - Priority queue evaluation processing
+- `test_priority_celery_e2e.py` - Celery priority task execution
+
+### UI-based E2E Tests (Not Yet Implemented)
+Browser-based tests for user interactions:
+1. Code submission via UI
 2. Real-time status updates
-3. Result retrieval and display
-4. Error handling scenarios
-5. Concurrent user interactions
+3. Result display
+4. Error handling in UI
+5. Concurrent user scenarios
 
 ## Future Enhancements
 

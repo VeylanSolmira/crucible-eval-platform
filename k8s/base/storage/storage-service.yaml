@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: storage-service
-        image: ${ECR_REGISTRY}/${PROJECT_NAME}/storage-service:latest
+        image: crucible-platform/storage-service
         imagePullPolicy: Always
         ports:
         - containerPort: 8082

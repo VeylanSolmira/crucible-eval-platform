@@ -3,6 +3,13 @@ kind: Kustomization
 
 resources:
   - ../../base
+  # Advanced security features for production
+  - ../../base/security/network-policies-advanced.yaml  # Zero-trust networking
+  - ../../base/security/pod-security-standards.yaml      # Pod security enforcement
+  - ../../base/security/resource-quotas.yaml             # Resource limits
+  - ../../base/security/rbac-least-privilege.yaml        # Minimal permissions
+  - ../../base/security/priority-classes.yaml            # Workload priorities
+  - ../../base/security/pod-disruption-budgets.yaml      # HA guarantees
 
 # Production-specific patches
 patches:
@@ -15,12 +22,27 @@ patches:
 # - Helm for templating support
 # - CI/CD pipeline to generate this file from Terraform outputs
 images:
-  - name: crucible-platform
+  - name: crucible-platform/api-service
     newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
     newTag: api-latest
-  - name: crucible-platform/frontend:local
+  - name: crucible-platform/frontend
     newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
     newTag: frontend-latest
+  - name: crucible-platform/storage-service
+    newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
+    newTag: storage-service-latest
+  - name: crucible-platform/storage-worker
+    newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
+    newTag: storage-worker-latest
+  - name: crucible-platform/celery-worker
+    newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
+    newTag: celery-worker-latest
+  - name: crucible-platform/dispatcher-service
+    newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
+    newTag: dispatcher-latest
+  - name: crucible-platform/executor-ml
+    newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/crucible-platform
+    newTag: executor-ml-latest
     
 # Production config
 configMapGenerator:

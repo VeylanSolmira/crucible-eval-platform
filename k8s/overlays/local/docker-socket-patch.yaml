@@ -1,0 +1,15 @@
+# Fix Docker socket path for Kind
+# Kind uses a different path than standard Docker
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: docker-proxy
+spec:
+  template:
+    spec:
+      volumes:
+      - name: docker-socket
+        hostPath:
+          # Kind uses the host's docker socket which is mounted at a different location
+          path: /var/run/docker.sock
+          type: Socket

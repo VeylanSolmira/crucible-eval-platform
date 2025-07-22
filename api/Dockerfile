@@ -8,9 +8,13 @@ FROM ${BASE_IMAGE} AS builder
 USER root
 
 # Copy and install API-specific requirements
-COPY api/requirements.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements.txt \
-    && rm -f /tmp/requirements.txt
+# Maintain directory structure to preserve relative paths
+WORKDIR /tmp
+COPY api/requirements.txt ./api/
+COPY shared/requirements-utils.txt ./shared/
+COPY shared/requirements/ ./shared/requirements/
+RUN pip install --no-cache-dir -r api/requirements.txt
+WORKDIR /
 
 # Runtime stage - minimal final image
 FROM ${BASE_IMAGE} AS runtime

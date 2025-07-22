@@ -49,8 +49,8 @@ RUN mkdir -p ./types/generated
 #   - .github/workflows/deploy-compose.yml (CI/CD via generate-openapi-spec workflow)
 # The specs are generated from the Python FastAPI apps without running the services
 COPY api/openapi.yaml /api/openapi.yaml
-COPY storage-service/openapi.yaml /storage-service/openapi.yaml
-COPY executor-service/openapi.yaml /executor-service/openapi.yaml
+COPY storage_service/openapi.yaml /storage_service/openapi.yaml
+# COPY executor-service/openapi.yaml /executor-service/openapi.yaml # Deprecated - executor-service removed
 
 # Copy shared generated types from shared-types-generator stage
 COPY --from=shared-types-generator /app/shared/generated/typescript ./shared/generated/typescript

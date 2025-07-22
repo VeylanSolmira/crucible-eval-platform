@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        env:
+        - name: HOST_OS
+          value: "macos"  # Override for macOS development

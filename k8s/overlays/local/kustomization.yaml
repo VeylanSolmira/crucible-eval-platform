@@ -1,0 +1,52 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Reference the base configuration
+resources:
+- ../../base
+# Add ClusterRole for node access in local dev
+- dispatcher-clusterrole.yaml
+# Test runner permissions - only in local dev
+- test-runner-rbac.yaml
+# Test priority classes to prevent preemption
+- test-priority-classes.yaml
+# ResourceQuota for evaluation jobs - prevents runaway resource usage
+- evaluation-resource-quota.yaml
+
+# Override images for local development
+# NOTE: Commented out to let Skaffold manage image tags with SHA hashes
+# images:
+# - name: ${ECR_REGISTRY}/${PROJECT_NAME}/api-service
+#   newName: crucible-platform/api-service
+#   newTag: local
+# - name: crucible-platform/storage-service
+#   newTag: local
+# - name: ${ECR_REGISTRY}/${PROJECT_NAME}/storage-worker
+#   newName: crucible-platform/storage-worker
+#   newTag: local
+# - name: crucible-platform/celery-worker
+#   newTag: local
+# - name: crucible-platform/dispatcher-service
+#   newTag: local
+# - name: crucible-platform/frontend
+#   newTag: latest
+# - name: crucible-platform/executor-ml
+#   newTag: local
+
+# Override settings for local development
+patches:
+- path: local-resources-patch.yaml
+- path: pull-policy-patch.yaml
+- path: storage-pvc-patch.yaml
+- path: replicas-patch.yaml
+- path: celery-readiness-patch.yaml
+- path: dev-writable-filesystems-patch.yaml
+- path: uvicorn-reload-patch.yaml
+- path: memory-optimization-patch.yaml
+- path: dispatcher-redis-patch.yaml
+- path: dispatcher-executor-image-patch.yaml
+- path: dispatcher-role-patch.json
+  target:
+    kind: Role
+    name: job-dispatcher
+- path: dispatcher-host-os-patch.yaml

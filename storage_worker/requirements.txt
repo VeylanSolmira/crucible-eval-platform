@@ -1,0 +1,12 @@
+# Storage Worker Service
+# Handles asynchronous storage operations via Storage Service API
+
+# Core dependencies from shared
+-r ../shared/requirements/base.txt
+
+# Redis with C extensions for performance
+# Note: Using hiredis variant for better performance
+redis[hiredis]==5.2.1
+
+# Include shared requirements for resilient connections
+-r ../shared/requirements-utils.txt

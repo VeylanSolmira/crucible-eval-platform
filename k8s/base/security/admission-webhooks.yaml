@@ -1,0 +1,171 @@
+# Validating Admission Webhook for additional security checks
+# Validates all pod creation requests for security compliance
+#
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: crucible-security-webhook
+webhooks:
+- name: pod-security.crucible.io
+  admissionReviewVersions: ["v1", "v1beta1"]
+  clientConfig:
+    service:
+      name: security-webhook
+      namespace: crucible
+      path: "/validate"
+    caBundle: LS0tLS1CRUdJTi... # Base64 encoded CA cert (generated during deployment)
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+    scope: "Namespaced"
+  namespaceSelector:
+    matchLabels:
+      security-webhook: "enabled"
+  failurePolicy: Fail
+  sideEffects: None
+  timeoutSeconds: 10
+---
+# Mutating webhook to inject security defaults
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: crucible-security-defaults
+webhooks:
+- name: security-defaults.crucible.io
+  admissionReviewVersions: ["v1", "v1beta1"]
+  clientConfig:
+    service:
+      name: security-webhook
+      namespace: crucible
+      path: "/mutate"
+    caBundle: LS0tLS1CRUdJTi... # Base64 encoded CA cert
+  rules:
+  - operations: ["CREATE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+    scope: "Namespaced"
+  namespaceSelector:
+    matchLabels:
+      security-webhook: "enabled"
+  failurePolicy: Fail
+  sideEffects: None
+  reinvocationPolicy: Never
+---
+# Security webhook deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security-webhook
+spec:
+  replicas: 3  # HA deployment
+  selector:
+    matchLabels:
+      app: security-webhook
+  template:
+    metadata:
+      labels:
+        app: security-webhook
+    spec:
+      serviceAccountName: security-webhook
+      containers:
+      - name: webhook
+        image: crucible-platform/security-webhook
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8443
+          name: webhook
+        - containerPort: 8080
+          name: metrics
+        env:
+        - name: TLS_CERT_FILE
+          value: /certs/tls.crt
+        - name: TLS_KEY_FILE
+          value: /certs/tls.key
+        - name: LOG_LEVEL
+          value: INFO
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /certs
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: security-webhook-certs
+---
+# Service for the webhook
+apiVersion: v1
+kind: Service
+metadata:
+  name: security-webhook
+spec:
+  ports:
+  - name: webhook
+    port: 443
+    targetPort: 8443
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: security-webhook
+---
+# ServiceAccount for webhook
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: security-webhook
+---
+# RBAC for webhook
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-webhook
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: security-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: security-webhook
+subjects:
+- kind: ServiceAccount
+  name: security-webhook
+  namespace: crucible

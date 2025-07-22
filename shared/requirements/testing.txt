@@ -1,0 +1,14 @@
+# Testing dependencies that should be consistent across all test suites
+# Note: Services should include their own requirements plus these for testing
+
+# Test frameworks
+pytest==8.4.1
+pytest-asyncio==0.26.0
+pytest-cov==6.2.1
+pytest-timeout==2.4.0
+pytest-mock==3.14.1
+
+# HTTP testing
+# httpx version comes from base.txt - don't duplicate here
+requests>=2.31.0
+responses>=0.23.0

@@ -1,0 +1,5 @@
+# Production network policy additions
+# Adds zero-trust networking on top of basic policies
+#
+# This patch adds the advanced network policies for production
+# while keeping the basic evaluation isolation from base

@@ -1,0 +1,48 @@
+# Priority Classes for workload scheduling
+# Ensures critical services get resources first
+#
+# System-critical priority (highest)
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: crucible-system-critical
+value: 1000000
+globalDefault: false
+description: "Critical system components - databases, core services"
+---
+# High priority for API and core services
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: crucible-high-priority
+value: 100000
+globalDefault: false
+description: "High priority services - API, storage, dispatcher"
+---
+# Medium priority for background workers
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: crucible-medium-priority
+value: 10000
+globalDefault: false
+description: "Background workers - Celery, storage worker"
+---
+# Low priority for evaluation jobs
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: evaluation-priority
+value: 1000
+globalDefault: false
+description: "Evaluation jobs - can be preempted"
+preemptionPolicy: PreemptLowerPriority
+---
+# Monitoring and logging priority
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: crucible-monitoring
+value: 50000
+globalDefault: false
+description: "Monitoring and observability stack"

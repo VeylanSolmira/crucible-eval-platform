@@ -1,0 +1,49 @@
+# WARNING: DO NOT DEPLOY TO PRODUCTION
+# This is a debug pod for troubleshooting cluster issues
+# 
+# Usage:
+#   kubectl apply -f k8s/base/debug/debug-pod.yaml
+#   kubectl exec -it debug-pod -n crucible -- /bin/bash
+#   kubectl delete pod debug-pod -n crucible
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-pod
+  namespace: crucible
+  labels:
+    app: debug-pod
+    purpose: troubleshooting
+  annotations:
+    description: "Temporary debugging pod - DO NOT DEPLOY TO PRODUCTION"
+spec:
+  activeDeadlineSeconds: 3600  # Auto-cleanup after 1 hour
+  containers:
+  - name: debug
+    image: crucible-platform/test-runner
+    imagePullPolicy: Never
+    command: ["sleep", "3600"]
+    env:
+    - name: IN_CLUSTER_TESTS
+      value: "true"
+    - name: PYTHONPATH
+      value: "/app"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false  # Need write for Python
+      runAsNonRoot: true
+      runAsUser: 1000
+      capabilities:
+        drop:
+        - ALL
+  restartPolicy: Never
+  # Minimal permissions - no service account specified

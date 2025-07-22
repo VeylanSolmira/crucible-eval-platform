@@ -417,7 +417,7 @@ export function useQueueStatus() {
   return useQuery({
     queryKey: ['queue', 'status'],
     queryFn: async (): Promise<QueueStatusResponse> => {
-      const response = await fetch(`${appConfig.api.baseUrl}/api/queue-status`)
+      const response = await fetch(`${appConfig.api.baseUrl}/api/queue/status`)
       if (!response.ok) {
         throw new Error('Failed to fetch queue status')
       }

@@ -1,31 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: crucible-platform
+  name: api-service
   labels:
-    app: crucible-platform
+    app: api-service
 spec:
   type: ClusterIP
   selector:
-    app: crucible-platform
-  ports:
-  - port: 80
-    targetPort: 8080
-    protocol: TCP
-    name: http
----
-# Headless service for internal communication
-apiVersion: v1
-kind: Service
-metadata:
-  name: crucible-platform-headless
-  labels:
-    app: crucible-platform
-spec:
-  type: ClusterIP
-  clusterIP: None
-  selector:
-    app: crucible-platform
+    app: api-service
   ports:
   - port: 8080
     targetPort: 8080

@@ -1,0 +1,34 @@
+# Add --reload flag to uvicorn services in local development
+# This allows hot reloading when files are synced by Skaffold
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: api-service
+        command: ["uvicorn", "api.microservices_gateway:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: storage-service
+        command: ["uvicorn", "storage_service.app:app", "--host", "0.0.0.0", "--port", "8082", "--reload"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8090", "--reload"]

@@ -9,6 +9,7 @@ from storage.core.flexible_manager import FlexibleStorageManager
 from storage.backends.memory import InMemoryStorage
 
 
+@pytest.mark.whitebox
 @pytest.mark.unit
 class TestFlexibleStorageManager(unittest.TestCase):
     """Test suite for flexible storage manager."""

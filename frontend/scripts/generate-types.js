@@ -10,14 +10,14 @@ const { execSync } = require('child_process');
 
 const SPEC_PATHS = {
   api: '../api/openapi.yaml',
-  storage: '../storage-service/openapi.yaml',
-  executor: '../executor-service/openapi.yaml'
+  storage: '../storage_service/openapi.yaml',
+  // executor: '../executor-service/openapi.yaml' // Deprecated - executor-service removed
 };
 
 const OUTPUT_PATHS = {
   api: './types/generated/api.ts',
   storage: './types/generated/storage.ts',
-  executor: './types/generated/executor.ts'
+  // executor: './types/generated/executor.ts' // Deprecated - executor-service removed
 };
 
 // No fallback types - fail clearly if OpenAPI specs are missing
@@ -96,7 +96,7 @@ function main() {
     console.error('   - Ensure OpenAPI spec artifacts were properly downloaded');
     console.error('\n3. For manual generation per service:');
     console.error('   cd .. && docker-compose run --rm api python api/scripts/export-openapi-spec.py');
-    console.error('   cd .. && docker-compose run --rm storage-service python storage-service/scripts/export-openapi-spec.py');
+    console.error('   cd .. && docker-compose run --rm storage-service python storage_service/scripts/export-openapi-spec.py');
     console.error('   cd .. && docker-compose run --rm executor-service python executor-service/scripts/export-openapi-spec.py');
     console.error('');
     

@@ -5,6 +5,12 @@ Database storage implementation using SQLAlchemy.
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from contextlib import contextmanager
+import os
+import sys
+from pathlib import Path
+
+# Add parent directory to path to import shared utilities
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import create_engine, select, delete
 from sqlalchemy.orm import sessionmaker, Session
@@ -12,6 +18,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..core.base import StorageService
 from ..models.models import Evaluation, EvaluationEvent
+
+# Import resilient connection utilities if available
+try:
+    from shared.utils.resilient_connections import get_sqlalchemy_engine
+    RESILIENT_CONNECTIONS_AVAILABLE = True
+except ImportError:
+    RESILIENT_CONNECTIONS_AVAILABLE = False
 
 
 class DatabaseStorage(StorageService):
@@ -28,23 +41,34 @@ class DatabaseStorage(StorageService):
     def __init__(self, database_url: str):
         self.database_url = database_url
         
-        # Different settings for SQLite vs PostgreSQL
-        if database_url.startswith("sqlite"):
-            # SQLite doesn't support these pool settings
-            self.engine = create_engine(
-                self.database_url,
-                pool_pre_ping=True,  # Verify connections before use
-                echo=False,  # Set to True for SQL debugging
-            )
-        else:
-            # PostgreSQL with full pool settings
-            self.engine = create_engine(
+        # Use resilient connection if available
+        if RESILIENT_CONNECTIONS_AVAILABLE and not database_url.startswith("sqlite"):
+            # Use resilient connection for PostgreSQL
+            self.engine = get_sqlalchemy_engine(
                 self.database_url,
                 pool_size=10,
                 max_overflow=20,
-                pool_pre_ping=True,  # Verify connections before use
-                echo=False,  # Set to True for SQL debugging
+                pool_pre_ping=True,
+                echo=False,
             )
+        else:
+            # Fallback to regular connection for SQLite or if resilient connections not available
+            if database_url.startswith("sqlite"):
+                # SQLite doesn't support these pool settings
+                self.engine = create_engine(
+                    self.database_url,
+                    pool_pre_ping=True,  # Verify connections before use
+                    echo=False,  # Set to True for SQL debugging
+                )
+            else:
+                # PostgreSQL with full pool settings
+                self.engine = create_engine(
+                    self.database_url,
+                    pool_size=10,
+                    max_overflow=20,
+                    pool_pre_ping=True,  # Verify connections before use
+                    echo=False,  # Set to True for SQL debugging
+                )
         self.SessionLocal = sessionmaker(bind=self.engine)
 
     @contextmanager

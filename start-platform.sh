@@ -1,15 +1,15 @@
 #!/bin/bash
 # One-command startup script for Crucible Platform
-# Usage: ./start-platform.sh [dev|prod|build|build-all] [--skip-tests|--no-browser]
-#   dev       - Start in development mode (default)
-#   prod      - Start with production configuration
-#   build     - Rebuild core images then start in dev mode (excludes ML executor)
-#   build-all - Rebuild ALL images including ML executor (adds ~3 minutes)
+# Usage: ./start-platform.sh [build] [--skip-tests|--no-browser]
+#   build        - Force rebuild all images (no cache)
 #   --skip-tests - Skip running tests after startup
 #   --no-browser - Don't open browser after startup
 #
-# Note: The ML executor image (1.3GB) is not built by default to save time.
-#       Build it manually with: docker compose build executor-ml-image
+# Requirements:
+#   - Docker running
+#   - Kubernetes cluster running (Docker Desktop, Kind, etc.)
+#   - kubectl configured
+#   - Skaffold installed
 
 set -e  # Exit on error
 
@@ -21,13 +21,16 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Parse arguments
-MODE="${1:-dev}"
+FORCE_BUILD=false
 SKIP_TESTS=false
 NO_BROWSER=false
 
 # Check for additional flags
 for arg in "$@"; do
     case $arg in
+        build)
+            FORCE_BUILD=true
+            ;;
         --skip-tests)
             SKIP_TESTS=true
             ;;
@@ -37,21 +40,7 @@ for arg in "$@"; do
     esac
 done
 
-REBUILD_ALL=false
-BUILD_ML=false
-
-if [ "$MODE" = "build" ]; then
-    echo -e "${BLUE}Rebuilding core services...${NC}"
-    REBUILD_ALL=true
-    MODE="dev"  # After building, start in dev mode
-elif [ "$MODE" = "build-all" ]; then
-    echo -e "${BLUE}Rebuilding ALL services (including ML executor)...${NC}"
-    REBUILD_ALL=true
-    BUILD_ML=true
-    MODE="dev"  # After building, start in dev mode
-fi
-
-echo -e "${GREEN}Starting Crucible Platform in ${MODE} mode...${NC}"
+echo -e "${GREEN}Starting Crucible Platform with Kubernetes/Skaffold...${NC}"
 
 # Check Docker is running
 if ! docker info > /dev/null 2>&1; then
@@ -59,12 +48,31 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check Docker Compose is available
-if ! command -v docker compose &> /dev/null; then
-    echo -e "${RED}docker compose is not installed. Please install it first.${NC}"
+# Check kubectl is available and cluster is accessible
+if ! kubectl cluster-info > /dev/null 2>&1; then
+    echo -e "${RED}kubectl cannot connect to cluster. Please ensure Kubernetes is running.${NC}"
+    echo "For Docker Desktop: Enable Kubernetes in settings"
+    echo "For Kind: Run 'kind create cluster'"
     exit 1
 fi
 
+# Check Skaffold is installed
+if ! command -v skaffold &> /dev/null; then
+    echo -e "${RED}Skaffold is not installed. Please install it first.${NC}"
+    echo "Visit: https://skaffold.dev/docs/install/"
+    exit 1
+fi
+
+# Check if base image exists
+if ! docker image inspect crucible-platform/base:latest > /dev/null 2>&1; then
+    echo -e "${YELLOW}Base image not found. Building it now...${NC}"
+    if docker build -f shared/docker/base.Dockerfile -t crucible-platform/base:latest .; then
+        echo -e "${GREEN}✓ Base image built successfully${NC}"
+    else
+        echo -e "${RED}Failed to build base image. Please check the Dockerfile.${NC}"
+        exit 1
+    fi
+fi
 
 # Create necessary directories
 echo "Creating data directories..."
@@ -79,114 +87,95 @@ else
     echo "   Frontend type generation may use fallback types"
 fi
 
-# Determine compose files based on mode
-if [ "$MODE" = "prod" ]; then
-    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
+# Function to cleanup on exit
+cleanup() {
+    if [ -n "$SKAFFOLD_PID" ]; then
+        echo -e "\n${YELLOW}Stopping Skaffold...${NC}"
+        kill $SKAFFOLD_PID 2>/dev/null || true
+        wait $SKAFFOLD_PID 2>/dev/null || true
+    fi
+    echo -e "${GREEN}Platform stopped.${NC}"
+}
+
+# Set trap to cleanup on script exit
+trap cleanup EXIT INT TERM
+
+# Force rebuild if requested
+if [ "$FORCE_BUILD" = true ]; then
+    echo -e "${BLUE}Force rebuilding all images...${NC}"
+    # Clean builder cache
+    echo "Cleaning builder cache..."
+    docker builder prune -af
+    
+    # Start Skaffold with no-cache profile and cache disabled
+    echo -e "${YELLOW}Starting Skaffold in dev mode with forced rebuild (no cache)...${NC}"
+    skaffold dev --cache-artifacts=false --profile=no-cache &
 else
-    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
+    # Normal Skaffold dev mode
+    echo -e "${YELLOW}Starting Skaffold in dev mode...${NC}"
+    skaffold dev &
 fi
 
-# Build images
-if [ "$REBUILD_ALL" = true ]; then
-    echo -e "${BLUE}Building images...${NC}"
-    # First build base image since other images depend on it
-    echo "Building base image first..."
-    docker compose $COMPOSE_FILES build --no-cache base
-    
-    # Build executor-ml image only if requested with 'all'
-    if [ "$BUILD_ML" = true ]; then
-        echo "Building ML executor image (this takes ~3 minutes)..."
-        docker compose $COMPOSE_FILES build --no-cache executor-ml-image
+# Store Skaffold PID
+SKAFFOLD_PID=$!
+
+# Wait for services to be ready
+echo -e "\n${YELLOW}Waiting for services to be ready...${NC}"
+echo "This may take a few minutes on first run..."
+
+# Wait for API to be ready
+MAX_ATTEMPTS=60
+ATTEMPT=0
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    if kubectl get pods | grep -E "api-.*Running" > /dev/null 2>&1; then
+        # Check if API is actually responding
+        if kubectl exec -it deployment/api-service -- curl -s http://localhost:8080/health > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ API service is ready!${NC}"
+            break
+        fi
     fi
     
-    # Then build all other images in parallel (excluding base and executor-ml-image)
-    echo "Building all other services in parallel..."
-    # Get list of all services except base and executor-ml-image
-    SERVICES_TO_BUILD=$(docker compose $COMPOSE_FILES config --services | grep -v -E '^(base|executor-ml-image)$' | tr '\n' ' ')
-    docker compose $COMPOSE_FILES build --parallel --no-cache $SERVICES_TO_BUILD
-else
-    # Just build base image for normal startup
-    echo "Building base image..."
-    docker compose $COMPOSE_FILES build base
-    
-    # Check if executor-ml image exists
-    if ! docker image inspect executor-ml:latest >/dev/null 2>&1; then
-        echo -e "${YELLOW}⚠️  ML executor image not found. ML workloads will fail.${NC}"
-        echo "   To build it, run: docker compose build executor-ml-image"
-        echo "   Or use: ./start-platform.sh build-all"
+    ATTEMPT=$((ATTEMPT + 1))
+    if [ $((ATTEMPT % 10)) -eq 0 ]; then
+        echo "  Still waiting... ($ATTEMPT/$MAX_ATTEMPTS)"
     fi
-fi
+    sleep 2
+done
 
-# Start services based on mode with --wait flag
-if [ "$MODE" = "prod" ]; then
-    echo "Starting services with production configuration..."
-    
-    # Note: Production volumes are defined in docker-compose.prod.yml
-    # They will be created automatically by Docker
-    
-    echo -e "\n${YELLOW}Starting all services (this may take a minute)...${NC}"
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --wait --wait-timeout 120
-else
-    echo "Starting services in development mode..."
-    echo -e "\n${YELLOW}Starting all services (this may take a minute)...${NC}"
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait --wait-timeout 120
-fi
-
-# Check if the wait was successful
-if [ $? -eq 0 ]; then
-    echo -e "\n${GREEN}✓ All services are healthy!${NC}"
-else
-    echo -e "\n${YELLOW}⚠ Some services may still be starting. Checking status...${NC}"
-    docker compose $COMPOSE_FILES ps
-fi
-
-# Check all services are up
-echo -e "\nChecking all services..."
-
-# Run database migrations
-echo -e "\n${YELLOW}Running database migrations...${NC}"
-# Note: The migrate service uses the storage-service image, so it must be built first
-if docker compose $COMPOSE_FILES run --rm migrate 2>&1 | grep -q "Will assume transactional DDL"; then
-    echo -e "${GREEN}Migrations completed successfully${NC}"
-else
-    echo -e "${YELLOW}Migrations may have already been applied or there was an error${NC}"
+if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+    echo -e "${RED}Services did not become ready in time.${NC}"
+    echo "Check pod status with: kubectl get pods"
+    echo "Check logs with: kubectl logs deployment/[service-name]"
+    exit 1
 fi
 
 # Display service status
 echo -e "\n${GREEN}Platform Status:${NC}"
-docker compose $COMPOSE_FILES ps
+kubectl get pods
 
 # Display access URLs
 echo -e "\n${GREEN}Access URLs:${NC}"
-echo "  Frontend:        http://localhost"
-echo "  API:            http://localhost/api"
-echo "  API Docs:       http://localhost/api/docs"
-echo "  Flower:         http://localhost:5555"
-echo "  Queue Status:   http://localhost/api/queue-status"
-echo "  Celery Status:  http://localhost/api/celery-status"
+echo "  Frontend:        http://localhost:3000"
+echo "  API:            http://localhost:8080/api"
+echo "  API Docs:       http://localhost:8080/api/docs"
+echo "  Storage API:    http://localhost:8081"
 
-# Display helpful commands
+# Note about port forwarding
+echo -e "\n${YELLOW}Note: If services are not accessible, you may need to set up port forwarding:${NC}"
+echo "  kubectl port-forward deployment/api-service 8080:8080 &"
+echo "  kubectl port-forward deployment/storage-service 8081:8081 &"
+echo "  kubectl port-forward deployment/frontend 3000:3000 &"
+
 echo -e "\n${GREEN}Useful commands:${NC}"
-echo "  View logs:      docker compose logs -f [service-name]"
-echo "  Stop platform:  docker compose down"
-echo "  Clean restart:  docker compose down -v && ./start-platform.sh"
-echo "  Rebuild core:   ./start-platform.sh build"
-echo "  Rebuild all:    ./start-platform.sh build-all"
+echo "  View logs:      kubectl logs deployment/[service-name] -f"
+echo "  Get pods:       kubectl get pods"
+echo "  Describe pod:   kubectl describe pod [pod-name]"
+echo "  Shell into pod: kubectl exec -it deployment/[service-name] -- /bin/bash"
+echo "  Stop platform:  Press Ctrl+C (Skaffold will clean up)"
+echo "  Force rebuild:  ./start-platform.sh build"
 
-# Check if all services are healthy
-if docker compose $COMPOSE_FILES ps | grep -E "unhealthy|Exit|Restarting" > /dev/null 2>&1; then
-    echo -e "\n${YELLOW}Warning: Some services may not be healthy yet.${NC}"
-    
-    # Check if it's just nginx restarting (common during initial startup)
-    if docker compose $COMPOSE_FILES ps | grep -E "unhealthy|Exit" | grep -v nginx > /dev/null 2>&1; then
-        echo "  Check logs with: docker compose $COMPOSE_FILES logs [service-name]"
-    else
-        echo "  nginx may still be starting up. This is normal and should resolve within 30 seconds."
-        echo "  You can check status with: docker compose $COMPOSE_FILES ps"
-    fi
-else
-    echo -e "\n${GREEN}✓ All services started successfully!${NC}"
-fi
+echo -e "\n${GREEN}✓ Platform is running with Skaffold!${NC}"
+echo -e "${YELLOW}Press Ctrl+C to stop and clean up all resources.${NC}"
 
 # Run tests unless skipped
 if [ "$SKIP_TESTS" = false ]; then
@@ -227,3 +216,8 @@ if [ "$NO_BROWSER" = false ]; then
 fi
 
 echo -e "\n${GREEN}Platform is ready!${NC}"
+
+# Wait for Skaffold (it runs until interrupted)
+if [ -n "$SKAFFOLD_PID" ]; then
+    wait $SKAFFOLD_PID
+fi

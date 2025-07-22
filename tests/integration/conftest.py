@@ -13,16 +13,16 @@ from typing import Generator, Dict, Any
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Default configuration
-API_BASE_URL = "http://localhost:8000/api"
-REDIS_URL = "redis://localhost:6379"
+# Import configuration from k8s_test_config
+from k8s_test_config import API_URL, REDIS_URL
 
 
 @pytest.fixture
 def api_base_url() -> str:
     """Get API base URL from environment or use default"""
     import os
-    return os.getenv("API_BASE_URL", API_BASE_URL)
+    # Use API_URL consistently
+    return os.getenv("API_URL", API_URL)
 
 
 @pytest.fixture
@@ -44,7 +44,8 @@ def api_session(api_base_url: str) -> Generator[requests.Session, None, None]:
     
     # Verify API is accessible
     try:
-        response = session.get(f"{api_base_url.replace('/api', '')}/health", timeout=5)
+        # API_URL already includes /api, so just append /health
+        response = session.get(f"{api_base_url}/health", timeout=5)
         response.raise_for_status()
         logger.info("API health check passed")
     except Exception as e:
@@ -72,7 +73,7 @@ def redis_client(redis_url: str) -> Generator[redis.Redis, None, None]:
     client.close()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def cleanup_test_data(redis_client: redis.Redis):
     """Automatically clean up test data after each test"""
     # Track test evaluation IDs
@@ -138,3 +139,34 @@ def wait_for_services():
 
 # Markers are now defined in pyproject.toml
 # No need to define them here
+
+
+@pytest.fixture
+def pg_session():
+    """PostgreSQL test database session for integration tests."""
+    import os
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from storage.models.models import Base
+    
+    db_url = os.getenv("TEST_DATABASE_URL")
+    if not db_url:
+        pytest.skip("No test database configured")
+    
+    engine = create_engine(db_url)
+    
+    # Create all tables
+    Base.metadata.create_all(engine)
+    
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    yield session
+    
+    # Cleanup
+    session.rollback()
+    session.close()
+    
+    # Drop all tables for clean slate
+    Base.metadata.drop_all(engine)
+    engine.dispose()

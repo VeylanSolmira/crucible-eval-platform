@@ -1,0 +1,51 @@
+# Kind cluster configuration with gVisor support
+# 
+# Usage:
+#   kind create cluster --config k8s/kind-with-gvisor.yaml --name crucible-gvisor
+#
+# Note: gVisor support in Kind requires additional setup:
+# 1. The host machine must have gVisor installed
+# 2. Docker must be configured with runsc runtime
+# 3. Kind nodes inherit the host's container runtimes
+#
+# For macOS users:
+# - Use Colima or a Linux VM as described in docs/security/gvisor-setup-guide.md
+# - Standard Docker Desktop does not support gVisor
+#
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: crucible-gvisor
+nodes:
+- role: control-plane
+  # Mount containerd config to enable gVisor
+  extraMounts:
+  - hostPath: /etc/containerd/config.toml
+    containerPath: /etc/containerd/config.toml
+    readOnly: true
+  # Label node to indicate gVisor support
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "gvisor=true"
+- role: worker
+  # Mount containerd config to enable gVisor
+  extraMounts:
+  - hostPath: /etc/containerd/config.toml
+    containerPath: /etc/containerd/config.toml
+    readOnly: true
+  # Label node to indicate gVisor support
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "gvisor=true"
+# Enable feature gates for RuntimeClass
+featureGates:
+  RuntimeClass: true
+# Networking configuration
+networking:
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/12"

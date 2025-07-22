@@ -1,0 +1,12 @@
+# Add autoreload to Celery worker for local development
+# WARNING: --autoreload is unstable and for development only
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: celery-worker
+        command: ["sh", "-c", "celery -A celery_worker.celery_app worker --loglevel=info --autoreload"]

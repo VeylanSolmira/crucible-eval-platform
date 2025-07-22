@@ -1,0 +1,7 @@
+# Core dependencies from shared
+-r ../shared/requirements/base.txt
+-r ../shared/requirements/redis.txt
+-r ../shared/requirements-utils.txt
+
+# Service-specific dependencies
+kubernetes==28.1.0

@@ -16,8 +16,7 @@ from sqlalchemy import (
     func,
     Boolean,
 )
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
 Base = declarative_base()

@@ -1,0 +1,108 @@
+# SECURITY: Default deny for evaluation pods only
+# 
+# TODO: In production, implement full zero-trust networking:
+# - All pods denied by default
+# - Images pulled through private registry or pre-cached
+# - No internet access for any pod
+# - Only explicit service-to-service communication allowed
+#
+# For now, we only enforce strict isolation on evaluation pods
+# to prevent code execution from accessing network resources
+#
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: evaluation-pods-default-deny
+spec:
+  podSelector:
+    matchLabels:
+      app: evaluation
+  policyTypes:
+  - Ingress
+  - Egress
+  # No rules = complete isolation for evaluation pods
+---
+# Network policy for crucible platform - default deny with specific allows
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: crucible-platform-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: crucible-platform
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Ingress rules
+  ingress:
+  # Allow traffic from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow traffic from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Egress rules
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  
+  # Allow communication to evaluation pods
+  - to:
+    - podSelector:
+        matchLabels:
+          app: evaluation
+    ports:
+    - protocol: TCP
+      port: 9000
+  
+  # Block all other egress by default
+---
+# Evaluation pod network policy - extremely restrictive
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: evaluation-pod-isolation
+spec:
+  podSelector:
+    matchLabels:
+      app: evaluation
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Ingress rules
+  ingress:
+  # Only allow from platform
+  - from:
+    - podSelector:
+        matchLabels:
+          app: crucible-platform
+    ports:
+    - protocol: TCP
+      port: 9000
+  
+  # Egress rules - NONE
+  # Evaluation pods cannot make ANY outbound connections
+  # This prevents model exfiltration or self-replication
+  egress: []

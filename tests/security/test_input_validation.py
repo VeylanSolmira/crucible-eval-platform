@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conftest import get_api_url, get_request_config
 
 
+@pytest.mark.blackbox
 @pytest.mark.integration
 @pytest.mark.api
 @pytest.mark.security

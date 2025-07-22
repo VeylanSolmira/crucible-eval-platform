@@ -1,6 +1,0 @@
-{
-  "Dimensions": {
-    "Key": "USAGE_TYPE_GROUP",
-    "Values": ["EC2: Running Hours", "RDS: Running Hours", "S3: Storage"]
-  }
-}

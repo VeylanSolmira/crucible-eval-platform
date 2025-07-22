@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-dispatcher-style
+  namespace: crucible
+spec:
+  template:
+    spec:
+      containers:
+      - name: test
+        image: executor-ml:latest
+        imagePullPolicy: IfNotPresent
+        command: 
+        - "python"
+        - "-u"
+        - "-c"
+        - |
+          import json
+          data = {'test': 'value', 'list': [1, 2, 3]}
+          print(json.dumps(data))
+      restartPolicy: Never

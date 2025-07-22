@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dispatcher-service
+  labels:
+    app: dispatcher
+spec:
+  selector:
+    app: dispatcher
+  ports:
+  - port: 8090
+    targetPort: 8090
+    name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  replicas: 2  # HA with 2 replicas
+  selector:
+    matchLabels:
+      app: dispatcher
+  template:
+    metadata:
+      labels:
+        app: dispatcher
+    spec:
+      serviceAccountName: job-dispatcher
+      containers:
+      - name: dispatcher
+        image: crucible-platform/dispatcher-service
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8090
+          name: http
+        env:
+        - name: KUBERNETES_NAMESPACE
+          value: "crucible"
+        - name: EXECUTOR_IMAGE
+          value: "crucible-platform/executor-ml"
+        - name: MAX_JOB_TTL
+          value: "3600"
+        - name: JOB_CLEANUP_TTL
+          value: "600"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: ENVIRONMENT
+          value: "development"
+        - name: HOST_OS
+          value: "linux"  # Default to linux, override in local overlay for macOS
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8090
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+---
+# ServiceAccount for dispatcher
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: job-dispatcher
+---
+# Role for creating and managing Jobs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: job-dispatcher
+rules:
+# Create and manage Jobs
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "watch", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs/status"]
+  verbs: ["get"]
+# Read pods for logs
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list"]
+# Read namespace for health check
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get"]
+# Read ConfigMaps for executor images
+# - apiGroups: [""]
+#   resources: ["configmaps"]
+#   resourceNames: ["executor-images"]
+#   verbs: ["get"]
+---
+# Bind role to service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: job-dispatcher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: job-dispatcher
+subjects:
+- kind: ServiceAccount
+  name: job-dispatcher

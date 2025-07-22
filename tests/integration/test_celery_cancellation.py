@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import Mock, patch
 import sys
 from pathlib import Path
+import pytest
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -14,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from api.celery_client import cancel_celery_task, get_celery_task_info
 
 
+@pytest.mark.whitebox
 class TestCeleryCancellation(unittest.TestCase):
     """Test the Celery cancellation functionality."""
 

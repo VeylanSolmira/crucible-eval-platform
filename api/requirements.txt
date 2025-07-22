@@ -1,20 +1,13 @@
 # API Service - Microservices gateway
 # Full dependencies for the API service
 
-# Core API framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
+# Core dependencies from shared
+-r ../shared/requirements/base.txt
+-r ../shared/requirements/redis.txt
 
-# Service communication
-httpx==0.25.0
-redis==5.0.1
+# Service-specific dependencies
 celery==5.3.6  # For dual-write to Celery queue
-
-# Utilities
-structlog==23.2.0
 pyyaml>=6.0
 
-# Storage dependencies
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
+# Include shared requirements for resilient connections
+-r ../shared/requirements-utils.txt

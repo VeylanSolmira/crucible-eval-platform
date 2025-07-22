@@ -1,0 +1,79 @@
+# Resource Quotas to prevent resource exhaustion attacks
+# Limits total resource consumption in the namespace
+#
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: crucible-compute-quota
+spec:
+  hard:
+    # CPU and Memory limits
+    requests.cpu: "100"           # Total CPU requests
+    requests.memory: "200Gi"      # Total memory requests
+    limits.cpu: "200"             # Total CPU limits
+    limits.memory: "400Gi"        # Total memory limits
+    
+    # Storage limits
+    requests.storage: "1Ti"       # Total PVC storage requests
+    persistentvolumeclaims: "50"  # Max number of PVCs
+    
+    # Object count limits
+    pods: "1000"                  # Max number of pods
+    services: "50"                # Max number of services
+    configmaps: "100"             # Max number of configmaps
+    secrets: "100"                # Max number of secrets
+    
+    # Job-specific limits
+    count/jobs.batch: "500"       # Max number of jobs
+    count/cronjobs.batch: "10"    # Max number of cronjobs
+---
+# Separate quota for evaluation jobs with tighter restrictions
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: evaluation-job-quota
+spec:
+  hard:
+    # Very restrictive for evaluation jobs
+    count/jobs.batch: "100"       # Max concurrent evaluation jobs
+    requests.cpu: "50"            # Total CPU for evaluations
+    requests.memory: "100Gi"      # Total memory for evaluations
+    limits.cpu: "100"             # CPU limits for evaluations
+    limits.memory: "200Gi"        # Memory limits for evaluations
+  scopeSelector:
+    matchExpressions:
+    - operator: In
+      scopeName: PriorityClass
+      values: ["evaluation-priority"]
+---
+# Limit ranges to enforce per-pod constraints
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: crucible-limit-range
+spec:
+  limits:
+  # Default limits for containers
+  - default:
+      cpu: "1"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
+    
+  # Limits for evaluation pods
+  - max:
+      cpu: "2"
+      memory: "4Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    type: Pod
+    
+  # PVC size limits
+  - type: PersistentVolumeClaim
+    max:
+      storage: "100Gi"
+    min:
+      storage: "1Gi"

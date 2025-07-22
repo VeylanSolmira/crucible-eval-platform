@@ -1,6 +1,6 @@
 import pytest
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from storage.models.models import Base
 
@@ -8,8 +8,8 @@ from storage.models.models import Base
 @pytest.fixture
 def pg_session():
     """PostgreSQL test database session."""
-    # Use test database URL or skip
-    db_url = os.getenv("TEST_DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/test_crucible")
+    # Use test database URL from environment
+    db_url = os.getenv("TEST_DATABASE_URL")
     
     engine = create_engine(db_url)
     Base.metadata.drop_all(engine)  # Clean slate

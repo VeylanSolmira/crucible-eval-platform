@@ -1,0 +1,9 @@
+# Override storage PVC for local development with Kind
+# Kind doesn't support ReadWriteMany, so we use ReadWriteOnce
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storage-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce  # Changed from ReadWriteMany for local

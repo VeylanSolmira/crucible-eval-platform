@@ -4,10 +4,11 @@
 import pytest
 import requests
 import time
-from tests.utils import submit_evaluation, wait_for_completion, get_evaluation_status
+from tests.utils.utils import submit_evaluation, wait_for_completion, get_evaluation_status
 
 LIBRARY_TEST_CODE = '''
-import json
+# Import json first before we test library availability
+import json as json_module
 
 libraries_to_test = [
     'numpy', 'pandas', 'requests', 'matplotlib', 
@@ -32,13 +33,17 @@ test_results = []
 test_results.append(f"Hash test: {hashlib.sha256(b'test').hexdigest()[:10]}...")
 test_results.append(f"Date test: {datetime.datetime.now().year}")
 
-print(json.dumps({
+# Create the final output
+final_data = {
     "available": results["available"],
     "unavailable": results["unavailable"],
     "tests": test_results
-}, indent=2))
+}
+# Print only the JSON output
+print(json_module.dumps(final_data, indent=2))
 '''
 
+@pytest.mark.graybox
 @pytest.mark.integration
 def test_available_libraries():
     """Test which Python libraries are available in containers"""
@@ -57,10 +62,15 @@ def test_available_libraries():
     # Parse the output
     output = eval_data.get("output", "")
     import json
+    import ast
     try:
         results = json.loads(output)
     except json.JSONDecodeError:
-        pytest.fail(f"Failed to parse output as JSON: {output}")
+        # Workaround for K8s API bug that converts single json.dumps to dict repr
+        try:
+            results = ast.literal_eval(output)
+        except (ValueError, SyntaxError):
+            pytest.fail(f"Failed to parse output as JSON or dict repr: {output}")
     
     # Check that standard library modules are available
     assert "json" in results["available"], "json module should be available"

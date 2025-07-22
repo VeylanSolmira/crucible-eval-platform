@@ -1,0 +1,4 @@
+# Redis dependencies shared by services that use Redis
+# Separated since not all services need Redis
+
+redis==5.2.1

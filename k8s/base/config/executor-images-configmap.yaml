@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: executor-images
+  namespace: crucible
+data:
+  # Default executor images
+  images.yaml: |
+    images:
+      - name: "python-base"
+        image: "crucible-platform/executor-base"
+        description: "Basic Python 3.11 environment"
+      - name: "python-ml"
+        image: "crucible-platform/executor-ml"
+        description: "Python with ML libraries (PyTorch, NumPy, etc.)"
+        default: true

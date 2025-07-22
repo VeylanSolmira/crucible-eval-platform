@@ -19,7 +19,7 @@ spec:
   
   containers:
   - name: evaluator
-    image: metr/evaluator:latest
+    image: metr/evaluator
     
     # Resource limits (can't exceed these)
     resources:
@@ -62,8 +62,11 @@ spec:
   
   # Sidecar container for monitoring
   - name: safety-monitor
-    image: metr/safety-monitor:latest
+    image: metr/safety-monitor
     resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
       limits:
         memory: "512Mi"
         cpu: "0.5"

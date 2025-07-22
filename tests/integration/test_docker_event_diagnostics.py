@@ -3,6 +3,12 @@ Diagnostic tests for Docker event handling and log retrieval.
 
 These tests help diagnose issues with the Docker event system and verify
 that the executor service properly handles container lifecycle events.
+
+NOTE: In Kubernetes, these tests have different characteristics:
+- No Docker events - Kubernetes uses Job status instead
+- Celery polls every 10 seconds instead of instant Docker events  
+- Container removal timing is not an issue (Jobs persist)
+- These tests might be better suited as unit tests for the Celery worker
 """
 
 import pytest
@@ -51,6 +57,7 @@ def submit_evaluation_batch(
     return eval_ids
 
 
+@pytest.mark.whitebox
 @pytest.mark.integration
 @pytest.mark.api
 def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_base_url: str):
@@ -246,7 +253,8 @@ raise ValueError("Test error with details")
     checks = []
     start_time = time.time()
     
-    for i in range(50):  # 5 seconds of checks
+    # In Kubernetes, Celery polls every 10 seconds, so we need to wait longer
+    for i in range(200):  # 20 seconds of checks (Kubernetes needs more time)
         response = api_session.get(f"{api_base_url}/eval/{eval_id}")
         check_time = time.time() - start_time
         

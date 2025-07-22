@@ -1,0 +1,17 @@
+# Priority classes for test infrastructure
+# Ensures test pods don't get preempted by the evaluations they create
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: test-coordinator-priority
+value: 2000
+globalDefault: false
+description: "Priority for test coordinator - highest in test hierarchy"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: test-runner-priority
+value: 1900
+globalDefault: false
+description: "Priority for test runner pods - below coordinator but above evaluations"

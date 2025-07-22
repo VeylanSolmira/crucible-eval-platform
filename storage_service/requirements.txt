@@ -1,0 +1,10 @@
+# Core dependencies from shared
+-r ../shared/requirements/storage.txt
+-r ../shared/requirements/redis.txt
+
+# Service-specific dependencies
+python-multipart==0.0.6
+pyyaml==6.0.1
+
+# Include shared requirements for resilient connections
+-r ../shared/requirements-utils.txt

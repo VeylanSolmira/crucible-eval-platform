@@ -1,0 +1,53 @@
+# Test runner permissions for local development
+# For CI/CD environments, use k8s/overlays/test/ instead
+# which deploys to a dedicated crucible-test namespace
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-runner
+  namespace: crucible
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: test-runner
+  namespace: crucible
+rules:
+  # Allow reading jobs for test verification
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "delete"]  # delete for cancellation tests
+  # Allow reading pods and logs
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  # Allow reading services and endpoints for connectivity tests
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list"]
+  # Allow reading configmaps for configuration tests
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  # Allow reading resource quotas for quota tests
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list"]
+  # Allow reading deployments for status checks
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: test-runner
+  namespace: crucible
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: test-runner
+subjects:
+  - kind: ServiceAccount
+    name: test-runner
+    namespace: crucible

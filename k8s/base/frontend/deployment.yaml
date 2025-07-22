@@ -20,8 +20,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: crucible-platform/frontend:local
-        imagePullPolicy: Never
+        image: crucible-platform/frontend
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
         env:
