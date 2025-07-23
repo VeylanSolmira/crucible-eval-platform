@@ -23,6 +23,7 @@ WORKDIR /app
 # Copy test requirements - maintain directory structure
 COPY tests/requirements.txt ./tests/
 COPY shared/requirements/ ./shared/requirements/
+COPY constraints.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \

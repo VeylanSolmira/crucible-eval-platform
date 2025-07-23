@@ -1,0 +1,36 @@
+# Minimal requirements for local development tasks
+# This is for the host virtual environment, not Docker containers
+
+# Version constraints
+-c constraints.txt
+
+# For OpenAPI generation from FastAPI apps
+fastapi==0.104.1
+pydantic==2.5.0
+# pydantic-settings==2.1.0  # Not needed for OpenAPI generation after schema separation
+
+# For YAML processing in OpenAPI export scripts
+pyyaml==6.0.1
+
+# httpx==0.25.0  # Not needed for OpenAPI generation after schema separation
+
+# Web server (imported by services even though not used for OpenAPI generation)
+# uvicorn[standard]==0.24.0
+
+# For test orchestrator script
+python-dotenv==1.0.0
+
+# Linting tools (as specified in CLAUDE.md and pyproject.toml)
+ruff==0.1.6
+mypy==1.7.1
+
+# Testing framework (for local test runs)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# For SSL warning suppression in tests
+urllib3==2.1.0
+
+# For unit tests that import api.celery_client (even though we mock it)
+celery
+redis

@@ -1,5 +1,5 @@
 # Multi-stage build for Celery Worker
-ARG BASE_IMAGE=crucible-base
+ARG BASE_IMAGE=crucible-platform/base
 
 # Build stage - compile dependencies that need gcc
 FROM ${BASE_IMAGE} AS builder
@@ -18,6 +18,7 @@ WORKDIR /tmp
 COPY celery_worker/requirements.txt ./celery_worker/
 COPY shared/requirements-utils.txt ./shared/
 COPY shared/requirements/ ./shared/requirements/
+COPY constraints.txt ./
 RUN pip install --no-cache-dir -r celery_worker/requirements.txt
 WORKDIR /app
 

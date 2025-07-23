@@ -6,6 +6,7 @@ WORKDIR /app
 COPY dispatcher_service/requirements.txt ./dispatcher_service/
 COPY shared/requirements/ ./shared/requirements/
 COPY shared/requirements-utils.txt ./shared/
+COPY constraints.txt ./
 RUN pip install --no-cache-dir -r dispatcher_service/requirements.txt
 
 # Copy application and shared modules

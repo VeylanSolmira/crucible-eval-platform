@@ -10,3 +10,5 @@ spec:
         env:
         - name: HOST_OS
           value: "macos"  # Override for macOS development
+        - name: GVISOR_AVAILABLE
+          value: "false"  # gVisor doesn't work on macOS with Kind

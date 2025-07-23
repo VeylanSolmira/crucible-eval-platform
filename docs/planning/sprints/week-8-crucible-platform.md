@@ -229,3 +229,121 @@
 - [Celery Broker Comparison](../../architecture/celery-redis-vs-rabbitmq.md)
 - [RabbitMQ Best Practices](https://www.rabbitmq.com/best-practices.html)
 - [Celery Priority Queue Docs](https://docs.celeryproject.org/en/stable/userguide/routing.html#priority)
+
+### 7. Code Quality & Technical Debt
+
+#### 7.1 Clean Up sys.path Manipulations
+- [ ] Remove all sys.path.insert/append hacks from codebase
+  - [ ] Current offenders (25+ files):
+    - api/microservices_gateway.py
+    - api/models.py
+    - storage_worker/app.py
+    - storage/backends/database.py
+    - Various test files
+    - Script files
+  - [ ] Replace with proper solutions:
+    - Set PYTHONPATH in scripts/environments where needed
+    - Use relative imports for modules
+    - Consider making project installable with setup.py
+  - [ ] Update documentation for running scripts
+  - [ ] Test all affected components after cleanup
+
+### 8. Monitoring Service & Event Architecture
+
+#### 8.1 Create Dedicated Monitoring Service
+- [ ] Extract job monitoring from dispatcher into dedicated service
+  - [ ] Create new `monitoring-service` directory structure
+  - [ ] Move `watch_job_events_sync` and `process_job_event` from dispatcher
+  - [ ] Set up FastAPI application with health/readiness endpoints
+  - [ ] Create Dockerfile and Kubernetes manifests
+  - [ ] Update Skaffold configuration
+- [ ] Implement high availability
+  - [ ] Leader election using Kubernetes lease API
+  - [ ] Deploy with 2+ replicas
+  - [ ] Test failover scenarios
+  - [ ] Document HA operations
+- [ ] Add comprehensive metrics
+  - [ ] Prometheus integration
+  - [ ] Job monitoring metrics
+  - [ ] Event processing latency
+  - [ ] Create Grafana dashboard
+
+#### 7.2 Migration Strategy
+- [ ] Phased rollout plan
+  - [ ] Deploy alongside dispatcher monitoring initially
+  - [ ] Add feature flag `USE_MONITORING_SERVICE`
+  - [ ] Test with subset of jobs first
+  - [ ] Full migration after validation
+  - [ ] Remove monitoring code from dispatcher
+- [ ] Maintain backward compatibility
+  - [ ] Keep same Redis event format
+  - [ ] Support rollback procedures
+  - [ ] Document migration steps
+
+#### 7.3 Documentation
+- [ ] Update [Job Monitoring Architecture](../../architecture/job-monitoring-architecture.md)
+- [ ] Create operations runbook
+- [ ] Document metrics and alerts
+- [ ] Update system architecture diagrams
+
+**Rationale**: Extracting monitoring to a dedicated service removes the coupling between dispatcher lifetime and job monitoring, improving reliability and scalability. This completes the event-driven architecture vision.
+
+### 9. Storage Service Investigation & Improvements
+
+#### 9.1 Fix Storage Service Logging Inconsistency
+- [ ] Investigate conflicting log messages in storage service startup
+  - [ ] Current issue: FlexibleStorageManager prints "Using file storage as primary" but storage service shows "Primary backend: database"
+  - [ ] Root cause: FlexibleStorageManager prints messages during initialization that may be misleading
+  - [ ] The actual logic is correct: When `prefer_database=true` and DATABASE_URL is configured, database is primary and file is fallback
+  - [ ] Fix options:
+    - Remove print statements from FlexibleStorageManager
+    - Convert to proper logging with accurate messages
+    - Ensure messages reflect actual configuration outcome
+- [ ] Update logging to be clear and consistent
+  - [ ] Show primary backend selection reason
+  - [ ] Show fallback backend if configured
+  - [ ] Log cache enablement status
+
+#### 9.2 Re-evaluate Storage Architecture
+- [ ] Review current storage backend options and their usage
+  - [ ] **Database (PostgreSQL)**: Currently primary when configured
+    - Structured queries and filtering
+    - Good for metadata and status tracking
+    - Limited by connection pool size
+  - [ ] **File Storage**: Currently fallback, stores large outputs
+    - Good for large evaluation outputs (>1MB)
+    - Simple and reliable
+    - No query capabilities
+  - [ ] **Redis**: Currently only used for transient state
+    - Running evaluations tracking
+    - Real-time event publishing
+    - Not used for permanent storage
+  - [ ] **S3**: Mentioned but not implemented
+    - Long-term archival
+    - Cost-effective for large outputs
+    - High latency for retrieval
+- [ ] Consider improvements
+  - [ ] Implement S3 backend for long-term storage
+  - [ ] Add Redis as a permanent storage option (with persistence)
+  - [ ] Improve large file handling (currently just truncates)
+  - [ ] Add storage migration utilities
+- [ ] Document storage strategy
+  - [ ] When to use each backend
+  - [ ] Data lifecycle policies
+  - [ ] Backup and recovery procedures
+
+#### 9.3 Storage Performance Optimization
+- [ ] Add storage metrics collection
+  - [ ] Backend-specific latencies
+  - [ ] Cache hit rates
+  - [ ] Storage size tracking
+- [ ] Implement missing features
+  - [ ] Large file externalization to S3
+  - [ ] Automatic data archival
+  - [ ] Storage backend health checks
+- [ ] Create storage management tools
+  - [ ] Migration between backends
+  - [ ] Cleanup utilities
+  - [ ] Storage usage reports
+
+**Rationale**: The storage service is critical infrastructure that needs clear logging, proper documentation, and potential architectural improvements to handle different data types and lifecycle requirements effectively.

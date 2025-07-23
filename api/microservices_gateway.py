@@ -13,18 +13,27 @@ import httpx
 import asyncio
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 # Import shared types
 from shared.generated.python import EvaluationStatus, EvaluationResponse
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, Field, validator
 import uvicorn
+
+# Import models
+from .models import (
+    EvaluationRequest,
+    EvaluationSubmitResponse,
+    BatchEvaluationRequest,
+    BatchEvaluationResponse,
+    EvaluationStatusResponse,
+    QueueStatusResponse,
+    StatusResponse,
+    HealthResponse,
+    ServiceHealthInfo
+)
 
 # Import Redis for event publishing
 import redis.asyncio as redis
@@ -35,23 +44,28 @@ from api.celery_client import submit_evaluation_to_celery, CELERY_ENABLED, cance
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Service URLs from environment
-QUEUE_SERVICE_URL = os.getenv("QUEUE_SERVICE_URL")
-STORAGE_SERVICE_URL = os.getenv("STORAGE_SERVICE_URL")
-REDIS_URL = os.getenv("REDIS_URL")
-INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
+# Import Pydantic Settings
+from pydantic_settings import BaseSettings
 
-# Validate required configuration
-required_config = {
-    "QUEUE_SERVICE_URL": QUEUE_SERVICE_URL,
-    "STORAGE_SERVICE_URL": STORAGE_SERVICE_URL,
-    "REDIS_URL": REDIS_URL,
-    "INTERNAL_API_KEY": INTERNAL_API_KEY
-}
+# Configuration using Pydantic Settings
+class Settings(BaseSettings):
+    queue_service_url: str
+    storage_service_url: str
+    redis_url: str
+    internal_api_key: str
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
 
-missing_config = [key for key, value in required_config.items() if not value]
-if missing_config:
-    raise RuntimeError(f"Missing required environment variables: {', '.join(missing_config)}")
+# Create settings instance - lazy initialization for OpenAPI generation
+try:
+    settings = Settings()
+except Exception as e:
+    # During OpenAPI generation, env vars might not be set
+    # Create a dummy settings object to allow schema generation
+    logger.warning(f"Failed to load settings: {e}. Using defaults for OpenAPI generation.")
+    settings = None
 
 # Security validation constants
 # These limits prevent DoS attacks and resource exhaustion
@@ -61,16 +75,20 @@ MIN_TIMEOUT = 1  # 1 second minimum - prevents instant timeout abuse
 MAX_TIMEOUT = 900  # 15 minutes maximum - prevents long-running resource locks
 SUPPORTED_LANGUAGES = ["python"]  # Explicitly allowlist supported languages
 
+# Create FastAPI app
 app = FastAPI(
-    title="Crucible API Service (Microservices Mode)",
-    description="API service for distributed Crucible platform",
+    title="Crucible API Gateway",
+    description="Main API gateway for Crucible evaluation platform (microservices mode)",
     version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -106,7 +124,7 @@ app.add_middleware(RequestSizeLimitMiddleware, max_size=2 * 1024 * 1024)
 def create_http_client(timeout: float = 30.0) -> httpx.AsyncClient:
     """Create an HTTP client with proper headers and timeout"""
     return httpx.AsyncClient(
-        headers={"X-API-Key": INTERNAL_API_KEY} if INTERNAL_API_KEY else {},
+        headers={"X-API-Key": settings.internal_api_key} if settings.internal_api_key else {},
         timeout=timeout
     )
 
@@ -115,112 +133,15 @@ redis_client = None
 
 # Import resilient connection utilities
 from shared.utils.resilient_connections import get_async_redis_client
+from shared.utils import generate_evaluation_id
 
-logger.info(f"Storage service URL: {STORAGE_SERVICE_URL}")
+logger.info(f"Storage service URL: {settings.storage_service_url}")
 
 # Status enum now imported from shared contracts
 # See: shared/types/evaluation-status.yaml
 
-
-# Request models with security validations
-# Security validations implemented in Week 4:
-# 1. Code size validation - prevents memory exhaustion attacks (1MB max)
-# 2. Timeout validation - prevents resource locks (1s-900s range)
-# 3. Language allowlisting - only explicitly supported languages allowed
-# 4. Empty code prevention - ensures meaningful requests
-# Combined with RequestSizeLimitMiddleware for defense in depth
-class EvaluationRequest(BaseModel):
-    code: str = Field(..., description="Code to execute")
-    language: str = Field("python", description="Programming language")
-    engine: str = Field("docker", description="Execution engine")
-    timeout: int = Field(30, description="Timeout in seconds", ge=MIN_TIMEOUT, le=MAX_TIMEOUT)
-    priority: bool = Field(False, description="High priority flag")
-    
-    @validator('code')
-    def validate_code_size(cls, v):
-        """Validate code size to prevent DoS attacks."""
-        if len(v.encode('utf-8')) > MAX_CODE_SIZE:
-            raise ValueError(f"Code size exceeds maximum allowed size of {MAX_CODE_SIZE} bytes")
-        if not v.strip():
-            raise ValueError("Code cannot be empty")
-        return v
-    
-    @validator('language')
-    def validate_language(cls, v):
-        """Validate that language is supported."""
-        if v.lower() not in SUPPORTED_LANGUAGES:
-            raise ValueError(f"Language '{v}' is not supported. Supported languages: {', '.join(SUPPORTED_LANGUAGES)}")
-        return v.lower()
-    
-    @validator('timeout')
-    def validate_timeout(cls, v):
-        """Validate timeout is within acceptable range."""
-        if v < MIN_TIMEOUT:
-            raise ValueError(f"Timeout must be at least {MIN_TIMEOUT} seconds")
-        if v > MAX_TIMEOUT:
-            raise ValueError(f"Timeout cannot exceed {MAX_TIMEOUT} seconds")
-        return v
-
-
-class EvaluationSubmitResponse(BaseModel):
-    eval_id: str
-    status: EvaluationStatus = EvaluationStatus.QUEUED
-    message: str = "Evaluation queued for processing"
-    queue_position: Optional[int] = None
-
-
-class BatchEvaluationRequest(BaseModel):
-    evaluations: List[EvaluationRequest]
-
-
-class BatchEvaluationResponse(BaseModel):
-    evaluations: List[EvaluationSubmitResponse]
-    total: int
-    queued: int
-    failed: int
-
-
-class EvaluationStatusResponse(BaseModel):
-    eval_id: str
-    status: EvaluationStatus
-    created_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    output: str = ""
-    error: str = ""
-    success: bool = False
-
-
-
-
-class QueueStatusResponse(BaseModel):
-    queued: int = 0
-    processing: int = 0
-    queue_length: int = 0
-    total_tasks: int = 0
-    error: Optional[str] = None
-
-
-class ServiceHealthInfo(BaseModel):
-    gateway: str = "healthy"
-    queue: str = "healthy"
-    storage: str = "healthy"
-    executor: str = "healthy"
-
-
-class StatusResponse(BaseModel):
-    platform: str = "healthy"
-    mode: str = "microservices"
-    services: ServiceHealthInfo
-    queue: QueueStatusResponse
-    storage: Dict[str, Any] = {}
-    celery: Optional[Dict[str, Any]] = None
-    version: str = "2.0.0"
-
-
-class HealthResponse(BaseModel):
-    status: str = "ok"
-    timestamp: str
-    services: ServiceHealthInfo
+# Models are now imported from .models module for clean schema separation
+# This allows OpenAPI generation without runtime dependencies
 
 
 # Health tracking
@@ -242,7 +163,7 @@ async def check_service_health():
 
             try:
                 # Check storage service
-                response = await health_client.get(f"{STORAGE_SERVICE_URL}/health")
+                response = await health_client.get(f"{settings.storage_service_url}/health")
                 service_health["storage"] = response.status_code == 200
             except Exception as e:
                 logger.error(f"Storage health check failed: {e}")
@@ -279,7 +200,7 @@ async def check_service_health_once():
 
         try:
             # Check storage service
-            response = await health_client.get(f"{STORAGE_SERVICE_URL}/health")
+            response = await health_client.get(f"{settings.storage_service_url}/health")
             service_health["storage"] = response.status_code == 200
         except Exception as e:
             logger.error(f"Storage health check failed: {e}")
@@ -324,10 +245,19 @@ async def poll_completed_evaluations():
 @app.on_event("startup")
 async def startup():
     """Start background tasks"""
-    global redis_client
+    global redis_client, settings
+    
+    # Validate settings on startup
+    if settings is None:
+        try:
+            settings = Settings()
+            logger.info("Settings loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load required settings: {e}")
+            raise RuntimeError(f"Missing required environment variables: {e}")
     
     # Initialize async Redis client with retry logic
-    redis_client = await get_async_redis_client(REDIS_URL)
+    redis_client = await get_async_redis_client(settings.redis_url)
     logger.info("Connected to async Redis for event publishing with retry logic")
     
     # Run initial health check immediately
@@ -381,18 +311,15 @@ async def health():
         [service_health["gateway"], service_health["queue"], service_health["storage"]]
     )
     
-    # Convert boolean values to string status
-    services_status = {}
-    for service, status in service_health.items():
-        if service == "last_check":
-            continue  # Skip timestamp
-        services_status[service] = "healthy" if status else "unhealthy"
-
-    return {
-        "status": "healthy" if all_healthy else "degraded",
-        "services": services_status,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+    # Simple response for Kubernetes health checks
+    if all_healthy:
+        return {"status": "healthy"}
+    else:
+        # Return 503 for unhealthy state
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "services": service_health}
+        )
 
 
 async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] = None) -> EvaluationResponse:
@@ -402,7 +329,7 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
 
     # Generate eval ID if not provided
     if not eval_id:
-        eval_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        eval_id = generate_evaluation_id()
 
     try:
         # Publish event for storage worker to handle - this is now "queued" since we're submitting to Celery
@@ -570,7 +497,7 @@ async def evaluate_batch(request: BatchEvaluationRequest, response: Response):
     eval_ids = []
     
     for eval_request in request.evaluations:
-        eval_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        eval_id = generate_evaluation_id()
         eval_ids.append(eval_id)
         
         # Publish submitted event
@@ -641,7 +568,7 @@ async def get_evaluation_status(eval_id: str, response: Response):
         try:
             async with create_http_client() as redis_client_http:
                 response = await redis_client_http.get(
-                    f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}/running"
+                    f"{settings.storage_service_url}/evaluations/{eval_id}/running"
                 )
                 if response.status_code == 200:
                     running_info = response.json()
@@ -666,7 +593,7 @@ async def get_evaluation_status(eval_id: str, response: Response):
         logger.info(f"Evaluation {eval_id} not in Redis, checking database")
         async with create_http_client() as db_client:
             response = await db_client.get(
-                f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}"
+                f"{settings.storage_service_url}/evaluations/{eval_id}"
             )
             response.raise_for_status()
             
@@ -723,7 +650,7 @@ async def get_evaluation(eval_id: str):
     logger.info(f"Getting full evaluation details for {eval_id}")
     try:
         async with create_http_client() as client:
-            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            response = await client.get(f"{settings.storage_service_url}/evaluations/{eval_id}")
             response.raise_for_status()
             
             eval_data = response.json()
@@ -769,7 +696,7 @@ async def update_evaluation_status(eval_id: str, status: str, reason: Optional[s
         # Update in storage service (uses PUT, not PATCH)
         async with create_http_client() as update_client:
             response = await update_client.put(
-                f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
+                f"{settings.storage_service_url}/evaluations/{eval_id}",
                 json={
                     "status": status,
                     "metadata": {
@@ -804,7 +731,7 @@ async def get_evaluation_logs(eval_id: str):
     async with create_http_client() as client:
         try:
             # Route to storage service which handles Redis cache and DB fallback
-            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}/logs")
+            response = await client.get(f"{settings.storage_service_url}/evaluations/{eval_id}/logs")
 
             if response.status_code == 404:
                 return JSONResponse(content={"error": "Evaluation not found"}, status_code=404)
@@ -829,7 +756,7 @@ async def kill_evaluation(eval_id: str):
     # Step 1: Get running info from storage to find the job name
     async with create_http_client() as client:
         try:
-            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}/running")
+            response = await client.get(f"{settings.storage_service_url}/evaluations/{eval_id}/running")
             if response.status_code == 404:
                 return JSONResponse(content={"error": "Evaluation not running"}, status_code=404)
             running_info = response.json()
@@ -900,7 +827,7 @@ async def cancel_evaluation(eval_id: str):
     async with create_http_client() as client:
         try:
             # Check if evaluation exists
-            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            response = await client.get(f"{settings.storage_service_url}/evaluations/{eval_id}")
             if response.status_code == 404:
                 return JSONResponse(content={"error": "Evaluation not found"}, status_code=404)
             
@@ -932,7 +859,7 @@ async def cancel_evaluation(eval_id: str):
         
         # After Celery cancellation, check status again (race condition handling)
         try:
-            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            response = await client.get(f"{settings.storage_service_url}/evaluations/{eval_id}")
             eval_data = response.json()
             status = eval_data.get("status")
             
@@ -982,13 +909,13 @@ async def cancel_evaluation(eval_id: str):
     async with create_http_client() as client:
         try:
             # Final status check to avoid overwriting terminal states
-            response = await client.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}")
+            response = await client.get(f"{settings.storage_service_url}/evaluations/{eval_id}")
             eval_data = response.json()
             current_status = eval_data.get("status")
             
             if current_status not in ["completed", "failed", "cancelled"]:
                 await client.put(
-                    f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
+                    f"{settings.storage_service_url}/evaluations/{eval_id}",
                     json={"status": "cancelled", "error": "Cancelled by user"},
                 )
             
@@ -1014,7 +941,7 @@ async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[st
         # Special handling for running status - use Redis for real-time data
         if status == "running":
             async with create_http_client() as running_client:
-                response = await running_client.get(f"{STORAGE_SERVICE_URL}/evaluations/running")
+                response = await running_client.get(f"{settings.storage_service_url}/evaluations/running")
                 if response.status_code == 200:
                     data = response.json()
                     # Transform to match expected format
@@ -1024,7 +951,7 @@ async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[st
                         try:
                             async with create_http_client() as db_client:
                                 db_response = await db_client.get(
-                                    f"{STORAGE_SERVICE_URL}/evaluations/{eval_info['eval_id']}"
+                                    f"{settings.storage_service_url}/evaluations/{eval_info['eval_id']}"
                                 )
                             if db_response.status_code == 200:
                                 eval_data = db_response.json()
@@ -1066,7 +993,7 @@ async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[st
 
         # Proxy to storage service
         async with create_http_client() as storage_client:
-            response = await storage_client.get(f"{STORAGE_SERVICE_URL}/evaluations", params=params)
+            response = await storage_client.get(f"{settings.storage_service_url}/evaluations", params=params)
 
         if response.status_code == 200:
             data = response.json()
@@ -1213,7 +1140,7 @@ async def platform_status():
     if service_health["storage"]:
         try:
             async with create_http_client() as stats_client:
-                response = await stats_client.get(f"{STORAGE_SERVICE_URL}/statistics")
+                response = await stats_client.get(f"{settings.storage_service_url}/statistics")
                 if response.status_code == 200:
                     stats_data = response.json()
                     storage_stats = {
@@ -1281,7 +1208,7 @@ async def get_statistics():
 
     try:
         async with create_http_client() as stats_client:
-            response = await stats_client.get(f"{STORAGE_SERVICE_URL}/statistics")
+            response = await stats_client.get(f"{settings.storage_service_url}/statistics")
             if response.status_code == 200:
                 return response.json()
             else:

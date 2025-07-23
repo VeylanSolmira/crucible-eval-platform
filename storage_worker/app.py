@@ -68,6 +68,7 @@ class StorageWorker:
 
         self.running = True
         self.events_processed = 0
+        self.start_time = datetime.now(timezone.utc)  # Track when the worker started
 
         # Log batching
         self.log_buffers: Dict[str, List[Dict]] = {}  # eval_id -> log entries
@@ -508,12 +509,19 @@ class StorageWorker:
             logger.warning(f"Storage health check failed: {e}")
             storage_healthy = False
 
+        # Calculate uptime
+        uptime_seconds = (datetime.now(timezone.utc) - self.start_time).total_seconds()
+        hours, remainder = divmod(int(uptime_seconds), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        uptime_str = f"{hours}h {minutes}m {seconds}s"
+        
         return {
             "healthy": redis_healthy and storage_healthy,
             "redis": "healthy" if redis_healthy else "unhealthy",
             "storage": "healthy" if storage_healthy else "unhealthy",
             "events_processed": self.events_processed,
-            "uptime": "TODO",  # Add uptime tracking
+            "uptime": uptime_str,
+            "uptime_seconds": int(uptime_seconds),
         }
 
     async def shutdown(self):

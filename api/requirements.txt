@@ -1,12 +1,15 @@
 # API Service - Microservices gateway
 # Full dependencies for the API service
 
+# Version constraints
+-c ../constraints.txt
+
 # Core dependencies from shared
 -r ../shared/requirements/base.txt
 -r ../shared/requirements/redis.txt
 
 # Service-specific dependencies
-celery==5.3.6  # For dual-write to Celery queue
+celery  # For dual-write to Celery queue
 pyyaml>=6.0
 
 # Include shared requirements for resilient connections

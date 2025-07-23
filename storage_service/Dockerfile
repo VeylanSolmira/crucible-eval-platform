@@ -1,5 +1,5 @@
 # Storage Service Dockerfile
-ARG BASE_IMAGE=crucible-base
+ARG BASE_IMAGE=crucible-platform/base
 FROM ${BASE_IMAGE}
 
 WORKDIR /app
@@ -8,6 +8,7 @@ WORKDIR /app
 COPY storage_service/requirements.txt /app/storage_service/requirements.txt
 COPY shared/requirements-utils.txt /app/shared/requirements-utils.txt
 COPY shared/requirements/ /app/shared/requirements/
+COPY constraints.txt /app/constraints.txt
 RUN pip install --no-cache-dir -r /app/storage_service/requirements.txt
 
 # Copy storage service code and shared contracts

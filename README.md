@@ -157,6 +157,8 @@ This approach shows realistic architectural evolution!
 
 - Docker Desktop or Docker Engine
 - Python 3.11+
+- Kubernetes cluster (Docker Desktop, Kind, or similar)
+- kubectl configured to access your cluster
 - Node.js 18+
 - kubectl CLI
 - Kubernetes (minikube/kind for local development)
@@ -170,29 +172,45 @@ This approach shows realistic architectural evolution!
    cd metr-eval-platform
    ```
 
-2. Set up the development environment:
+2. Set up the local development environment:
    ```bash
-   # Backend
-   cd src
-   python -m venv venv
-   source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-   pip install -r requirements.txt
-
-   # Frontend
-   cd ../frontend
-   npm install
+   # Create and activate virtual environment
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   
+   # Install development dependencies (for linting, testing, OpenAPI generation)
+   pip install -r requirements-dev.txt
    ```
 
-3. Run locally:
+3. Start the platform:
    ```bash
-   # Start backend
-   cd src
-   uvicorn api.main:app --reload
-
-   # Start frontend (new terminal)
-   cd frontend
-   npm start
+   # This script will:
+   # - Check/create virtual environment and install dependencies
+   # - Create Kind cluster if needed
+   # - Build base Docker image
+   # - Generate OpenAPI specs
+   # - Start all services with Skaffold
+   ./start-platform.sh --skip-tests --no-browser
    ```
+
+4. Access the services:
+   - Frontend: http://localhost:3000
+   - API: http://localhost:8080
+   - API Docs: http://localhost:8080/docs
+
+### Development Commands
+
+```bash
+# Linting
+ruff check .
+mypy src/
+
+# Testing
+pytest tests/ -v
+
+# OpenAPI generation (run after API changes)
+./scripts/generate-all-openapi-specs.sh
+```
 
 See [DEVELOPMENT_ENVIRONMENT_CHECKLIST.md](DEVELOPMENT_ENVIRONMENT_CHECKLIST.md) for detailed setup instructions.
 

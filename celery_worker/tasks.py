@@ -109,14 +109,21 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
             )
             storage_response.raise_for_status()
 
-        # Start monitoring the job
-        job_name_from_dispatcher = result.get('job_name')
-        if not job_name_from_dispatcher:
-            logger.error(f"No job_name in dispatcher response for eval {eval_id}: {result}")
-            raise ValueError(f"Dispatcher did not return job_name for evaluation {eval_id}")
+        # Check if event monitoring is enabled in dispatcher
+        # If it is, we don't need to poll from Celery
+        event_monitoring_enabled = os.getenv("ENABLE_EVENT_MONITORING", "true").lower() == "true"
         
-        logger.info(f"Starting monitor for eval {eval_id} with job_name {job_name_from_dispatcher}")
-        monitor_job_status.delay(eval_id, job_name_from_dispatcher)
+        if not event_monitoring_enabled:
+            # Start monitoring the job only if event monitoring is disabled
+            job_name_from_dispatcher = result.get('job_name')
+            if not job_name_from_dispatcher:
+                logger.error(f"No job_name in dispatcher response for eval {eval_id}: {result}")
+                raise ValueError(f"Dispatcher did not return job_name for evaluation {eval_id}")
+            
+            logger.info(f"Starting monitor for eval {eval_id} with job_name {job_name_from_dispatcher}")
+            monitor_job_status.delay(eval_id, job_name_from_dispatcher)
+        else:
+            logger.info(f"Event monitoring enabled - skipping Celery polling for eval {eval_id}")
         
         return result
 

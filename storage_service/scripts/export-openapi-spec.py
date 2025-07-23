@@ -11,8 +11,11 @@ import json
 import yaml
 from pathlib import Path
 
-# Import directly when run from service directory
-from app import app
+# Import schema for clean OpenAPI generation
+from schema import create_app_schema
+
+# Create app instance (no runtime dependencies needed)
+app = create_app_schema()
 
 # Get the OpenAPI schema
 openapi_schema = app.openapi()

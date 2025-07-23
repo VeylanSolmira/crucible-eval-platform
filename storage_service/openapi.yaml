@@ -1,10 +1,20 @@
 openapi: 3.1.0
 info:
   title: Crucible Storage Service
-  description: RESTful API for accessing evaluation data across multiple storage backends
-    (database, file, S3, Redis)
+  description: Data storage and retrieval API for the Crucible evaluation platform
   version: 1.0.0
 paths:
+  /:
+    get:
+      summary: Root
+      description: Root endpoint with service information
+      operationId: root__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /health:
     get:
       summary: Health
@@ -15,12 +25,13 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
-  /storage-info:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /info:
     get:
       summary: Get Storage Info
-      description: Get information about storage configuration
-      operationId: get_storage_info_storage_info_get
+      description: Get storage backend information
+      operationId: get_storage_info_info_get
       responses:
         '200':
           description: Successful Response
@@ -40,7 +51,7 @@ paths:
             schema:
               $ref: '#/components/schemas/EvaluationCreate'
       responses:
-        '200':
+        '201':
           description: Successful Response
           content:
             application/json:
@@ -98,16 +109,25 @@ paths:
           description: Filter by language
           title: Language
         description: Filter by language
-      - name: since
+      - name: sort_by
         in: query
         required: false
         schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          description: Filter by creation time (ISO format)
-          title: Since
-        description: Filter by creation time (ISO format)
+          type: string
+          description: Field to sort by
+          default: created_at
+          title: Sort By
+        description: Field to sort by
+      - name: sort_order
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^(asc|desc)$
+          description: Sort order
+          default: desc
+          title: Sort Order
+        description: Sort order
       responses:
         '200':
           description: Successful Response
@@ -124,19 +144,7 @@ paths:
   /evaluations/{eval_id}:
     get:
       summary: Get Evaluation
-      description: 'Get evaluation by ID
-
-
-        The storage service automatically retrieves from:
-
-        1. Cache (if enabled and available)
-
-        2. Primary backend (database/file/memory)
-
-        3. Fallback backend (if primary fails)
-
-
-        Large outputs (>100KB) are automatically fetched from S3/filesystem.'
+      description: Get evaluation by ID
       operationId: get_evaluation_evaluations__eval_id__get
       parameters:
       - name: eval_id
@@ -145,13 +153,6 @@ paths:
         schema:
           type: string
           title: Eval Id
-      - name: include_storage_info
-        in: query
-        required: false
-        schema:
-          type: boolean
-          default: false
-          title: Include Storage Info
       responses:
         '200':
           description: Successful Response
@@ -167,7 +168,7 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
     put:
       summary: Update Evaluation
-      description: Update an existing evaluation
+      description: Update evaluation fields
       operationId: update_evaluation_evaluations__eval_id__put
       parameters:
       - name: eval_id
@@ -197,7 +198,7 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
     delete:
       summary: Delete Evaluation
-      description: Delete an evaluation (soft delete)
+      description: Delete an evaluation
       operationId: delete_evaluation_evaluations__eval_id__delete
       parameters:
       - name: eval_id
@@ -221,7 +222,7 @@ paths:
   /evaluations/{eval_id}/running:
     get:
       summary: Get Running Info
-      description: Get running container info from Redis for active evaluations
+      description: Get running evaluation info from Redis cache
       operationId: get_running_info_evaluations__eval_id__running_get
       parameters:
       - name: eval_id
@@ -235,23 +236,18 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/RunningEvaluationInfo'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /evaluations/{eval_id}/celery-update:
     post:
-      summary: Update Celery Task Status
-      description: 'Update evaluation status from Celery task.
-
-
-        This endpoint is called by Celery tasks to update evaluation status
-
-        with Celery-specific information like task ID, retry count, etc.'
-      operationId: update_celery_task_status_evaluations__eval_id__celery_update_post
+      summary: Set Running Info
+      description: Mark evaluation as running with executor info
+      operationId: set_running_info_evaluations__eval_id__running_post
       parameters:
       - name: eval_id
         in: path
@@ -259,19 +255,53 @@ paths:
         schema:
           type: string
           title: Eval Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              title: Body
+      - name: executor_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Executor Id
+      - name: container_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Container Id
+      - name: job_name
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Job Name
       responses:
-        '200':
+        '204':
           description: Successful Response
+        '422':
+          description: Validation Error
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      summary: Clear Running Info
+      description: Clear running status for evaluation
+      operationId: clear_running_info_evaluations__eval_id__running_delete
+      parameters:
+      - name: eval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Id
+      responses:
+        '204':
+          description: Successful Response
         '422':
           description: Validation Error
           content:
@@ -280,15 +310,16 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
   /evaluations/running:
     get:
-      summary: List Running Evaluations
-      description: List all currently running evaluations
-      operationId: list_running_evaluations_evaluations_running_get
+      summary: Get All Running
+      description: Get all currently running evaluations
+      operationId: get_all_running_evaluations_running_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/RunningEvaluationsResponse'
   /evaluations/{eval_id}/events:
     post:
       summary: Add Event
@@ -308,7 +339,7 @@ paths:
             schema:
               $ref: '#/components/schemas/EventCreate'
       responses:
-        '200':
+        '201':
           description: Successful Response
           content:
             application/json:
@@ -347,154 +378,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /statistics:
-    get:
-      summary: Get Statistics
-      description: Get aggregated statistics
-      operationId: get_statistics_statistics_get
-      parameters:
-      - name: since
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          description: Calculate stats since this time (ISO format)
-          title: Since
-        description: Calculate stats since this time (ISO format)
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatisticsResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /evaluations/bulk:
-    post:
-      summary: Bulk Create Evaluations
-      description: Create multiple evaluations in one request
-      operationId: bulk_create_evaluations_evaluations_bulk_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              items:
-                $ref: '#/components/schemas/EvaluationCreate'
-              type: array
-              title: Evaluations
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /storage/overview:
-    get:
-      summary: Get Storage Overview
-      description: Get overview of all storage backends with metrics
-      operationId: get_storage_overview_storage_overview_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /storage/{backend}/details:
-    get:
-      summary: Get Storage Backend Details
-      description: Get detailed information about a specific storage backend
-      operationId: get_storage_backend_details_storage__backend__details_get
-      parameters:
-      - name: backend
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Backend
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /evaluations/{eval_id}/complete:
-    get:
-      summary: Get Evaluation Complete
-      description: Get complete evaluation data including all artifacts and events
-      operationId: get_evaluation_complete_evaluations__eval_id__complete_get
-      parameters:
-      - name: eval_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Eval Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /evaluations/{eval_id}/logs:
-    post:
-      summary: Append Evaluation Logs
-      description: Append logs to an evaluation
-      operationId: append_evaluation_logs_evaluations__eval_id__logs_post
-      parameters:
-      - name: eval_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Eval Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              title: Request
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     get:
       summary: Get Evaluation Logs
-      description: Get logs for an evaluation with Redis cache check
+      description: Get execution logs for an evaluation
       operationId: get_evaluation_logs_evaluations__eval_id__logs_get
       parameters:
       - name: eval_id
@@ -503,6 +390,90 @@ paths:
         schema:
           type: string
           title: Eval Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /statistics:
+    get:
+      summary: Get Statistics
+      description: Get aggregate statistics across all evaluations
+      operationId: get_statistics_statistics_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsResponse'
+  /search:
+    get:
+      summary: Search Evaluations
+      description: Search evaluations by code content or metadata
+      operationId: search_evaluations_search_get
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Search query
+          title: Q
+        description: Search query
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cleanup:
+    post:
+      summary: Cleanup Old Evaluations
+      description: Clean up old evaluation records
+      operationId: cleanup_old_evaluations_cleanup_post
+      parameters:
+      - name: older_than_days
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Delete evaluations older than N days
+          default: 30
+          title: Older Than Days
+        description: Delete evaluations older than N days
+      - name: dry_run
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: If true, only return count without deleting
+          default: true
+          title: Dry Run
+        description: If true, only return count without deleting
       responses:
         '200':
           description: Successful Response
@@ -743,6 +714,74 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        service:
+          type: string
+          title: Service
+        timestamp:
+          type: string
+          title: Timestamp
+        storage_available:
+          type: boolean
+          title: Storage Available
+        redis_available:
+          type: boolean
+          title: Redis Available
+      type: object
+      required:
+      - status
+      - service
+      - timestamp
+      - storage_available
+      - redis_available
+      title: HealthResponse
+    RunningEvaluationInfo:
+      properties:
+        eval_id:
+          type: string
+          title: Eval Id
+        started_at:
+          type: string
+          title: Started At
+        executor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Executor Id
+        container_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Container Id
+        job_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Job Name
+      type: object
+      required:
+      - eval_id
+      - started_at
+      title: RunningEvaluationInfo
+    RunningEvaluationsResponse:
+      properties:
+        running_evaluations:
+          items:
+            $ref: '#/components/schemas/RunningEvaluationInfo'
+          type: array
+          title: Running Evaluations
+        count:
+          type: integer
+          title: Count
+      type: object
+      required:
+      - running_evaluations
+      - count
+      title: RunningEvaluationsResponse
     StatisticsResponse:
       properties:
         total_evaluations:

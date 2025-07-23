@@ -13,8 +13,7 @@ build:
       sync:
         manual:
           - src: api/**/*.py
-            dest: /app
-            strip: api/
+            dest: /app/api
       docker:
         dockerfile: api/Dockerfile
         buildArgs:

@@ -15,7 +15,41 @@ import pytest
 import time
 import requests
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+
+
+def wait_for_evaluation_completion(
+    api_session: requests.Session,
+    api_base_url: str,
+    eval_id: str,
+    timeout: float = 30.0,
+    initial_delay: float = 0.1,
+    max_delay: float = 2.0,
+    backoff_factor: float = 1.5
+) -> Optional[Dict[str, Any]]:
+    """
+    Wait for evaluation completion using exponential backoff.
+    
+    With event-based messaging, evaluations complete faster, so we start
+    with a short delay and increase it exponentially to reduce polling.
+    
+    Returns the final evaluation result or None if timeout.
+    """
+    start_time = time.time()
+    delay = initial_delay
+    
+    while time.time() - start_time < timeout:
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        if response.status_code == 200:
+            result = response.json()
+            if result["status"] in ["completed", "failed", "timeout", "cancelled"]:
+                return result
+        
+        # Exponential backoff with max delay
+        time.sleep(delay)
+        delay = min(delay * backoff_factor, max_delay)
+    
+    return None
 
 
 def get_executor_status(api_session: requests.Session, api_base_url: str) -> Dict[str, Any]:
@@ -97,28 +131,28 @@ def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_
         eval_id = response.json()["eval_id"]
         submission_time = time.time() - start_time
         
-        # Poll until completion
-        poll_start = time.time()
-        while time.time() - poll_start < 10:
-            response = api_session.get(f"{api_base_url}/eval/{eval_id}")
-            if response.status_code == 200:
-                result = response.json()
-                if result["status"] in ["completed", "failed", "timeout"]:
-                    completion_time = time.time() - start_time
-                    
-                    timing_results.append({
-                        "test_name": test_name,
-                        "eval_id": eval_id,
-                        "submission_time": submission_time,
-                        "completion_time": completion_time,
-                        "execution_time": completion_time - submission_time,
-                        "status": result["status"],
-                        "has_logs": bool(result.get("error") or result.get("output")),
-                        "log_length": len(result.get("error", "") + result.get("output", ""))
-                    })
-                    break
+        # Wait for completion with exponential backoff
+        result = wait_for_evaluation_completion(
+            api_session, api_base_url, eval_id, 
+            timeout=30.0,  # Increased timeout for Kubernetes job scheduling
+            initial_delay=0.05  # Start with 50ms for fast completions
+        )
+        
+        if result:
+            completion_time = time.time() - start_time
             
-            time.sleep(0.1)
+            timing_results.append({
+                "test_name": test_name,
+                "eval_id": eval_id,
+                "submission_time": submission_time,
+                "completion_time": completion_time,
+                "execution_time": completion_time - submission_time,
+                "status": result["status"],
+                "has_logs": bool(result.get("error") or result.get("output")),
+                "log_length": len((result.get("error") or "") + (result.get("output") or ""))
+            })
+        else:
+            pytest.fail(f"Evaluation {eval_id} for test '{test_name}' timed out")
     
     # Diagnostic output
     print("\n=== Container Lifecycle Timing Results ===")
@@ -158,45 +192,51 @@ def test_concurrent_fast_failures_event_handling(api_session: requests.Session, 
     
     print(f"\nSubmitted {len(eval_ids)} evaluations in {submission_time:.3f}s")
     
-    # Wait for all to complete (allowing for sequential processing)
-    time.sleep(2)  # Give them time to start
-    
-    # TODO: Instead of waiting with a timeout, we should query the queue status
-    # to know when all evaluations have been processed. This would make the test
-    # more reliable and faster. See /api/queue/status endpoint.
+    # Wait for all to complete in parallel with shorter timeouts
     completion_states = {}
-    max_wait = 60  # Allow more time since they may process sequentially
-    check_start = time.time()
+    remaining_evals = set(eval_ids)
     
-    while time.time() - check_start < max_wait:
-        incomplete = []
+    # Poll all evaluations in parallel with event-aware timing
+    overall_timeout = 30.0  # 30s should be plenty for simple failures
+    deadline = time.time() + overall_timeout
+    poll_interval = 0.2  # Start with 200ms polls
+    max_poll_interval = 2.0
+    
+    while remaining_evals and time.time() < deadline:
+        # Check all remaining evaluations in a single batch
+        for eval_id in list(remaining_evals):
+            try:
+                response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+                if response.status_code == 200:
+                    result = response.json()
+                    if result["status"] in ["completed", "failed", "timeout", "cancelled"]:
+                        completion_states[eval_id] = {
+                            "status": result["status"],
+                            "has_logs": bool(result.get("error") or result.get("output")),
+                            "completion_time": time.time() - start_time
+                        }
+                        remaining_evals.remove(eval_id)
+            except Exception as e:
+                print(f"Error checking {eval_id}: {e}")
         
-        for eval_id in eval_ids:
-            if eval_id in completion_states:
-                continue
-                
-            response = api_session.get(f"{api_base_url}/eval/{eval_id}")
-            if response.status_code == 200:
-                result = response.json()
-                if result["status"] in ["completed", "failed", "timeout", "cancelled"]:
-                    completion_states[eval_id] = {
-                        "status": result["status"],
-                        "has_logs": bool(result.get("error") or result.get("output")),
-                        "completion_time": time.time() - start_time
-                    }
-                else:
-                    incomplete.append(eval_id)
-        
-        if not incomplete:
-            break
-            
-        time.sleep(0.5)
+        if remaining_evals:
+            time.sleep(poll_interval)
+            # Exponential backoff up to max
+            poll_interval = min(poll_interval * 1.5, max_poll_interval)
     
     # Diagnostic output
+    total_time = time.time() - start_time
     print(f"\n=== Concurrent Execution Results ===")
     print(f"Total evaluations: {len(eval_ids)}")
     print(f"Completed: {len(completion_states)}")
     print(f"Incomplete: {len(eval_ids) - len(completion_states)}")
+    print(f"Total test time: {total_time:.3f}s")
+    
+    if completion_states:
+        completion_times = [state["completion_time"] for state in completion_states.values()]
+        print(f"First completion: {min(completion_times):.3f}s")
+        print(f"Last completion: {max(completion_times):.3f}s")
+        print(f"Average completion: {sum(completion_times)/len(completion_times):.3f}s")
     
     # Check for issues
     stuck_evals = [eid for eid in eval_ids if eid not in completion_states]
@@ -249,12 +289,12 @@ raise ValueError("Test error with details")
     assert response.status_code == 200
     eval_id = response.json()["eval_id"]
     
-    # Immediately start checking status
+    # Track status progression with exponential backoff
     checks = []
     start_time = time.time()
+    delay = 0.05
     
-    # In Kubernetes, Celery polls every 10 seconds, so we need to wait longer
-    for i in range(200):  # 20 seconds of checks (Kubernetes needs more time)
+    while time.time() - start_time < 20:  # 20 second timeout
         response = api_session.get(f"{api_base_url}/eval/{eval_id}")
         check_time = time.time() - start_time
         
@@ -271,7 +311,8 @@ raise ValueError("Test error with details")
             if result["status"] in ["completed", "failed"]:
                 break
         
-        time.sleep(0.1)
+        time.sleep(delay)
+        delay = min(delay * 1.5, 2.0)  # Exponential backoff
     
     # Analyze the progression
     print(f"\n=== Container Lifecycle Progression ===")

@@ -1,15 +1,15 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Crucible API Service (Microservices Mode)",
-    "description": "API service for distributed Crucible platform",
+    "title": "Crucible API Gateway",
+    "description": "Main API gateway for Crucible evaluation platform (microservices mode)",
     "version": "2.0.0"
   },
   "paths": {
     "/": {
       "get": {
         "summary": "Root",
-        "description": "Root endpoint with HTML interface",
+        "description": "Root endpoint - returns basic API information.",
         "operationId": "root__get",
         "responses": {
           "200": {
@@ -25,9 +25,9 @@
     },
     "/health": {
       "get": {
-        "summary": "Health",
-        "description": "Gateway health check",
-        "operationId": "health_health_get",
+        "summary": "Health Check",
+        "description": "Basic health check endpoint.",
+        "operationId": "health_check_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -40,11 +40,66 @@
         }
       }
     },
-    "/api/eval": {
+    "/health/ready": {
+      "get": {
+        "summary": "Readiness Check",
+        "description": "Readiness check that verifies all services are available.",
+        "operationId": "readiness_check_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "summary": "Get Platform Status",
+        "description": "Get comprehensive platform status including all services.",
+        "operationId": "get_platform_status_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/status": {
+      "get": {
+        "summary": "Get Queue Status",
+        "description": "Get current queue status and metrics.",
+        "operationId": "get_queue_status_queue_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/eval": {
       "post": {
-        "summary": "Evaluate",
-        "description": "Submit code for evaluation",
-        "operationId": "evaluate_api_eval_post",
+        "summary": "Submit Evaluation",
+        "description": "Submit code for evaluation (single evaluation).\n\nThis endpoint submits to Celery for processing.\nUse WebSocket endpoint for real-time updates.\n\nDEPRECATED: Use /api/eval endpoint instead.",
+        "operationId": "submit_evaluation_eval_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -61,7 +116,48 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvaluationSubmitResponse"
+                  "$ref": "#/components/schemas/EvaluationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/eval/{eval_id}": {
+      "get": {
+        "summary": "Get Evaluation Status",
+        "description": "Get the status of a specific evaluation.",
+        "operationId": "get_evaluation_status_eval__eval_id__get",
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationStatusResponse"
                 }
               }
             }
@@ -79,11 +175,96 @@
         }
       }
     },
-    "/api/eval-batch": {
+    "/eval/{eval_id}/logs": {
+      "get": {
+        "summary": "Get Evaluation Logs",
+        "description": "Get execution logs for a specific evaluation.",
+        "operationId": "get_evaluation_logs_eval__eval_id__logs_get",
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Get Evaluation Logs Eval  Eval Id  Logs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/eval/{eval_id}/cancel": {
       "post": {
-        "summary": "Evaluate Batch",
-        "description": "Submit multiple evaluations as a batch - returns immediately with 202 Accepted",
-        "operationId": "evaluate_batch_api_eval_batch_post",
+        "summary": "Cancel Evaluation",
+        "description": "Cancel a running evaluation.",
+        "operationId": "cancel_evaluation_eval__eval_id__cancel_post",
+        "parameters": [
+          {
+            "name": "eval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Eval Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Cancel Evaluation Eval  Eval Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/batch": {
+      "post": {
+        "summary": "Submit Batch Evaluation",
+        "description": "Submit multiple evaluations in a single request.",
+        "operationId": "submit_batch_evaluation_batch_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -95,7 +276,7 @@
           "required": true
         },
         "responses": {
-          "202": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -118,48 +299,182 @@
         }
       }
     },
-    "/api/eval/{eval_id}/status": {
+    "/evaluations": {
       "get": {
-        "summary": "Get Evaluation Status",
-        "description": "Get evaluation status - checks Redis first for real-time status, falls back to DB.\nThis provides instant status updates for running evaluations.",
-        "operationId": "get_evaluation_status_api_eval__eval_id__status_get",
+        "summary": "List Evaluations",
+        "description": "List all evaluations with optional status filter.",
+        "operationId": "list_evaluations_evaluations_get",
         "parameters": [
           {
-            "name": "eval_id",
-            "in": "path",
-            "required": true,
+            "name": "status",
+            "in": "query",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Eval Id"
-            }
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EvaluationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status",
+              "title": "Status"
+            },
+            "description": "Filter by status"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Maximum number of results",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of results"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of results to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of results to skip"
           }
         ],
         "responses": {
           "200": {
-            "description": "Evaluation found with complete status",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvaluationStatusResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationStatusResponse"
+                  },
+                  "title": "Response List Evaluations Evaluations Get"
                 }
               }
             }
           },
-          "202": {
-            "description": "Evaluation is pending/in-progress",
+          "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvaluationStatusResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/evaluations/running": {
+      "get": {
+        "summary": "Get Running Evaluations",
+        "description": "Get all currently running evaluations from storage service.",
+        "operationId": "get_running_evaluations_evaluations_running_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Get Running Evaluations Evaluations Running Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/statistics": {
+      "get": {
+        "summary": "Get Statistics",
+        "description": "Get evaluation statistics from storage service.",
+        "operationId": "get_statistics_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Get Statistics Statistics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dlq/messages": {
+      "get": {
+        "summary": "Get Dlq Messages",
+        "description": "Get messages from the dead letter queue.",
+        "operationId": "get_dlq_messages_dlq_messages_get",
+        "parameters": [
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Specific queue to fetch from",
+              "title": "Queue"
+            },
+            "description": "Specific queue to fetch from"
           },
-          "404": {
-            "description": "Evaluation not found"
-          },
-          "503": {
-            "description": "Storage service unavailable"
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of messages to return",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "Number of messages to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "title": "Response Get Dlq Messages Dlq Messages Get"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -173,31 +488,13 @@
           }
         }
       },
-      "patch": {
-        "summary": "Update Evaluation Status",
-        "description": "Admin endpoint to manually update evaluation status",
-        "operationId": "update_evaluation_status_api_eval__eval_id__status_patch",
+      "delete": {
+        "summary": "Clear Dlq",
+        "description": "Clear messages from the DLQ.",
+        "operationId": "clear_dlq_dlq_messages_delete",
         "parameters": [
           {
-            "name": "eval_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Eval Id"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Status"
-            }
-          },
-          {
-            "name": "reason",
+            "name": "queue",
             "in": "query",
             "required": false,
             "schema": {
@@ -209,7 +506,85 @@
                   "type": "null"
                 }
               ],
-              "title": "Reason"
+              "description": "Specific queue to clear",
+              "title": "Queue"
+            },
+            "description": "Specific queue to clear"
+          },
+          {
+            "name": "older_than_hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Clear messages older than N hours",
+              "title": "Older Than Hours"
+            },
+            "description": "Clear messages older than N hours"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Clear Dlq Dlq Messages Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dlq/messages/{message_id}/retry": {
+      "post": {
+        "summary": "Retry Dlq Message",
+        "description": "Retry a specific message from the DLQ.",
+        "operationId": "retry_dlq_message_dlq_messages__message_id__retry_post",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Queue"
             }
           }
         ],
@@ -218,7 +593,112 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Retry Dlq Message Dlq Messages  Message Id  Retry Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dlq/messages/{message_id}": {
+      "delete": {
+        "summary": "Delete Dlq Message",
+        "description": "Delete a specific message from the DLQ.",
+        "operationId": "delete_dlq_message_dlq_messages__message_id__delete",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Queue"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Dlq Message Dlq Messages  Message Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval": {
+      "post": {
+        "summary": "Api Submit Evaluation",
+        "description": "Submit code for evaluation through the API gateway.\n\nThis is the main evaluation endpoint that handles both\nCelery submission and status tracking.",
+        "operationId": "api_submit_evaluation_api_eval_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationResponse"
+                }
               }
             }
           },
@@ -237,55 +717,9 @@
     },
     "/api/eval/{eval_id}": {
       "get": {
-        "summary": "Get Evaluation",
-        "description": "Get full evaluation details including code, output, and all metadata.\nThis endpoint returns comprehensive evaluation data from the storage service.",
-        "operationId": "get_evaluation_api_eval__eval_id__get",
-        "parameters": [
-          {
-            "name": "eval_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Eval Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Full evaluation details including code",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EvaluationResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Evaluation not found"
-          },
-          "503": {
-            "description": "Storage service unavailable"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/eval/{eval_id}/logs": {
-      "get": {
-        "summary": "Get Evaluation Logs",
-        "description": "Get logs for any evaluation - routes through storage service",
-        "operationId": "get_evaluation_logs_api_eval__eval_id__logs_get",
+        "summary": "Api Get Evaluation Status",
+        "description": "Get evaluation status through the API gateway.",
+        "operationId": "api_get_evaluation_status_api_eval__eval_id__get",
         "parameters": [
           {
             "name": "eval_id",
@@ -302,7 +736,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationStatusResponse"
+                }
               }
             }
           },
@@ -313,265 +749,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/eval/{eval_id}/kill": {
-      "post": {
-        "summary": "Kill Evaluation",
-        "description": "Kill a running evaluation",
-        "operationId": "kill_evaluation_api_eval__eval_id__kill_post",
-        "parameters": [
-          {
-            "name": "eval_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Eval Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/eval/{eval_id}/cancel": {
-      "post": {
-        "summary": "Cancel Evaluation",
-        "description": "Cancel a queued or running evaluation task.\n\nThis cancels the Celery task, preventing it from running if queued,\nor optionally terminating it if already running.\n\nDifferent from /kill which stops the Docker container execution.",
-        "operationId": "cancel_evaluation_api_eval__eval_id__cancel_post",
-        "parameters": [
-          {
-            "name": "eval_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Eval Id"
-            }
-          },
-          {
-            "name": "terminate",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Terminate"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/evaluations": {
-      "get": {
-        "summary": "Get Evaluations",
-        "description": "Get evaluation history from storage service",
-        "operationId": "get_evaluations_api_evaluations_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 100,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/queue-status": {
-      "get": {
-        "summary": "Get Queue Status",
-        "description": "Get queue status - now returns Celery status since legacy queue is deactivated",
-        "operationId": "get_queue_status_api_queue_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QueueStatusResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/celery-status": {
-      "get": {
-        "summary": "Get Celery Status Endpoint",
-        "description": "Get Celery cluster status including workers, queues, and tasks.",
-        "operationId": "get_celery_status_endpoint_api_celery_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/status": {
-      "get": {
-        "summary": "Platform Status",
-        "description": "Overall platform status",
-        "operationId": "platform_status_api_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/health": {
-      "get": {
-        "summary": "Health Check",
-        "description": "Health check endpoint",
-        "operationId": "health_check_api_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/statistics": {
-      "get": {
-        "summary": "Get Statistics",
-        "description": "Get aggregated statistics from storage service",
-        "operationId": "get_statistics_api_statistics_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/openapi.yaml": {
-      "get": {
-        "summary": "Get Openapi Spec",
-        "description": "Serve OpenAPI specification",
-        "operationId": "get_openapi_spec_api_openapi_yaml_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           }
@@ -649,7 +826,7 @@
           },
           "timeout": {
             "type": "integer",
-            "maximum": 900.0,
+            "maximum": 300.0,
             "minimum": 1.0,
             "title": "Timeout",
             "description": "Timeout in seconds",
@@ -964,28 +1141,6 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
-      },
-      "HealthResponse": {
-        "properties": {
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "default": "ok"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp"
-          },
-          "services": {
-            "$ref": "#/components/schemas/ServiceHealthInfo"
-          }
-        },
-        "type": "object",
-        "required": [
-          "timestamp",
-          "services"
-        ],
-        "title": "HealthResponse"
       },
       "QueueStatusResponse": {
         "properties": {

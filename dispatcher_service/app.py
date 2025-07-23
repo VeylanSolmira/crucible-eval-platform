@@ -18,7 +18,7 @@ import yaml
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from kubernetes import client, config
+from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 import uvicorn
 
@@ -42,7 +42,196 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 # Security configuration
 REQUIRE_GVISOR = os.getenv("REQUIRE_GVISOR", "false").lower() == "true"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-HOST_OS = os.getenv("HOST_OS", "linux").lower()  # linux, macos, windows
+# Explicit gVisor availability for development environments
+GVISOR_AVAILABLE = os.getenv("GVISOR_AVAILABLE", "true").lower() == "true"
+
+# Feature flags
+ENABLE_EVENT_MONITORING = os.getenv("ENABLE_EVENT_MONITORING", "true").lower() == "true"
+
+
+def watch_job_events_sync(event_queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
+    """
+    Synchronous function to watch Kubernetes job events.
+    This runs in a thread pool executor and puts events in a queue.
+    """
+    w = watch.Watch()
+    
+    try:
+        # Watch for job events in our namespace
+        for event in w.stream(
+            batch_v1.list_namespaced_job,
+            namespace=KUBERNETES_NAMESPACE,
+            label_selector="app=evaluation",
+            _request_timeout=300  # 5 minute timeout, then reconnect
+        ):
+            # Put event in queue to be processed in main async context
+            asyncio.run_coroutine_threadsafe(
+                event_queue.put(event),
+                loop
+            )
+    except Exception as e:
+        logger.error(f"Watch stream error: {e}")
+        raise
+    finally:
+        w.stop()
+
+
+async def monitor_job_events(app: FastAPI):
+    """
+    Background task that watches Kubernetes job events and publishes status updates.
+    This replaces the polling-based approach with event-driven updates.
+    """
+    redis_client = app.state.redis_client
+    event_queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    
+    # Start the watcher in a thread
+    watcher_task = loop.run_in_executor(
+        None,
+        watch_job_events_sync,
+        event_queue,
+        loop
+    )
+    
+    try:
+        while True:
+            try:
+                # Get event from queue with timeout to check for cancellation
+                event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                
+                # Process the event in the main async context
+                await process_job_event(event, redis_client)
+                
+            except asyncio.TimeoutError:
+                # Check if watcher thread is still running
+                if watcher_task.done():
+                    # Watcher died, restart it
+                    logger.warning("Job watcher thread died, restarting...")
+                    watcher_task = loop.run_in_executor(
+                        None,
+                        watch_job_events_sync,
+                        event_queue,
+                        loop
+                    )
+            except Exception as e:
+                logger.error(f"Error processing job event: {e}")
+                
+    except asyncio.CancelledError:
+        # Graceful shutdown
+        logger.info("Job monitor shutting down")
+        raise
+
+
+async def process_job_event(event: Dict, redis_client: ResilientRedisClient):
+    """Process a single job event and publish appropriate Redis events."""
+    try:
+        event_type = event['type']
+        job = event['object']  # This is always a V1Job from the Kubernetes watch stream
+        
+        # The watch stream always returns V1Job objects from the Kubernetes Python client
+        job_name = job.metadata.name
+        eval_id = job.metadata.labels.get('eval-id') if job.metadata.labels else None
+        
+        if not eval_id:
+            return  # Not an evaluation job or missing label
+        
+        # Get status from V1Job object - handle None values safely
+        active = job.status.active if job.status and job.status.active else 0
+        succeeded = job.status.succeeded if job.status and job.status.succeeded else 0
+        failed = job.status.failed if job.status and job.status.failed else 0
+        
+        # Determine job status
+        status = None
+        if active > 0:
+            status = "running"
+        elif succeeded > 0:
+            status = "succeeded"
+        elif failed > 0:
+            status = "failed"
+        else:
+            status = "pending"
+        
+        # Check if this is a state change
+        state_key = f"job:{job_name}:last_state"
+        last_state_bytes = await redis_client.get(state_key)
+        last_state = last_state_bytes.decode('utf-8') if last_state_bytes else None
+        
+        # If state changed or this is a new job, publish event
+        if status != last_state:
+            await redis_client.setex(state_key, 300, status)  # Cache for 5 minutes
+            
+            logger.info(f"Job {job_name} state change: {last_state} -> {status}")
+            
+            if status == "running":
+                # Publish running event
+                # Get start time and timeout from V1Job object
+                start_time = job.status.start_time.isoformat() if job.status and job.status.start_time else None
+                timeout = job.spec.active_deadline_seconds if job.spec and job.spec.active_deadline_seconds else 300
+                
+                event_data = {
+                    "eval_id": eval_id,
+                    "executor_id": job_name,
+                    "container_id": job_name,
+                    "timeout": timeout,
+                    "started_at": start_time if start_time else datetime.now(timezone.utc).isoformat()
+                }
+                await redis_client.publish("evaluation:running", json.dumps(event_data))
+                logger.info(f"Published evaluation:running event for {eval_id}")
+                
+            elif status == "succeeded":
+                # Get job logs
+                logs_result = await get_job_logs_internal(job_name)
+                
+                # Publish completed event
+                completion_time = job.status.completion_time.isoformat() if job.status and job.status.completion_time else None
+                
+                event_data = {
+                    "eval_id": eval_id,
+                    "output": logs_result.get("logs", ""),
+                    "exit_code": logs_result.get("exit_code", 0),
+                    "metadata": {
+                        "job_name": job_name,
+                        "completed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat()
+                    }
+                }
+                await redis_client.publish("evaluation:completed", json.dumps(event_data))
+                logger.info(f"Published evaluation:completed event for {eval_id}")
+                
+            elif status == "failed":
+                # Get job logs
+                logs_result = await get_job_logs_internal(job_name)
+                
+                # Publish failed event
+                completion_time = job.status.completion_time.isoformat() if job.status and job.status.completion_time else None
+                event_data = {
+                    "eval_id": eval_id,
+                    "error": logs_result.get("logs", "Job failed"),
+                    "exit_code": logs_result.get("exit_code", 1),
+                    "metadata": {
+                        "job_name": job_name,
+                        "failed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat()
+                    }
+                }
+                await redis_client.publish("evaluation:failed", json.dumps(event_data))
+                logger.info(f"Published evaluation:failed event for {eval_id}")
+                
+        # Handle job deletion events
+        if event_type == "DELETED" and eval_id:
+            # Publish cancellation event if job was deleted before completion
+            if last_state in ["pending", "running"]:
+                await redis_client.publish(
+                    "evaluation:cancelled",
+                    json.dumps({
+                        "eval_id": eval_id,
+                        "job_name": job_name,
+                        "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                        "reason": "Job deleted"
+                    })
+                )
+                logger.info(f"Published evaluation:cancelled event for deleted job {job_name}")
+                
+    except Exception as e:
+        logger.error(f"Error processing job event: {e}", exc_info=True)
 
 
 @asynccontextmanager
@@ -57,9 +246,24 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Dispatcher service started - Redis will connect when needed")
     
+    # Start background job monitoring task if enabled
+    monitor_task = None
+    if ENABLE_EVENT_MONITORING:
+        monitor_task = asyncio.create_task(monitor_job_events(app))
+        logger.info("Started Kubernetes job event monitoring")
+    else:
+        logger.info("Event monitoring disabled - using polling approach")
+    
     yield
     
     # Shutdown
+    if monitor_task:
+        monitor_task.cancel()
+        try:
+            await monitor_task
+        except asyncio.CancelledError:
+            pass
+    
     if hasattr(app.state, 'redis_client'):
         await app.state.redis_client.close()
         logger.info("Dispatcher service shutdown complete")
@@ -196,6 +400,16 @@ def check_gvisor_availability():
     if gvisor_runtime_available is not None:
         return gvisor_runtime_available
     
+    # In development, use the explicit environment variable
+    if ENVIRONMENT == "development":
+        gvisor_runtime_available = GVISOR_AVAILABLE
+        if GVISOR_AVAILABLE:
+            logger.info("gVisor enabled via GVISOR_AVAILABLE environment variable")
+        else:
+            logger.info("gVisor disabled via GVISOR_AVAILABLE environment variable")
+        return gvisor_runtime_available
+    
+    # In production, always check if RuntimeClass actually exists
     try:
         # Check if gvisor RuntimeClass exists
         node_v1.read_runtime_class("gvisor")
@@ -205,20 +419,11 @@ def check_gvisor_availability():
     except ApiException as e:
         if e.status == 404:
             gvisor_runtime_available = False
-            if ENVIRONMENT == "production":
-                logger.error(
-                    "gVisor RuntimeClass not found in production! "
-                    "Production deployments MUST have gVisor installed."
-                )
-            elif HOST_OS == "macos":
-                logger.debug(
-                    "gVisor RuntimeClass not found on macOS host - this is expected."
-                )
-            else:
-                logger.warning(
-                    "gVisor RuntimeClass not found - running without enhanced isolation. "
-                    "Consider installing gVisor for better security."
-                )
+            # In production, this is a critical error
+            logger.error(
+                "gVisor RuntimeClass not found in production! "
+                "Production deployments MUST have gVisor installed."
+            )
             return False
         else:
             # Unexpected error - don't cache
@@ -310,24 +515,15 @@ async def execute(request: ExecuteRequest):
     if REQUIRE_GVISOR and not use_gvisor:
         raise HTTPException(
             status_code=503,
-            detail="gVisor runtime is required (REQUIRE_GVISOR=true) but not available. "
-                   "Note: gVisor cannot run on macOS hosts, even with Kind/Docker."
+            detail="gVisor runtime is required (REQUIRE_GVISOR=true) but not available."
         )
     
     # Log warning in development without gVisor
     if ENVIRONMENT == "development" and not use_gvisor:
-        if HOST_OS == "macos":
-            logger.info(
-                "Running on macOS host - gVisor not available. "
-                "Network isolation relies on NetworkPolicies only. "
-                "This is expected for macOS development."
-            )
-        else:
-            logger.warning(
-                "Running without gVisor in development. "
-                "Network isolation relies on NetworkPolicies only. "
-                "Consider installing gVisor for enhanced isolation."
-            )
+        logger.warning(
+            "Running without gVisor in development. "
+            "Network isolation relies on NetworkPolicies only."
+        )
     
     # Generate job name using shared utility
     job_name = generate_job_name(request.eval_id)
@@ -629,9 +825,10 @@ async def get_job_status(job_name: str, redis_client: ResilientRedisClient = Dep
 
 
 @app.get("/logs/{job_name}")
-async def get_job_logs(job_name: str, tail_lines: int = 100):
+async def get_job_logs_internal(job_name: str, tail_lines: int = 100):
     """
-    Get logs from a job's pod.
+    Internal function to get logs from a job's pod.
+    Returns a dict with logs and exit code.
     """
     try:
         # Find pods for this job
@@ -641,10 +838,11 @@ async def get_job_logs(job_name: str, tail_lines: int = 100):
         )
         
         if not pods.items:
-            return {"logs": "", "message": "No pods found for job"}
+            return {"logs": "", "exit_code": 1, "message": "No pods found for job"}
         
         # Get logs from the first pod
-        pod_name = pods.items[0].metadata.name
+        pod = pods.items[0]
+        pod_name = pod.metadata.name
         
         # Get logs
         logs = core_v1.read_namespaced_pod_log(
@@ -653,19 +851,36 @@ async def get_job_logs(job_name: str, tail_lines: int = 100):
             tail_lines=tail_lines
         )
         
+        # Try to get exit code from container status
+        exit_code = 0
+        if pod.status.container_statuses:
+            container_status = pod.status.container_statuses[0]
+            if container_status.state.terminated:
+                exit_code = container_status.state.terminated.exit_code or 0
+        
         return {
             "job_name": job_name,
             "pod_name": pod_name,
-            "logs": logs
+            "logs": logs,
+            "exit_code": exit_code
         }
         
     except ApiException as e:
-        if e.status == 404:
-            raise HTTPException(status_code=404, detail="Pod not found")
-        raise HTTPException(
-            status_code=e.status,
-            detail=f"Kubernetes API error: {e.reason}"
-        )
+        logger.error(f"Failed to get logs for job {job_name}: {e}")
+        return {"logs": f"Failed to get logs: {str(e)}", "exit_code": 1}
+
+
+@app.get("/logs/{job_name}")
+async def get_job_logs(job_name: str, tail_lines: int = 100):
+    """
+    Get logs from a job's pod.
+    """
+    result = await get_job_logs_internal(job_name, tail_lines)
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    return result
 
 
 @app.delete("/job/{job_name}")

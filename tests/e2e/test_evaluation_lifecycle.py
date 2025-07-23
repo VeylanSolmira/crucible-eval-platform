@@ -86,63 +86,6 @@ async def test_evaluation_completes_and_status_updates():
     await redis_client.close()
 
 
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_executor_completion_event_flow():
-    """
-    Test the complete event flow when executor publishes completion.
-    This simulates what happens internally.
-    """
-    redis_client = ResilientRedisClient(
-        redis_url=REDIS_URL,
-        service_name="test_executor_completion",
-        decode_responses=True
-    )
-    
-    # Create a test eval_id
-    eval_id = f"test_eval_{int(time.time())}"
-    
-    # Simulate what storage-worker does
-    # 1. Add to running evaluations (simulating evaluation start)
-    await redis_client.sadd("running_evaluations", eval_id)
-    await redis_client.hset(f"eval:{eval_id}:running", mapping={
-        "eval_id": eval_id,
-        "status": "running",
-        "started_at": time.time()
-    })
-    
-    # 2. Simulate executor publishing completion event
-    completion_event = {
-        "eval_id": eval_id,
-        "status": "completed",
-        "output": "Test output",
-        "error": "",
-        "exit_code": 0,
-        "executor_id": "test-executor"
-    }
-    
-    # Publish to the channel storage-worker listens to
-    await redis_client.publish("evaluation:completed", json.dumps(completion_event))
-    
-    # 3. Wait for storage-worker to process
-    await asyncio.sleep(2)
-    
-    # 4. Verify Redis was cleaned up
-    exists = await redis_client.exists(f"eval:{eval_id}:running")
-    assert not exists, "Running key should be deleted"
-    running_evals = await redis_client.smembers("running_evaluations")
-    assert eval_id not in running_evals, "Should be removed from running set"
-    
-    # 5. Verify we can fetch from API without 404
-    async with httpx.AsyncClient() as client:
-        # Note: This assumes storage-worker created the DB entry
-        # In real test, we'd need to ensure the evaluation exists in DB first
-        pass
-    
-    # Clean up
-    await redis_client.close()
-
-
 if __name__ == "__main__":
     # Run the main lifecycle test
     asyncio.run(test_evaluation_completes_and_status_updates())

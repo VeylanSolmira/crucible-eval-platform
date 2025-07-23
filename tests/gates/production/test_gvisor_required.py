@@ -23,6 +23,10 @@ def is_gvisor_available():
 
 @pytest.mark.production
 @pytest.mark.integration
+@pytest.mark.skipif(
+    os.getenv("ENVIRONMENT", "").lower() == "development" and os.getenv("GVISOR_AVAILABLE", "true").lower() == "false",
+    reason="gVisor disabled in development via GVISOR_AVAILABLE env var"
+)
 def test_gvisor_required():
     """Test that gVisor is available in production
     
@@ -43,19 +47,5 @@ def test_gvisor_required():
             "3. See: docs/security/gvisor-production-deployment.md"
         )
 
-@pytest.mark.production
-@pytest.mark.integration
-def test_network_policies_enforced():
-    """Test that NetworkPolicies are properly enforced"""
-    # This would check that evaluation pods truly have no network access
-    # Implementation depends on having a way to verify NetworkPolicy enforcement
-    pass
-
-@pytest.mark.production
-@pytest.mark.integration
-def test_resource_limits_enforced():
-    """Test that resource limits are properly enforced on evaluation pods"""
-    # This would verify CPU/memory limits are applied
-    pass
 
 # Run production tests with: pytest -m production tests/

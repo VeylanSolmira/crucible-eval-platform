@@ -258,9 +258,18 @@ class TestCoordinator:
                 
                 # Parse test results from pytest summary line
                 import re
-                passed = failed = skipped = 0
+                passed = failed = skipped = deselected = 0
                 found_results = False
                 
+                # First, look for deselected count in collection phase
+                for line in log_result.stdout.split('\n'):
+                    if 'collected' in line and 'deselected' in line:
+                        match = re.search(r'(\d+) deselected', line)
+                        if match:
+                            deselected = int(match.group(1))
+                        break
+                
+                # Then parse test results
                 for line in reversed(log_result.stdout.split('\n')):
                     if '=====' in line and (' passed' in line or ' failed' in line or ' skipped' in line):
                         # This is likely the summary line
@@ -299,6 +308,7 @@ class TestCoordinator:
                     "passed": passed,
                     "failed": failed,
                     "skipped": skipped,
+                    "deselected": deselected,
                     "duration": time.time() - start_time
                 }
                 
@@ -452,6 +462,7 @@ class TestCoordinator:
         total_passed = sum(r.get("passed", 0) for r in results["succeeded"])
         total_failed = sum(r.get("failed", 0) for r in results["succeeded"])
         total_skipped = sum(r.get("skipped", 0) for r in results["succeeded"])
+        total_deselected = sum(r.get("deselected", 0) for r in results["succeeded"])
         
         print(f"\nTest Suites:")
         print(f"  Succeeded: {len(results['succeeded'])}")
@@ -461,6 +472,8 @@ class TestCoordinator:
         print(f"  Passed: {total_passed}")
         print(f"  Failed: {total_failed}")
         print(f"  Skipped: {total_skipped}")
+        if total_deselected > 0:
+            print(f"  Deselected: {total_deselected} (not included in test run)")
         
         if results["failed"]:
             print("\n❌ FAILED SUITES:")
@@ -493,10 +506,17 @@ class TestCoordinator:
         
         # Build pytest args
         pytest_args = []
+        markers_to_exclude = []
+        
         if not include_slow:
-            pytest_args.extend(["-m", "not slow"])
+            markers_to_exclude.append("slow")
         if not include_destructive:
-            pytest_args.extend(["-m", "not destructive"]) if pytest_args else pytest_args.extend(["-m", "not destructive"])
+            markers_to_exclude.append("destructive")
+        
+        # Combine all marker exclusions into a single -m argument
+        if markers_to_exclude:
+            marker_expression = " and ".join(f"not {marker}" for marker in markers_to_exclude)
+            pytest_args.extend(["-m", marker_expression])
         
         # Discover test suites or specific test files
         if test_files:

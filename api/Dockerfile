@@ -1,5 +1,5 @@
 # Multi-stage build for API Service
-ARG BASE_IMAGE=crucible-base
+ARG BASE_IMAGE=crucible-platform/base
 
 # Build stage - install API-specific dependencies
 FROM ${BASE_IMAGE} AS builder
@@ -13,6 +13,7 @@ WORKDIR /tmp
 COPY api/requirements.txt ./api/
 COPY shared/requirements-utils.txt ./shared/
 COPY shared/requirements/ ./shared/requirements/
+COPY constraints.txt ./
 RUN pip install --no-cache-dir -r api/requirements.txt
 WORKDIR /
 
@@ -26,6 +27,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 # Copy only necessary application code with proper ownership
 COPY --chown=appuser:appuser api/microservices_gateway.py api/__init__.py /app/api/
 COPY --chown=appuser:appuser api/celery_client.py api/celery_constants.py /app/api/
+COPY --chown=appuser:appuser api/schema.py api/models.py /app/api/
 COPY --chown=appuser:appuser storage/ /app/storage/
 COPY --chown=appuser:appuser shared/ /app/shared/
 

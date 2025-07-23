@@ -5,11 +5,19 @@
 #   --skip-tests - Skip running tests after startup
 #   --no-browser - Don't open browser after startup
 #
+# This script will:
+#   - Create/activate Python virtual environment
+#   - Install development dependencies (requirements-dev.txt)
+#   - Create Kind cluster if needed
+#   - Build base Docker image
+#   - Generate OpenAPI specifications
+#   - Start all services with Skaffold
+#
 # Requirements:
+#   - Python 3.11+
 #   - Docker running
-#   - Kubernetes cluster running (Docker Desktop, Kind, etc.)
-#   - kubectl configured
-#   - Skaffold installed
+#   - kubectl installed
+#   - Skaffold installed (or install from https://skaffold.dev/docs/install/)
 
 set -e  # Exit on error
 
@@ -50,10 +58,32 @@ fi
 
 # Check kubectl is available and cluster is accessible
 if ! kubectl cluster-info > /dev/null 2>&1; then
-    echo -e "${RED}kubectl cannot connect to cluster. Please ensure Kubernetes is running.${NC}"
-    echo "For Docker Desktop: Enable Kubernetes in settings"
-    echo "For Kind: Run 'kind create cluster'"
-    exit 1
+    echo -e "${YELLOW}kubectl cannot connect to cluster. Checking for Kind...${NC}"
+    
+    # Check if kind is installed
+    if command -v kind &> /dev/null; then
+        # Check if crucible cluster exists
+        if ! kind get clusters | grep -q "crucible"; then
+            echo -e "${YELLOW}Creating Kind cluster 'crucible'...${NC}"
+            if kind create cluster --name crucible; then
+                echo -e "${GREEN}✓ Kind cluster created successfully${NC}"
+                # Wait a moment for cluster to be ready
+                sleep 5
+            else
+                echo -e "${RED}Failed to create Kind cluster${NC}"
+                exit 1
+            fi
+        else
+            echo -e "${YELLOW}Kind cluster 'crucible' exists but kubectl can't connect.${NC}"
+            echo "Try: kind export kubeconfig --name crucible"
+            exit 1
+        fi
+    else
+        echo -e "${RED}kubectl cannot connect to cluster and Kind is not installed.${NC}"
+        echo "For Docker Desktop: Enable Kubernetes in settings"
+        echo "For Kind: Install from https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
+        exit 1
+    fi
 fi
 
 # Check Skaffold is installed
@@ -62,6 +92,22 @@ if ! command -v skaffold &> /dev/null; then
     echo "Visit: https://skaffold.dev/docs/install/"
     exit 1
 fi
+
+# Check and setup Python virtual environment
+if [ ! -d "venv" ]; then
+    echo -e "${YELLOW}Creating Python virtual environment...${NC}"
+    python3.11 -m venv venv
+    echo -e "${GREEN}✓ Virtual environment created${NC}"
+fi
+
+# Activate venv and ensure requirements-dev is installed
+echo -e "${YELLOW}Checking development dependencies...${NC}"
+source venv/bin/activate
+
+# Always ensure requirements are up to date (pip will skip unchanged packages)
+echo -e "${YELLOW}Updating development dependencies...${NC}"
+pip install -q -r requirements-dev.txt
+echo -e "${GREEN}✓ Development dependencies ready${NC}"
 
 # Check if base image exists
 if ! docker image inspect crucible-platform/base:latest > /dev/null 2>&1; then
@@ -103,55 +149,97 @@ trap cleanup EXIT INT TERM
 # Force rebuild if requested
 if [ "$FORCE_BUILD" = true ]; then
     echo -e "${BLUE}Force rebuilding all images...${NC}"
+    
+    # Rebuild base image with no cache
+    echo "Rebuilding base image..."
+    if docker build -f shared/docker/base.Dockerfile -t crucible-platform/base:latest . --no-cache; then
+        echo -e "${GREEN}✓ Base image rebuilt successfully${NC}"
+    else
+        echo -e "${RED}Failed to rebuild base image${NC}"
+        exit 1
+    fi
+    
     # Clean builder cache
     echo "Cleaning builder cache..."
     docker builder prune -af
     
     # Start Skaffold with no-cache profile and cache disabled
     echo -e "${YELLOW}Starting Skaffold in dev mode with forced rebuild (no cache)...${NC}"
-    skaffold dev --cache-artifacts=false --profile=no-cache &
+    skaffold dev --cache-artifacts=false --profile=no-cache --trigger=polling --watch-poll-interval=2000 2>&1 | tee /tmp/skaffold-${USER}-$$.log &
 else
-    # Normal Skaffold dev mode
-    echo -e "${YELLOW}Starting Skaffold in dev mode...${NC}"
-    skaffold dev &
+    # Normal Skaffold dev mode with polling for file sync
+    echo -e "${YELLOW}Starting Skaffold in dev mode with polling...${NC}"
+    skaffold dev --trigger=polling --watch-poll-interval=2000 2>&1 | tee /tmp/skaffold-${USER}-$$.log &
 fi
 
-# Store Skaffold PID
+# Store Skaffold PID (it's the tee process, but that's OK for our cleanup)
 SKAFFOLD_PID=$!
 
 # Wait for services to be ready
 echo -e "\n${YELLOW}Waiting for services to be ready...${NC}"
 echo "This may take a few minutes on first run..."
 
-# Wait for API to be ready
-MAX_ATTEMPTS=60
+# Get the log file path
+SKAFFOLD_LOG="/tmp/skaffold-${USER}-$$.log"
+
+# Wait for Skaffold to report deployments are stabilized
+MAX_ATTEMPTS=300  # 10 minutes to allow for slow frontend builds
 ATTEMPT=0
+DEPLOYMENTS_READY=false
+
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if kubectl get pods | grep -E "api-.*Running" > /dev/null 2>&1; then
-        # Check if API is actually responding
-        if kubectl exec -it deployment/api-service -- curl -s http://localhost:8080/health > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ API service is ready!${NC}"
-            break
+    # Check if Skaffold reports deployments are stabilized
+    if grep -q "Deployments stabilized" "$SKAFFOLD_LOG" 2>/dev/null; then
+        echo -e "${GREEN}✓ Skaffold reports all deployments are stabilized!${NC}"
+        DEPLOYMENTS_READY=true
+        
+        # Additional verification - check critical services are actually responding
+        echo -e "\n${YELLOW}Verifying service health endpoints...${NC}"
+        
+        # Check API health
+        if kubectl exec deployment/api-service -n crucible -- curl -s http://localhost:8080/health > /dev/null 2>&1; then
+            echo -e "  ${GREEN}✓ API service health check passed${NC}"
+        else
+            echo -e "  ${YELLOW}⚠ API service health check failed (may still be starting)${NC}"
         fi
+        
+        # Check Storage health
+        if kubectl exec deployment/storage-service -n crucible -- curl -s http://localhost:8082/health > /dev/null 2>&1; then
+            echo -e "  ${GREEN}✓ Storage service health check passed${NC}"
+        else
+            echo -e "  ${YELLOW}⚠ Storage service health check failed (may still be starting)${NC}"
+        fi
+        
+        break
+    fi
+    
+    # Check for build/deploy errors
+    if grep -q "Failed to deploy" "$SKAFFOLD_LOG" 2>/dev/null || grep -q "Build Failed" "$SKAFFOLD_LOG" 2>/dev/null; then
+        echo -e "${RED}✗ Skaffold reported deployment failure!${NC}"
+        echo "Check the log file: $SKAFFOLD_LOG"
+        exit 1
     fi
     
     ATTEMPT=$((ATTEMPT + 1))
     if [ $((ATTEMPT % 10)) -eq 0 ]; then
-        echo "  Still waiting... ($ATTEMPT/$MAX_ATTEMPTS)"
+        echo "  Still waiting for deployments to stabilize... ($ATTEMPT/$MAX_ATTEMPTS)"
+        # Show current pod status
+        kubectl get pods -n crucible --no-headers 2>/dev/null | awk '{print "    " $1 ": " $3}' | head -10
     fi
     sleep 2
 done
 
-if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+if [ "$DEPLOYMENTS_READY" = false ]; then
     echo -e "${RED}Services did not become ready in time.${NC}"
-    echo "Check pod status with: kubectl get pods"
-    echo "Check logs with: kubectl logs deployment/[service-name]"
+    echo "Check pod status with: kubectl get pods -n crucible"
+    echo "Check logs with: kubectl logs deployment/[service-name] -n crucible"
+    echo "Check Skaffold log: $SKAFFOLD_LOG"
     exit 1
 fi
 
 # Display service status
 echo -e "\n${GREEN}Platform Status:${NC}"
-kubectl get pods
+kubectl get pods -n crucible
 
 # Display access URLs
 echo -e "\n${GREEN}Access URLs:${NC}"
@@ -162,15 +250,15 @@ echo "  Storage API:    http://localhost:8081"
 
 # Note about port forwarding
 echo -e "\n${YELLOW}Note: If services are not accessible, you may need to set up port forwarding:${NC}"
-echo "  kubectl port-forward deployment/api-service 8080:8080 &"
-echo "  kubectl port-forward deployment/storage-service 8081:8081 &"
-echo "  kubectl port-forward deployment/frontend 3000:3000 &"
+echo "  kubectl port-forward deployment/api-service -n crucible 8080:8080 &"
+echo "  kubectl port-forward deployment/storage-service -n crucible 8081:8081 &"
+echo "  kubectl port-forward deployment/frontend -n crucible 3000:3000 &"
 
 echo -e "\n${GREEN}Useful commands:${NC}"
-echo "  View logs:      kubectl logs deployment/[service-name] -f"
-echo "  Get pods:       kubectl get pods"
-echo "  Describe pod:   kubectl describe pod [pod-name]"
-echo "  Shell into pod: kubectl exec -it deployment/[service-name] -- /bin/bash"
+echo "  View logs:      kubectl logs deployment/[service-name] -n crucible -f"
+echo "  Get pods:       kubectl get pods -n crucible"
+echo "  Describe pod:   kubectl describe pod [pod-name] -n crucible"
+echo "  Shell into pod: kubectl exec -it deployment/[service-name] -n crucible -- /bin/bash"
 echo "  Stop platform:  Press Ctrl+C (Skaffold will clean up)"
 echo "  Force rebuild:  ./start-platform.sh build"
 

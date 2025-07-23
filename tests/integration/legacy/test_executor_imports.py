@@ -21,6 +21,7 @@ VERIFY_SSL = False
 @pytest.mark.integration
 @pytest.mark.executor
 @pytest.mark.docker
+@pytest.mark.skip(reason="We're not in a Kubernetes architecture and not using executor containers")
 class TestExecutorImports:
     """Test executor handling of Python imports and ML libraries."""
     

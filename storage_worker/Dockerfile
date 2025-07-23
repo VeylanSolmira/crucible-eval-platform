@@ -1,5 +1,5 @@
 # Storage Worker Service
-ARG BASE_IMAGE=crucible-base
+ARG BASE_IMAGE=crucible-platform/base
 FROM ${BASE_IMAGE} AS storage_worker
 
 WORKDIR /app

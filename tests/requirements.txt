@@ -1,6 +1,9 @@
 # Test dependencies for Crucible platform tests
 # This file includes both test framework dependencies and minimal application dependencies
 
+# Version constraints
+-c ../constraints.txt
+
 # Core dependencies from shared (ensures matching versions)
 -r ../shared/requirements/base.txt
 -r ../shared/requirements/redis.txt
@@ -27,7 +30,7 @@
 # API module dependencies
 fastapi==0.104.1
 pydantic==2.5.0
-celery==5.3.4
+celery
 
 # Storage module dependencies  
 sqlalchemy==2.0.23

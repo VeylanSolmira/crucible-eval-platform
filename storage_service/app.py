@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
 import uvicorn
 import yaml
 import redis.asyncio as redis
@@ -22,8 +23,39 @@ from storage import FlexibleStorageManager
 from storage.core.config import StorageConfig
 from shared.generated.python import EvaluationStatus
 
+# Import models
+from .models import (
+    EvaluationCreate,
+    EvaluationUpdate,
+    EvaluationResponse,
+    EvaluationListResponse,
+    EventCreate,
+    EventResponse,
+    StatisticsResponse,
+    StorageInfoResponse,
+    HealthResponse,
+    RunningEvaluationInfo,
+    RunningEvaluationsResponse
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configuration using Pydantic Settings
+class Settings(BaseSettings):
+    redis_url: str
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+
+# Create settings instance - lazy initialization for OpenAPI generation
+try:
+    settings = Settings()
+except Exception as e:
+    # During OpenAPI generation, env vars might not be set
+    logger.warning(f"Failed to load settings: {e}. Using None for OpenAPI generation.")
+    settings = None
 
 # Global variables
 redis_client = None  # Will be initialized in lifespan
@@ -32,11 +64,20 @@ redis_client = None  # Will be initialized in lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global redis_client
+    global redis_client, settings
+    
+    # Validate settings on startup
+    if settings is None:
+        try:
+            settings = Settings()
+            logger.info("Settings loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load required settings: {e}")
+            raise RuntimeError(f"Missing required environment variables: {e}")
+    
     from shared.utils.resilient_connections import get_async_redis_client
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-    logger.info(f"Connecting to Redis at: {redis_url}")
-    redis_client = await get_async_redis_client(redis_url, decode_responses=False)
+    logger.info(f"Connecting to Redis at: {settings.redis_url}")
+    redis_client = await get_async_redis_client(settings.redis_url, decode_responses=False)
     logger.info("Connected to Redis with retry logic")
     
     yield
@@ -47,6 +88,7 @@ async def lifespan(app: FastAPI):
         logger.info("Disconnected from Redis")
 
 
+# Create app
 app = FastAPI(
     title="Crucible Storage Service",
     description="RESTful API for accessing evaluation data across multiple storage backends (database, file, S3, Redis)",
@@ -108,86 +150,7 @@ async def root():
     }
 
 
-# Request/Response models
-class EvaluationCreate(BaseModel):
-    id: str = Field(..., description="Evaluation ID")
-    code: str = Field(..., description="Code to be evaluated")
-    language: str = Field(default="python", description="Programming language")
-    status: str = Field(default=EvaluationStatus.QUEUED.value, description="Initial status")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-
-
-class EvaluationUpdate(BaseModel):
-    status: Optional[str] = Field(None, description="New status")
-    output: Optional[str] = Field(None, description="Execution output")
-    error: Optional[str] = Field(None, description="Error message if failed")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata to merge")
-    # Celery-specific fields
-    celery_task_id: Optional[str] = Field(None, description="Celery task ID if using Celery")
-    retries: Optional[int] = Field(None, description="Number of retry attempts")
-    final_failure: Optional[bool] = Field(None, description="Whether task failed after all retries")
-    # Executor fields for real-time tracking
-    executor_id: Optional[str] = Field(None, description="ID of executor running this evaluation")
-    container_id: Optional[str] = Field(None, description="Docker container ID")
-
-
-class EvaluationResponse(BaseModel):
-    id: str
-    code: Optional[str] = None
-    language: Optional[str] = None
-    status: str
-    created_at: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    output: Optional[str] = None
-    error: Optional[str] = None
-    output_truncated: bool = False
-    error_truncated: bool = False
-    runtime_ms: Optional[int] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    # Storage info (only included when requested)
-    storage_info: Optional[Dict[str, Any]] = Field(None, exclude=True)
-
-
-class EvaluationListResponse(BaseModel):
-    evaluations: List[EvaluationResponse]
-    total: int
-    limit: int
-    offset: int
-    has_more: bool
-
-
-class EventCreate(BaseModel):
-    type: str = Field(..., description="Event type")
-    message: str = Field(..., description="Event message")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Event metadata")
-
-
-class EventResponse(BaseModel):
-    type: str
-    timestamp: str
-    message: str
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class StatisticsResponse(BaseModel):
-    total_evaluations: int
-    by_status: Dict[str, int]
-    by_language: Dict[str, int]
-    average_runtime_ms: Optional[float] = None
-    success_rate: float
-    last_24h_count: int
-    peak_hour: Optional[str] = None
-    storage_info: Dict[str, Any] = Field(default_factory=dict)
-
-
-class StorageInfoResponse(BaseModel):
-    primary_backend: str
-    fallback_backend: Optional[str] = None
-    cache_enabled: bool
-    large_output_storage: str = Field(description="Where outputs >100KB are stored")
-    storage_thresholds: Dict[str, int]
-    backends_available: List[str]
+# Models are now imported from .models module for clean schema separation
 
 
 # Health check
@@ -333,16 +296,23 @@ async def update_evaluation(eval_id: str, update: EvaluationUpdate):
     if redis_client and update.status:
         try:
             if update.status == "running":
-                await redis_client.publish(
-                    "evaluation:running",
-                    json.dumps({
-                        "eval_id": eval_id,
-                        "executor_id": update_data.get("executor_id", ""),
-                        "container_id": update_data.get("container_id", ""),
-                        "timeout": update_data.get("timeout", 30)
-                    })
-                )
-                logger.info(f"Published evaluation:running event for {eval_id}")
+                # Only publish running event if we have executor information
+                executor_id = update_data.get("executor_id", "")
+                container_id = update_data.get("container_id", "")
+                
+                if executor_id and container_id:
+                    await redis_client.publish(
+                        "evaluation:running",
+                        json.dumps({
+                            "eval_id": eval_id,
+                            "executor_id": executor_id,
+                            "container_id": container_id,
+                            "timeout": update_data.get("timeout", 30)
+                        })
+                    )
+                    logger.info(f"Published evaluation:running event for {eval_id}")
+                else:
+                    logger.debug(f"Skipping evaluation:running event for {eval_id} - no executor info yet")
             
             # NOTE: The dispatcher service publishes completed/failed events
             # when it detects job state changes in Kubernetes

@@ -49,4 +49,5 @@ patches:
   target:
     kind: Role
     name: job-dispatcher
-- path: dispatcher-host-os-patch.yaml
+- path: dispatcher-macos-env-patch.yaml
+- path: resource-optimization-patches.yaml

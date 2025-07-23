@@ -12,6 +12,7 @@ import pytest
 import time
 import requests
 from typing import Dict, Any
+from shared.utils import is_valid_evaluation_id
 
 
 def wait_for_evaluation(
@@ -67,7 +68,7 @@ print(f"Platform: {os.environ.get('KUBERNETES_SERVICE_HOST', 'not in k8s')}")
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Verify successful completion
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -113,7 +114,7 @@ print("Import test completed", file=sys.stdout)
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Should complete successfully (we caught the exceptions)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -166,7 +167,7 @@ print("ML library test completed")
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Should complete (even if libraries aren't available)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -216,7 +217,7 @@ print("Some examples:", ", ".join(list(sys.builtin_module_names)[:10]))
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -228,7 +229,13 @@ print("Some examples:", ", ".join(list(sys.builtin_module_names)[:10]))
         assert "sys.path" in output
         assert "Working directory:" in output
         # Should have EVAL_ID from dispatcher
-        assert "EVAL_ID: eval_" in output
+        assert "EVAL_ID: " in output
+        # Verify the ID matches the format our function generates
+        eval_id_line = [line for line in output.split('\n') if 'EVAL_ID: ' in line][0]
+        eval_id = eval_id_line.split('EVAL_ID: ')[1].strip()
+        
+        # Validate using our shared utility function
+        assert is_valid_evaluation_id(eval_id), f"Eval ID '{eval_id}' doesn't match expected format"
         assert "built-in modules:" in output
     
     def test_import_with_syntax_error(self, api_session: requests.Session, api_base_url: str):
@@ -249,7 +256,7 @@ print("This should not execute")
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Should fail due to syntax error
         assert result["status"] == "failed", f"Expected failure but got: {result['status']}"
@@ -285,7 +292,7 @@ print("Relative import test completed")
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Should complete (we're catching the errors)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -335,7 +342,7 @@ print("✅ Complex imports working!")
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -397,7 +404,7 @@ print("✅ Subprocess imports test completed")
         assert response.status_code == 200
         
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id)
+        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
         
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"

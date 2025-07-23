@@ -10,8 +10,8 @@ echo "🔄 Updating OpenAPI specification..."
 
 cd "$PROJECT_ROOT"
 
-# Run the export script
-python api/scripts/export-openapi-spec.py
+# Run the export script with proper PYTHONPATH
+PYTHONPATH="$PROJECT_ROOT" python api/scripts/export-openapi-spec.py
 
 echo "
 ✅ OpenAPI spec updated!

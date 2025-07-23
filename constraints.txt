@@ -1,0 +1,6 @@
+# Version constraints for Crucible platform
+# This file defines pinned versions used across all requirements files
+# Reference with: -c constraints.txt (or appropriate relative path)
+
+celery==5.3.6
+redis==5.2.1

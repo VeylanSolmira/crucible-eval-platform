@@ -6,14 +6,13 @@ This ensures frontend type generation uses the same spec as the API.
 
 import json
 import yaml
-import sys
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Import the schema-only app for clean OpenAPI generation
+from api.schema import create_app_schema
 
-# Import the FastAPI app
-from api.microservices_gateway import app
+# Create app instance (no runtime dependencies needed)
+app = create_app_schema()
 
 # Get the OpenAPI schema
 openapi_schema = app.openapi()
