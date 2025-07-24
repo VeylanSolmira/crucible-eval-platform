@@ -230,6 +230,46 @@
 - [RabbitMQ Best Practices](https://www.rabbitmq.com/best-practices.html)
 - [Celery Priority Queue Docs](https://docs.celeryproject.org/en/stable/userguide/routing.html#priority)
 
+### 6. Advanced Testing Infrastructure
+
+#### 6.1 Load Testing
+- [ ] Create dedicated load test suite
+  - [ ] Separate from integration tests (tests/load/)
+  - [ ] Throughput tests (max evaluations/second)
+  - [ ] Resource exhaustion tests
+  - [ ] Burst load recovery tests
+  - [ ] Queue depth monitoring
+- [ ] Implement adaptive timeout strategies
+  - [ ] Resource-aware timeout calculation
+  - [ ] Progress-based dynamic timeouts
+  - [ ] Performance calibration for different clusters
+  - [x] See [Adaptive Timeout Strategies](../../testing/adaptive-timeout-strategies.md) (documentation only)
+- [ ] Performance benchmarking
+  - [ ] Baseline metrics collection
+  - [ ] Regression detection
+  - [ ] Multi-cluster comparison
+
+#### 6.2 Resource Cleanup System
+- [x] Implement test resource cleanup infrastructure
+  - [x] Create KubernetesResourceManager for tracking resources
+  - [x] Add cleanup levels (none, pods, all)
+  - [x] Integrate with test coordinator via --resource-cleanup flag
+  - [x] Preserve logs while cleaning pods
+  - [x] Add pytest fixtures and decorators
+  - [x] Create [Resource Cleanup Documentation](../../testing/resource-cleanup.md)
+- [x] Test cleanup patterns
+  - [x] Fixture-based cleanup (resource_manager)
+  - [x] Decorator-based cleanup (@with_resource_cleanup)
+  - [x] Context manager cleanup (managed_test_resources)
+  - [x] Example tests in test_resource_cleanup_example.py
+- [x] Integration with test orchestrator
+  - [x] Add --resource-cleanup flag to test_orchestrator.py
+  - [x] Pass through to coordinator and pytest
+  - [x] Configure cleanup behavior per test suite
+- [ ] Future: Automatic cleanup without test modifications
+  - [ ] See [Automatic Cleanup Strategies](../../testing/automatic-cleanup-strategies.md) for advanced approaches
+  - [ ] Consider implementing time-based or label-based auto-cleanup
+
 ### 7. Code Quality & Technical Debt
 
 #### 7.1 Clean Up sys.path Manipulations
@@ -347,3 +387,58 @@
   - [ ] Storage usage reports
 
 **Rationale**: The storage service is critical infrastructure that needs clear logging, proper documentation, and potential architectural improvements to handle different data types and lifecycle requirements effectively.
+
+### 10. Exit Code and Evaluation Status Architecture
+
+#### 10.1 Fix Exit Code Tracking Issues
+- [ ] Address fundamental exit code tracking problems
+  - [ ] Current issue: Race condition between Kubernetes job status and container exit codes
+  - [ ] When job.status.succeeded=true, container might not be terminated yet
+  - [ ] Can't get exit code from deleted pods (logs from Loki have no exit code)
+  - [ ] Python exceptions (like 1/0) exit with code 1 but Kubernetes marks job as "succeeded"
+- [ ] Improve exit code retrieval
+  - [ ] Wait for container termination before processing job success
+  - [ ] Consider pod phase AND container state together
+  - [ ] Handle the None exit code case properly (don't default to 0 or 1)
+- [ ] Re-architect evaluation status determination
+  - [ ] Current: Relies on exit codes to determine success/failure
+  - [ ] Problem: Exit codes are unreliable and hard to get consistently
+  - [ ] Consider alternatives:
+    - Parse logs for success/failure indicators
+    - Have evaluations explicitly report status
+    - Use structured output format with status field
+
+#### 10.2 Cleanup Controller Coordination
+- [ ] Address log shipping race condition
+  - [ ] Current: 10-second grace period before deleting pods
+  - [ ] Problem: Arbitrary delay, not event-driven
+  - [ ] Consider:
+    - Event-based coordination (cleanup controller waits for "logs shipped" signal)
+    - Fluent Bit completion markers
+    - Sidecar pattern for log shipping confirmation
+- [ ] Improve Fluent Bit reliability
+  - [ ] Current: DaemonSet reads from /var/log/containers/*.log
+  - [ ] Problem: Files deleted when pods are deleted
+  - [ ] Consider:
+    - Log streaming directly from containers
+    - Buffer logs in persistent volume temporarily
+    - Ensure Fluent Bit processes logs before deletion
+
+#### 10.3 Evaluation Result Architecture
+- [ ] Design proper evaluation result reporting
+  - [ ] Move away from exit code reliance
+  - [ ] Options:
+    - Structured JSON output with explicit status field
+    - Separate status reporting API endpoint
+    - Status file written to shared volume
+- [ ] Handle edge cases properly
+  - [ ] Container OOM kills
+  - [ ] Timeouts
+  - [ ] Network failures
+  - [ ] Partial outputs
+- [ ] Document evaluation lifecycle
+  - [ ] All possible states and transitions
+  - [ ] How status is determined at each stage
+  - [ ] What happens when information is incomplete
+
+**Rationale**: The current system's reliance on exit codes for determining evaluation success/failure is fundamentally flawed due to Kubernetes' async nature and the complexity of tracking exit codes through multiple layers (job -> pod -> container). A more robust architecture is needed that doesn't depend on race conditions and unreliable signals.

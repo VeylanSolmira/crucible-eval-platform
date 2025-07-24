@@ -14,16 +14,16 @@ spec:
     # Pod limits - THIS is what actually constrains cluster resources
     pods: "100"                         # Maximum 100 pods running concurrently
     
-    # CPU limits - constrained by Docker Desktop allocation (4 cores)
+    # CPU limits - constrained by Docker Desktop allocation (8 cores)
     # Most evaluations request 100m, limit 500m
-    # Reserve ~1 core for system pods (API, storage, dispatcher, etc.)
-    requests.cpu: "3"                   # ~30 concurrent evaluations * 100m
-    limits.cpu: "6"                     # Allow bursting but scheduler uses requests
+    # Reserve ~1-2 cores for system pods (API, storage, dispatcher, etc.)
+    requests.cpu: "4"                   # ~40 concurrent evaluations * 100m
+    limits.cpu: "8"                     # Allow bursting but scheduler uses requests
     
     # Memory limits - constrained by Docker Desktop allocation (4GB)
     # Reserve ~1.5GB for system pods and Kubernetes overhead
-    requests.memory: "3Gi"            # ~20 concurrent evaluations * 128Mi
-    limits.memory: "6Gi"               # Allow bursting but scheduler uses requests
+    requests.memory: "3.5Gi"            # ~20 concurrent evaluations * 128Mi
+    limits.memory: "7Gi"               # Allow bursting but scheduler uses requests
     
     # Storage limits - evaluations use emptyDir volumes
     requests.ephemeral-storage: "20Gi"  # For emptyDir volumes

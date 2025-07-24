@@ -66,6 +66,10 @@ build:
         dockerfile: dispatcher_service/Dockerfile
         buildArgs:
           CACHEBUST: '{{.TIMESTAMP}}'
+    - image: crucible-platform/cleanup-controller
+      context: .
+      docker:
+        dockerfile: cleanup_controller/Dockerfile
     - image: crucible-platform/frontend
       context: .
       docker:

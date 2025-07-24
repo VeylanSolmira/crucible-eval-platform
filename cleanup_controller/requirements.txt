@@ -1,0 +1,4 @@
+# Cleanup controller dependencies
+-c constraints.txt
+
+kubernetes

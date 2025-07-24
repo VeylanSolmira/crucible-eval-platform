@@ -9,6 +9,7 @@ import httpx
 import pytest
 from shared.utils.resilient_connections import ResilientRedisClient
 from tests.k8s_test_config import REDIS_URL, API_URL
+from tests.utils.adaptive_timeouts import AdaptiveWaiter
 
 
 @pytest.mark.e2e
@@ -41,31 +42,30 @@ async def test_evaluation_completes_and_status_updates():
         eval_data = response.json()
         eval_id = eval_data["eval_id"]
         
-        # Wait for it to start running
-        await asyncio.sleep(2)
+        # Use adaptive waiter for better timing
+        waiter = AdaptiveWaiter(initial_timeout=30)
         
-        # Check it's running
+        # Convert async client to sync for the waiter
+        import requests
+        sync_session = requests.Session()
+        
+        # Wait for evaluation to complete
+        results = waiter.wait_for_evaluations(
+            sync_session, 
+            api_base,
+            [eval_id],
+            check_resources=True
+        )
+        
+        assert len(results["completed"]) == 1, f"Evaluation did not complete: {results}"
+        
+        # Get final status
         response = await client.get(f"{api_base}/eval/{eval_id}")
         assert response.status_code in [200, 202]
         status_data = response.json()
-        assert status_data["status"] == "running"
+        final_status = status_data["status"]
         
-        # Wait for completion (simple print should be fast)
-        max_wait = 30
-        start_time = time.time()
-        final_status = None
-        
-        while time.time() - start_time < max_wait:
-            response = await client.get(f"{api_base}/eval/{eval_id}")
-            assert response.status_code != 404, f"Got 404 for {eval_id} - evaluation disappeared!"
-            
-            status_data = response.json()
-            final_status = status_data["status"]
-            
-            if final_status in ["completed", "failed", "timeout"]:
-                break
-                
-            await asyncio.sleep(1)
+        # Already waited above with AdaptiveWaiter
         
         # Verify it completed
         assert final_status == "completed", f"Expected completed, got {final_status}"

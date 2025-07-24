@@ -267,21 +267,26 @@ class TestDispatcherService:
         )
         mock_k8s_core.read_namespaced_pod_log.assert_called_once()
     
-    def test_get_job_logs_no_pods(self, mock_k8s_core, mock_k8s_batch):
+    @patch('dispatcher_service.app.get_logs_from_loki')
+    def test_get_job_logs_no_pods(self, mock_loki, mock_k8s_core, mock_k8s_batch):
         """Test getting logs when no pods exist."""
-        from dispatcher_service.app import get_job_logs
+        from dispatcher_service.app import get_job_logs_internal
         
         # Mock empty pod list
         mock_pod_list = MagicMock()
         mock_pod_list.items = []
         mock_k8s_core.list_namespaced_pod.return_value = mock_pod_list
         
+        # Mock Loki returning no logs
+        mock_loki.return_value = None
+        
         # Get logs
         import asyncio
-        result = asyncio.run(get_job_logs("test-job"))
+        result = asyncio.run(get_job_logs_internal("test-job"))
         
         assert result["logs"] == ""
-        assert result["message"] == "No pods found for job"
+        assert result["exit_code"] == 1
+        assert result["message"] == "No pods found for job and no logs in Loki"
     
     def test_eval_id_sanitization(self):
         """Test that eval IDs are properly sanitized for K8s names."""

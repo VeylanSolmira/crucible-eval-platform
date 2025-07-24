@@ -21,6 +21,9 @@ import re
 from typing import List, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# Import k8s test config to get proper Redis URL
+from k8s_test_config import REDIS_URL
+
 
 class TestCoordinator:
     """Coordinates parallel test execution inside the cluster."""
@@ -31,6 +34,7 @@ class TestCoordinator:
         self.test_image = os.environ.get("TEST_IMAGE", "crucible-test-runner:latest")
         self.test_jobs = []
         self.verbose = False
+        self.resource_cleanup = "none"  # Default to no cleanup
         
         # Check if we're in production mode
         self.production_mode = os.environ.get("PRODUCTION_MODE", "false").lower() == "true"
@@ -133,7 +137,8 @@ class TestCoordinator:
     def create_test_job(self, 
                        suite: Dict[str, str],
                        job_number: int,
-                       pytest_args: List[str]) -> Dict:
+                       pytest_args: List[str],
+                       resource_cleanup: str = "none") -> Dict:
         """Create a job manifest for a test suite."""
         
         job_name = f"{suite['name']}-tests-{self.timestamp}-{job_number:02d}".replace("_", "-")
@@ -145,7 +150,13 @@ class TestCoordinator:
             "-v",
             "--tb=short",
             "--junit-xml=/tmp/junit.xml"
-        ] + pytest_args
+        ]
+        
+        # Add resource cleanup if requested
+        if resource_cleanup != "none":
+            pytest_cmd.extend(["--cleanup-level", resource_cleanup])
+            
+        pytest_cmd.extend(pytest_args)
         
         job_manifest = {
             "apiVersion": "batch/v1",
@@ -183,12 +194,12 @@ class TestCoordinator:
                             "command": pytest_cmd,
                             "resources": {
                                 "requests": {
-                                    "memory": "512Mi",
-                                    "cpu": "250m"
+                                    "memory": "256Mi",  # Can be overcommitted
+                                    "cpu": "100m"
                                 },
                                 "limits": {
-                                    "memory": "1Gi",
-                                    "cpu": "1"
+                                    "memory": "512Mi",  # Hard cap - reduced from 1Gi
+                                    "cpu": "500m"
                                 }
                             }
                         }],
@@ -229,8 +240,81 @@ class TestCoordinator:
         
         start_time = time.time()
         
+        # Start streaming logs in a thread
+        import threading
+        import queue
+        
+        log_queue = queue.Queue()
+        captured_logs = []  # Buffer to store logs for TestLogBuffer
+        
+        def stream_logs():
+            """Stream logs in a separate thread to avoid blocking."""
+            try:
+                # Wait a moment for pod to be ready
+                time.sleep(2)
+                
+                process = subprocess.Popen(
+                    ["kubectl", "logs", "-f", f"job/{job_name}", "-n", self.namespace],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
+                
+                for line in iter(process.stdout.readline, ''):
+                    if line:
+                        line_stripped = line.rstrip()
+                        log_queue.put(line_stripped)
+                        captured_logs.append(line_stripped)  # Buffer for later use
+                    
+                process.wait()
+            except Exception as e:
+                log_queue.put(f"[Log streaming error: {e}]")
+        
+        log_thread = threading.Thread(target=stream_logs, daemon=True)
+        log_thread.start()
+        
         # Wait for job to complete
         while True:
+            # Check for log output
+            try:
+                while True:
+                    line = log_queue.get_nowait()
+                    
+                    # Color code different types of output
+                    if self.verbose:
+                        # ANSI color codes
+                        GREEN = "\033[92m"
+                        RED = "\033[91m"
+                        YELLOW = "\033[93m"
+                        BLUE = "\033[94m"
+                        CYAN = "\033[96m"
+                        RESET = "\033[0m"
+                        
+                        # Pytest test results
+                        if " PASSED " in line:
+                            print(f"  │ {GREEN}{line}{RESET}")
+                        elif " FAILED " in line:
+                            print(f"  │ {RED}{line}{RESET}")
+                        elif " SKIPPED " in line:
+                            print(f"  │ {YELLOW}{line}{RESET}")
+                        # Adaptive timeout output
+                        elif any(x in line for x in ["Progress:", "Resource-based timeout:", "Evaluation Summary"]):
+                            print(f"  │ {CYAN}{line}{RESET}")
+                        # Warnings
+                        elif "WARNING" in line or "⚠️" in line:
+                            print(f"  │ {YELLOW}{line}{RESET}")
+                        # Test names/collection
+                        elif line.startswith("tests/") and "::" in line and " PASSED" not in line:
+                            print(f"  │ {BLUE}{line}{RESET}")
+                        else:
+                            print(f"  │ {line}")
+                    else:
+                        # Non-verbose mode: just show the line
+                        print(f"  │ {line}")
+            except queue.Empty:
+                pass
+            
             result = subprocess.run(
                 ["kubectl", "get", "job", job_name, "-n", self.namespace, "-o", "json"],
                 capture_output=True,
@@ -238,6 +322,7 @@ class TestCoordinator:
             )
             
             if result.returncode != 0:
+                log_process.terminate()
                 return {
                     "job_name": job_name,
                     "status": "error",
@@ -249,12 +334,34 @@ class TestCoordinator:
             status = job_data.get("status", {})
             
             if status.get("succeeded", 0) > 0 or status.get("failed", 0) > 0:
-                # Get logs regardless of job status
-                log_result = subprocess.run(
-                    ["kubectl", "logs", f"job/{job_name}", "-n", self.namespace],
-                    capture_output=True,
-                    text=True
-                )
+                # Give thread a moment to finish
+                time.sleep(1)
+                
+                # Drain any remaining log messages
+                try:
+                    while True:
+                        line = log_queue.get_nowait()
+                        print(f"  │ {line}")
+                except queue.Empty:
+                    pass
+                
+                # Use captured logs instead of making another kubectl call
+                log_output = "\n".join(captured_logs)
+                
+                # Store captured logs in Redis before cleanup controller might delete the pod
+                try:
+                    from tests.utils.log_buffer import TestLogBuffer
+                    log_buffer = TestLogBuffer(redis_url=REDIS_URL)
+                    
+                    # Store the buffered logs directly - no need for another kubectl call
+                    log_buffer.store_test_result(
+                        test_id=job_name,
+                        suite=job_name.split("-")[0],
+                        status="succeeded" if status.get("succeeded", 0) > 0 else "failed",
+                        logs="\n".join(captured_logs)  # Use our buffered logs
+                    )
+                except Exception as e:
+                    print(f"  Warning: Could not buffer logs: {e}")
                 
                 # Parse test results from pytest summary line
                 import re
@@ -262,7 +369,7 @@ class TestCoordinator:
                 found_results = False
                 
                 # First, look for deselected count in collection phase
-                for line in log_result.stdout.split('\n'):
+                for line in log_output.split('\n'):
                     if 'collected' in line and 'deselected' in line:
                         match = re.search(r'(\d+) deselected', line)
                         if match:
@@ -270,7 +377,7 @@ class TestCoordinator:
                         break
                 
                 # Then parse test results
-                for line in reversed(log_result.stdout.split('\n')):
+                for line in reversed(log_output.split('\n')):
                     if '=====' in line and (' passed' in line or ' failed' in line or ' skipped' in line):
                         # This is likely the summary line
                         # Parse all test counts in one pass
@@ -291,7 +398,7 @@ class TestCoordinator:
                         return {
                             "job_name": job_name,
                             "status": "failed",
-                            "error": log_result.stdout if self.verbose else log_result.stdout[-2000:],
+                            "error": log_output if self.verbose else log_output[-2000:],
                             "duration": time.time() - start_time
                         }
                     else:
@@ -323,12 +430,12 @@ class TestCoordinator:
                 return {
                     "job_name": job_name,
                     "status": "failed",
-                    "error": log_result.stdout[-500:],  # Last 500 chars
+                    "error": "Job failed but this code is unreachable",  # This block is unreachable
                     "duration": time.time() - start_time
                 }
             
             # Still running
-            time.sleep(5)
+            time.sleep(1)  # Reduced from 5s for more responsive output
     
     def run_parallel(self, suites: List[Dict], pytest_args: List[str]) -> Dict[str, List]:
         """Run test suites in parallel."""
@@ -342,7 +449,7 @@ class TestCoordinator:
             
             for i, suite in enumerate(suites):
                 if suite["parallel_safe"]:
-                    job_manifest = self.create_test_job(suite, i, pytest_args)
+                    job_manifest = self.create_test_job(suite, i, pytest_args, self.resource_cleanup)
                     job_name, submitted = self.submit_job(job_manifest)
                     
                     if submitted:
@@ -368,7 +475,7 @@ class TestCoordinator:
         for i, suite in enumerate(suites):
             if not suite["parallel_safe"]:
                 print(f"\n⚠️  Running {suite['name']} sequentially (not parallel safe)")
-                job_manifest = self.create_test_job(suite, i + 100, pytest_args)
+                job_manifest = self.create_test_job(suite, i + 100, pytest_args, self.resource_cleanup)
                 job_name, submitted = self.submit_job(job_manifest)
                 
                 if submitted:
@@ -391,7 +498,7 @@ class TestCoordinator:
         for i, suite in enumerate(suites):
             print(f"\n▶️  Running {suite['name']} ({suite['test_count']} test files)")
             
-            job_manifest = self.create_test_job(suite, i, pytest_args)
+            job_manifest = self.create_test_job(suite, i, pytest_args, self.resource_cleanup)
             job_name, submitted = self.submit_job(job_manifest)
             
             if submitted:
@@ -442,7 +549,7 @@ class TestCoordinator:
                             capture_output=True,
                             text=True
                         )
-                        if "0 passed" in log_result.stdout or "collected 0 items" in log_result.stdout:
+                        if "0 passed" in log_output or "collected 0 items" in log_output:
                             print(f"   ⚠️  Preserving job with no tests found: {job_name}")
                             continue
             
@@ -493,16 +600,20 @@ class TestCoordinator:
             include_slow: bool = False,
             include_destructive: bool = False,
             test_files: List[str] = None,
-            verbose: bool = False) -> int:
+            verbose: bool = False,
+            resource_cleanup: str = "none") -> int:
         """Main coordinator entry point."""
         
         self.verbose = verbose
+        self.resource_cleanup = resource_cleanup
         
         print("="*80)
         print("TEST COORDINATOR")
         print("="*80)
         print(f"\nRunning inside cluster in namespace: {self.namespace}")
         print(f"Test image: {self.test_image}")
+        if self.resource_cleanup != "none":
+            print(f"Resource cleanup: {self.resource_cleanup} (pods/jobs cleaned between tests)")
         
         # Build pytest args
         pytest_args = []
@@ -517,6 +628,10 @@ class TestCoordinator:
         if markers_to_exclude:
             marker_expression = " and ".join(f"not {marker}" for marker in markers_to_exclude)
             pytest_args.extend(["-m", marker_expression])
+            
+        # Add -s flag if verbose mode to see print statements
+        if self.verbose:
+            pytest_args.append("-s")
         
         # Discover test suites or specific test files
         if test_files:
@@ -558,6 +673,10 @@ def main():
     parser.add_argument("--include-slow", action="store_true", help="Include slow tests")
     parser.add_argument("--include-destructive", action="store_true", help="Include destructive tests")
     parser.add_argument("--verbose", action="store_true", help="Show full output and logs (no truncation)")
+    parser.add_argument("--resource-cleanup", 
+                        choices=["none", "pods", "all"], 
+                        default="none",
+                        help="Resource cleanup level between tests (none, pods, or all)")
     
     args = parser.parse_args()
     
@@ -568,7 +687,8 @@ def main():
         include_slow=args.include_slow,
         include_destructive=args.include_destructive,
         test_files=args.test_files,
-        verbose=args.verbose
+        verbose=args.verbose,
+        resource_cleanup=args.resource_cleanup
     )
     
     sys.exit(exit_code)

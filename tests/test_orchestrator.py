@@ -175,7 +175,8 @@ class TestOrchestrator:
                              include_slow: bool = False,
                              include_destructive: bool = False,
                              test_files: List[str] = None,
-                             verbose: bool = False) -> Dict:
+                             verbose: bool = False,
+                             resource_cleanup: str = "none") -> Dict:
         """Create the coordinator job manifest."""
         
         # Build command for coordinator
@@ -198,6 +199,9 @@ class TestOrchestrator:
             
         if verbose:
             coordinator_cmd.append("--verbose")
+            
+        if resource_cleanup != "none":
+            coordinator_cmd.extend(["--resource-cleanup", resource_cleanup])
         
         # Debug: Check registry value
         print(f"\n🔍 Debug - Registry value: '{self.registry}'")
@@ -228,6 +232,7 @@ class TestOrchestrator:
                             "imagePullPolicy": self.image_pull_policy,
                             "env": [
                                 {"name": "IN_CLUSTER", "value": "true"},
+                                {"name": "IN_CLUSTER_TESTS", "value": "true"},
                                 {"name": "K8S_NAMESPACE", "value": self.namespace},
                                 {"name": "TEST_IMAGE", "value": self.test_image},
                                 {"name": "PRODUCTION_MODE", "value": str(self.production_mode).lower()},
@@ -436,7 +441,8 @@ class TestOrchestrator:
             include_slow: bool = False,
             include_destructive: bool = False,
             test_files: List[str] = None,
-            verbose: bool = False) -> int:
+            verbose: bool = False,
+            resource_cleanup: str = "none") -> int:
         """Run the complete test orchestration pipeline."""
         
         print("\n" + "="*80)
@@ -456,6 +462,8 @@ class TestOrchestrator:
         print(f"  Parallel: {parallel}")
         print(f"  Include Slow: {include_slow}")
         print(f"  Include Destructive: {include_destructive}")
+        if resource_cleanup != "none":
+            print(f"  Resource Cleanup: {resource_cleanup} (clean between tests)")
         
         try:
             # Step 1: Smoke tests
@@ -473,7 +481,8 @@ class TestOrchestrator:
                 include_slow=include_slow,
                 include_destructive=include_destructive,
                 test_files=test_files,
-                verbose=verbose
+                verbose=verbose,
+                resource_cleanup=resource_cleanup
             )
             
             if not self.submit_coordinator_job(job_manifest):
@@ -525,9 +534,15 @@ def main():
         help="Include destructive tests"
     )
     parser.add_argument(
-        "--verbose",
+        "--verbose", "-v",
         action="store_true",
         help="Show full output and logs (no truncation)"
+    )
+    parser.add_argument(
+        "--resource-cleanup",
+        choices=["none", "pods", "all"],
+        default="none",
+        help="Resource cleanup level between tests (none, pods, or all)"
     )
     
     args = parser.parse_args()
@@ -540,7 +555,8 @@ def main():
         include_slow=args.include_slow,
         include_destructive=args.include_destructive,
         test_files=args.test_files,
-        verbose=args.verbose
+        verbose=args.verbose,
+        resource_cleanup=args.resource_cleanup
     )
     
     sys.exit(exit_code)

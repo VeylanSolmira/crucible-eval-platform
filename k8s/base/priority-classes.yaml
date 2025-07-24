@@ -1,23 +1,56 @@
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
+  name: high-priority
+value: 1000
+globalDefault: false
+description: "High priority for production evaluations"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: medium-priority
+value: 500
+globalDefault: true
+description: "Default priority for platform services"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority
+value: 100
+globalDefault: false
+description: "Low priority for maintenance and cleanup tasks"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: test-priority
+value: 200
+globalDefault: false
+description: "Priority for test infrastructure"
+---
+# Keep old names for compatibility during migration
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
   name: high-priority-evaluation
 value: 1000
 globalDefault: false
-description: "High priority class for urgent evaluation jobs"
+description: "DEPRECATED: Use high-priority instead"
 ---
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: normal-priority-evaluation
-value: 100
+value: 500
 globalDefault: false
-description: "Normal priority class for standard evaluation jobs"
+description: "DEPRECATED: Use medium-priority instead"
 ---
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: low-priority-evaluation
-value: 10
+value: 100
 globalDefault: false
-description: "Low priority class for batch evaluation jobs"
+description: "DEPRECATED: Use low-priority instead"

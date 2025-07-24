@@ -12,6 +12,8 @@ import httpx
 import time
 import os
 import pytest
+from tests.utils.adaptive_timeouts import wait_with_progress
+import requests
 
 
 @pytest.mark.e2e
@@ -39,25 +41,20 @@ async def test_evaluation_list_accuracy():
         eval_id = response.json()["eval_id"]
         print(f"   Evaluation ID: {eval_id}")
         
-        # 2. Wait for it to complete
+        # 2. Wait for it to complete using adaptive waiter
         print("\n2. Waiting for completion...")
-        max_wait = 10
-        start_time = time.time()
-        actual_status = None
+        sync_session = requests.Session()
+        results = wait_with_progress(sync_session, api_base, [eval_id], timeout=30)
         
-        while time.time() - start_time < max_wait:
-            response = await client.get(f"{api_base}/eval/{eval_id}")
-            assert response.status_code == 200
-            data = response.json()
-            actual_status = data["status"]
-            
-            if actual_status in ["completed", "failed"]:
-                print(f"   Status: {actual_status}")
-                break
-                
-            await asyncio.sleep(0.5)
+        assert len(results["completed"]) == 1, f"Evaluation did not complete: {results}"
         
+        # Verify it's actually completed
+        response = await client.get(f"{api_base}/eval/{eval_id}")
+        assert response.status_code == 200
+        data = response.json()
+        actual_status = data["status"]
         assert actual_status == "completed", f"Expected completed, got {actual_status}"
+        print(f"   Status: {actual_status}")
         
         # 3. Verify completed evaluation is NOT in running list
         print("\n3. Checking running evaluations endpoint...")
@@ -132,8 +129,16 @@ async def test_multiple_evaluation_statuses():
         assert response.status_code == 200
         eval_ids.append(response.json()["eval_id"])
         
-        # Wait for first two to complete
-        await asyncio.sleep(5)
+        # Wait for first two to complete using adaptive waiter
+        sync_session = requests.Session()
+        results = wait_with_progress(sync_session, api_base, eval_ids[:2], timeout=30)
+        
+        # Should have 2 evaluations in terminal state (completed or failed)
+        total_done = len(results["completed"]) + len(results["failed"])
+        assert total_done == 2, f"Expected 2 evaluations done, got {total_done}: {results}"
+        
+        # Give a bit more time for status to propagate to list endpoints
+        await asyncio.sleep(2)
         
         # Check status endpoints
         response = await client.get(f"{api_base}/evaluations?status=completed")

@@ -51,3 +51,7 @@ patches:
     name: job-dispatcher
 - path: dispatcher-macos-env-patch.yaml
 - path: resource-optimization-patches.yaml
+- path: loki-config-patch.yaml
+  target:
+    kind: ConfigMap
+    name: loki-config

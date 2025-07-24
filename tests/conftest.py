@@ -8,6 +8,23 @@ import urllib3
 # Disable SSL warnings for self-signed certificates in test environment
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Import resource manager functionality if available
+try:
+    from tests.utils.resource_manager import pytest_addoption as resource_manager_addoption
+    from tests.utils.resource_manager import resource_manager
+    _resource_manager_available = True
+except ImportError:
+    # Resource manager not available (may be running outside cluster)
+    resource_manager_addoption = None
+    resource_manager = None
+    _resource_manager_available = False
+
+def pytest_addoption(parser):
+    """Add custom command-line options."""
+    # Call resource manager's addoption if available
+    if resource_manager_addoption:
+        resource_manager_addoption(parser)
+
 # Register custom markers
 def pytest_configure(config):
     """Register custom markers for test classification."""
@@ -94,3 +111,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     results = {"passed": passed, "failed": failed, "skipped": skipped}
     print(f"\nTEST_RESULTS_JSON:{json.dumps(results)}")
     print()  # Extra newline for clarity
+
+# Re-export resource_manager fixture if available
+if _resource_manager_available and resource_manager:
+    globals()['resource_manager'] = resource_manager

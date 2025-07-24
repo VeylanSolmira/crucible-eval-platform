@@ -8,7 +8,7 @@ File sync test: Adding this comment to test Skaffold file syncing
 import os
 import logging
 from typing import Optional, Dict, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 import json
 import asyncio
@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 import uvicorn
+import httpx
 
 # Import shared resilient Redis client
 from shared.utils.resilient_connections import ResilientRedisClient
@@ -182,20 +183,38 @@ async def process_job_event(event: Dict, redis_client: ResilientRedisClient):
                 # Get job logs
                 logs_result = await get_job_logs_internal(job_name)
                 
-                # Publish completed event
+                # Check exit code to determine if it's truly successful
+                exit_code = logs_result.get("exit_code", 0)
                 completion_time = job.status.completion_time.isoformat() if job.status and job.status.completion_time else None
                 
-                event_data = {
-                    "eval_id": eval_id,
-                    "output": logs_result.get("logs", ""),
-                    "exit_code": logs_result.get("exit_code", 0),
-                    "metadata": {
-                        "job_name": job_name,
-                        "completed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat()
+                if exit_code == 0:
+                    # Publish completed event
+                    event_data = {
+                        "eval_id": eval_id,
+                        "output": logs_result.get("logs", ""),
+                        "exit_code": exit_code,
+                        "metadata": {
+                            "job_name": job_name,
+                            "completed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat(),
+                            "log_source": logs_result.get("source", "unknown")
+                        }
                     }
-                }
-                await redis_client.publish("evaluation:completed", json.dumps(event_data))
-                logger.info(f"Published evaluation:completed event for {eval_id}")
+                    await redis_client.publish("evaluation:completed", json.dumps(event_data))
+                    logger.info(f"Published evaluation:completed event for {eval_id} (logs from {logs_result.get('source', 'unknown')})")
+                else:
+                    # Non-zero exit code means failure
+                    event_data = {
+                        "eval_id": eval_id,
+                        "error": logs_result.get("logs", "Process exited with non-zero code"),
+                        "exit_code": exit_code,
+                        "metadata": {
+                            "job_name": job_name,
+                            "failed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat(),
+                            "log_source": logs_result.get("source", "unknown")
+                        }
+                    }
+                    await redis_client.publish("evaluation:failed", json.dumps(event_data))
+                    logger.info(f"Published evaluation:failed event for {eval_id} (exit code {exit_code})")
                 
             elif status == "failed":
                 # Get job logs
@@ -209,11 +228,12 @@ async def process_job_event(event: Dict, redis_client: ResilientRedisClient):
                     "exit_code": logs_result.get("exit_code", 1),
                     "metadata": {
                         "job_name": job_name,
-                        "failed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat()
+                        "failed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat(),
+                        "log_source": logs_result.get("source", "unknown")
                     }
                 }
                 await redis_client.publish("evaluation:failed", json.dumps(event_data))
-                logger.info(f"Published evaluation:failed event for {eval_id}")
+                logger.info(f"Published evaluation:failed event for {eval_id} (logs from {logs_result.get('source', 'unknown')})")
                 
         # Handle job deletion events
         if event_type == "DELETED" and eval_id:
@@ -760,28 +780,51 @@ async def get_job_status(job_name: str, redis_client: ResilientRedisClient = Dep
                     
                     elif status == "succeeded":
                         # Get job logs for the completed evaluation
-                        logs_result = await get_job_logs(job_name)
+                        logs_result = await get_job_logs_internal(job_name)
                         
-                        # Publish evaluation completed event
-                        event_data = {
-                            "eval_id": eval_id,
-                            "output": logs_result.get("logs", ""),
-                            "exit_code": logs_result.get("exit_code", 0),
-                            "metadata": {
-                                "job_name": job_name,
-                                "completed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat()
+                        # Check exit code to determine if it's truly successful
+                        exit_code = logs_result.get("exit_code", 0)
+                        
+                        if exit_code == 0:
+                            # Publish evaluation completed event
+                            event_data = {
+                                "eval_id": eval_id,
+                                "output": logs_result.get("logs", ""),
+                                "exit_code": exit_code,
+                                "metadata": {
+                                    "job_name": job_name,
+                                    "completed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat(),
+                                    "log_source": logs_result.get("source", "unknown")
+                                }
                             }
-                        }
-                        success = await redis_client.publish(
-                            "evaluation:completed",
-                            json.dumps(event_data)
-                        )
-                        if success:
-                            logger.info(f"Published evaluation:completed event for {eval_id}")
+                            success = await redis_client.publish(
+                                "evaluation:completed",
+                                json.dumps(event_data)
+                            )
+                            if success:
+                                logger.info(f"Published evaluation:completed event for {eval_id} (logs from {logs_result.get('source', 'unknown')})")
+                        else:
+                            # Non-zero exit code means failure
+                            event_data = {
+                                "eval_id": eval_id,
+                                "error": logs_result.get("logs", "Process exited with non-zero code"),
+                                "exit_code": exit_code,
+                                "metadata": {
+                                    "job_name": job_name,
+                                    "failed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat(),
+                                    "log_source": logs_result.get("source", "unknown")
+                                }
+                            }
+                            success = await redis_client.publish(
+                                "evaluation:failed",
+                                json.dumps(event_data)
+                            )
+                            if success:
+                                logger.info(f"Published evaluation:failed event for {eval_id} (exit code {exit_code})")
                     
                     elif status == "failed":
                         # Get job logs for the failed evaluation
-                        logs_result = await get_job_logs(job_name)
+                        logs_result = await get_job_logs_internal(job_name)
                         
                         # Publish evaluation failed event
                         event_data = {
@@ -790,7 +833,8 @@ async def get_job_status(job_name: str, redis_client: ResilientRedisClient = Dep
                             "exit_code": logs_result.get("exit_code", 1),
                             "metadata": {
                                 "job_name": job_name,
-                                "failed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat()
+                                "failed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat(),
+                                "log_source": logs_result.get("source", "unknown")
                             }
                         }
                         success = await redis_client.publish(
@@ -824,6 +868,90 @@ async def get_job_status(job_name: str, redis_client: ResilientRedisClient = Dep
         )
 
 
+async def get_logs_from_loki(job_name: str) -> Optional[str]:
+    """
+    Query Loki for logs from a specific job/pod.
+    Returns the log content or None if not found.
+    """
+    loki_url = os.getenv("LOKI_URL", "http://loki:3100")
+    
+    try:
+        # Query for logs from pods with this job name
+        # Using LogQL to search for logs from pods matching the job
+        query = f'{{job="fluentbit",kubernetes_namespace_name="{KUBERNETES_NAMESPACE}",kubernetes_pod_name=~"{job_name}.*"}}'
+        
+        # Time range - last hour should be enough for recent evaluations
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - timedelta(hours=1)
+        
+        params = {
+            "query": query,
+            "start": int(start_time.timestamp() * 1e9),  # Nanoseconds
+            "end": int(end_time.timestamp() * 1e9),
+            "limit": 5000,  # Limit number of log lines
+            "direction": "forward"
+        }
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{loki_url}/loki/api/v1/query_range",
+                params=params
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data["status"] == "success":
+                    if not data["data"]["result"]:
+                        logger.info(f"Loki query succeeded but found no streams for {job_name}")
+                        return None  # No logs found in Loki
+                    
+                    # Log the number of streams found for debugging
+                    logger.info(f"Loki found {len(data['data']['result'])} log streams for {job_name}")
+                    
+                    # Combine all log lines from all streams
+                    all_logs = []
+                    for stream in data["data"]["result"]:
+                        for timestamp, line in stream["values"]:
+                            # Fluent Bit sends logs as JSON with a "log" field
+                            try:
+                                import json as json_module
+                                log_data = json_module.loads(line)
+                                if "log" in log_data:
+                                    # Extract the actual log message from the JSON
+                                    log_line = log_data["log"]
+                                    # Remove the timestamp and stream indicator if present
+                                    # Format: "2025-07-24T10:38:29.007631626Z stderr F Error stream test"
+                                    parts = log_line.split(" ", 3)
+                                    if len(parts) >= 4 and parts[2] in ["F", "P"]:
+                                        # Extract just the message part
+                                        all_logs.append(parts[3].rstrip("\n"))
+                                    else:
+                                        # Use the whole line if format doesn't match
+                                        all_logs.append(log_line.rstrip("\n"))
+                                else:
+                                    # If not JSON or no "log" field, use as-is
+                                    all_logs.append(line)
+                            except json_module.JSONDecodeError:
+                                # If not valid JSON, try the old format
+                                if " F " in line or " P " in line:
+                                    parts = line.split(" F " if " F " in line else " P ", 1)
+                                    if len(parts) > 1:
+                                        all_logs.append(parts[1])
+                                else:
+                                    all_logs.append(line)
+                    
+                    logger.info(f"Collected {len(all_logs)} log lines for {job_name}")
+                    # Return None if no logs found, otherwise return the logs (even if empty string)
+                    return "\n".join(all_logs) if all_logs else ""
+            else:
+                logger.warning(f"Loki query failed with status {response.status_code}: {response.text}")
+                
+    except Exception as e:
+        logger.error(f"Error querying Loki for job {job_name}: {e}")
+    
+    return None
+
+
 @app.get("/logs/{job_name}")
 async def get_job_logs_internal(job_name: str, tail_lines: int = 100):
     """
@@ -838,7 +966,18 @@ async def get_job_logs_internal(job_name: str, tail_lines: int = 100):
         )
         
         if not pods.items:
-            return {"logs": "", "exit_code": 1, "message": "No pods found for job"}
+            # No pods found - try Loki as fallback
+            logger.info(f"No pods found for job {job_name}, checking Loki for logs")
+            loki_logs = await get_logs_from_loki(job_name)
+            if loki_logs is not None:
+                return {
+                    "job_name": job_name,
+                    "pod_name": "deleted",
+                    "logs": loki_logs,
+                    "exit_code": 0,  # Default to 0 since we can't determine from Loki
+                    "source": "loki"
+                }
+            return {"logs": "", "exit_code": 1, "message": "No pods found for job and no logs in Loki"}
         
         # Get logs from the first pod
         pod = pods.items[0]
@@ -862,10 +1001,23 @@ async def get_job_logs_internal(job_name: str, tail_lines: int = 100):
             "job_name": job_name,
             "pod_name": pod_name,
             "logs": logs,
-            "exit_code": exit_code
+            "exit_code": exit_code,
+            "source": "kubernetes"
         }
         
     except ApiException as e:
+        if e.status == 404:
+            # Pod not found - try Loki
+            logger.info(f"Pod not found for job {job_name}, checking Loki for logs")
+            loki_logs = await get_logs_from_loki(job_name)
+            if loki_logs is not None:
+                return {
+                    "job_name": job_name,
+                    "pod_name": "deleted",
+                    "logs": loki_logs,
+                    "exit_code": 0,
+                    "source": "loki"
+                }
         logger.error(f"Failed to get logs for job {job_name}: {e}")
         return {"logs": f"Failed to get logs: {str(e)}", "exit_code": 1}
 

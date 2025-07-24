@@ -39,6 +39,15 @@ resources:
   # Security
   - gvisor-runtimeclass.yaml
   - priority-classes.yaml
+  
+  # Resource management
+  - cleanup-controller.yaml
+  
+  # Log shipping
+  - fluent-bit/fluent-bit-config.yaml
+  - fluent-bit/fluent-bit-daemonset.yaml
+  - loki/loki-config.yaml
+  - loki/loki-deployment.yaml
 
 # Common labels applied to all resources
 labels:

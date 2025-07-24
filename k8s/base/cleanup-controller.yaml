@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cleanup-controller
+  namespace: crucible
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cleanup-controller
+  namespace: crucible
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cleanup-controller
+  namespace: crucible
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cleanup-controller
+subjects:
+- kind: ServiceAccount
+  name: cleanup-controller
+  namespace: crucible
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cleanup-controller
+  namespace: crucible
+  labels:
+    app: cleanup-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cleanup-controller
+  template:
+    metadata:
+      labels:
+        app: cleanup-controller
+    spec:
+      serviceAccountName: cleanup-controller
+      containers:
+      - name: controller
+        image: crucible-platform/cleanup-controller:latest
+        imagePullPolicy: Never  # For local development
+        env:
+        - name: CLEANUP_NAMESPACE
+          value: "crucible"
+        - name: WATCH_ALL_NAMESPACES
+          value: "false"
+        - name: DELETE_GRACE_PERIOD
+          value: "0"  # Immediate deletion
+        - name: PRESERVE_DEBUG_PODS
+          value: "true"
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"  # Very minimal CPU
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+      # Low priority - can be evicted if needed
+      priorityClassName: low-priority

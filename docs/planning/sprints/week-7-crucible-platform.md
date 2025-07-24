@@ -117,7 +117,23 @@
 
 ### 3. System Improvements
 
-#### 3.1 Storage Worker Event Field Migration
+#### 3.1 Log Shipping Infrastructure
+- [ ] Implement centralized log collection
+  - [ ] Deploy Fluent Bit as DaemonSet for log collection
+  - [ ] Configure to capture container logs before pod deletion
+  - [ ] Ship logs to persistent storage (CloudWatch/Elasticsearch)
+  - [ ] Essential due to aggressive cleanup controller deleting pods immediately
+  - [ ] Current test log buffering only works during test runs, not production
+  - [ ] See [Log Shipping Architecture](../../architecture/log-shipping-architecture.md)
+
+#### 3.2 Cleanup Controller Enhancement
+- [ ] Fix cleanup controller deleting Pending pods with failed containers
+  - [ ] Remove container status check that deletes Pending pods (lines 55-58)
+  - [ ] Only delete pods in terminal states (Failed, Succeeded, Error)
+  - [ ] Prevents evaluation pods from being deleted before they can run
+  - [ ] Discovered when integration tests showed "Has logs: False" for all evaluations
+
+#### 3.3 Storage Worker Event Field Migration
 - [ ] Fix storage-worker missing field errors for Kubernetes events
   - [ ] Update dispatcher to populate executor_id with job name
   - [ ] Update dispatcher to populate container_id with pod name
@@ -125,7 +141,7 @@
   - [ ] Remove error logs for missing non-critical fields
   - [ ] Document the field mapping between Docker and Kubernetes architectures
 
-#### 3.2 Subprocess Elimination
+#### 3.4 Subprocess Elimination
 - [ ] Remove all subprocess.run calls
   - [ ] Audit codebase for subprocess usage
   - [ ] Replace with appropriate Python libraries
@@ -135,13 +151,13 @@
   - [ ] Sanitize paths and identifiers
   - [ ] Implement allowlists where appropriate
 
-#### 3.3 RBAC Enhancement
+#### 3.5 RBAC Enhancement
 - [ ] Tighten Kubernetes permissions
   - [ ] Minimal permissions for test coordinator
   - [ ] Separate service accounts per component
   - [ ] Network policies for test isolation
 
-#### 3.4 ResourceQuota Handling
+#### 3.6 ResourceQuota Handling
 - [ ] Implement proper retry behavior for ResourceQuota errors
   - [ ] See [Kubernetes ResourceQuota Handling](../../architecture/kubernetes-resourcequota-handling.md)
   - [ ] Update dispatcher to return 429 for quota exceeded errors
