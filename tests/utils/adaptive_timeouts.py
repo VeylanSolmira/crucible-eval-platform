@@ -8,6 +8,7 @@ import time
 import subprocess
 import json
 import pytest
+import os
 from typing import List, Dict, Optional, Callable
 
 
@@ -20,6 +21,7 @@ class AdaptiveWaiter:
         self.last_progress_time = time.time()
         self.completed_count = 0
         self.last_status_check = 0
+        self.verbose = os.environ.get('VERBOSE_TESTS', 'false').lower() == 'true'
         
     def wait_for_evaluations(self, 
                            api_session,
@@ -83,6 +85,20 @@ class AdaptiveWaiter:
                     print(f"\n⚠️  No progress in {current_time - self.last_progress_time:.0f}s")
                     if check_resources:
                         self._print_resource_status()
+                        
+                        # Check if cluster is at capacity
+                        if self._is_cluster_at_capacity():
+                            # Cluster is busy, this is expected - extend timeout
+                            print("  → Cluster at capacity - extending timeout")
+                            timeout = min(timeout * 1.2, 600)  # Max 10 minutes
+                            # Reset the "no progress" timer since this is expected
+                            self.last_progress_time = current_time
+                            
+                            # Print detailed resource information if verbose
+                            if self.verbose:
+                                # Pass only the eval IDs we're still waiting for
+                                pending_eval_ids = [eid for eid in eval_ids if eid not in completed and eid not in failed]
+                                self._print_detailed_resource_status(pending_eval_ids)
                         
             time.sleep(0.5)
             
@@ -196,6 +212,156 @@ class AdaptiveWaiter:
                 
         except Exception:
             pass
+    
+    def _is_cluster_at_capacity(self) -> bool:
+        """Check if cluster is at or near resource capacity."""
+        try:
+            is_memory_constrained = False
+            has_running_evaluations = False
+            
+            # Check ResourceQuota
+            result = subprocess.run(
+                ["kubectl", "get", "resourcequota", "evaluation-quota", 
+                 "-n", "crucible", "-o", "json"],
+                capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                quota = json.loads(result.stdout)
+                memory_limit = quota['status']['hard'].get('limits.memory', '0')
+                memory_used = quota['status']['used'].get('limits.memory', '0')
+                
+                # Parse memory values
+                limit_mb = self._parse_memory(memory_limit)
+                used_mb = self._parse_memory(memory_used)
+                available_mb = limit_mb - used_mb
+                
+                # Check if less than 512MB available (1 pod worth)
+                if available_mb < 512:
+                    is_memory_constrained = True
+                    
+            # Check if there are RUNNING evaluation pods
+            result = subprocess.run(
+                ["kubectl", "get", "pods", "-n", "crucible", 
+                 "-l", "app=evaluation", "--field-selector=status.phase=Running", "--no-headers"],
+                capture_output=True, text=True
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                has_running_evaluations = True
+            
+            # Only consider at capacity if BOTH conditions are true:
+            # 1. Memory is constrained AND
+            # 2. There are running evaluations that might free up resources
+            # If memory is full but nothing is running, waiting won't help
+            return is_memory_constrained and has_running_evaluations
+                
+        except Exception:
+            pass
+            
+        return False
+    
+    def _print_detailed_resource_status(self, waiting_eval_ids: List[str]):
+        """Print detailed resource information when verbose mode is enabled."""
+        print("\n  === Detailed Resource Status ===")
+        
+        # Get ResourceQuota details
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "resourcequota", "evaluation-quota", 
+                 "-n", "crucible", "-o", "json"],
+                capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                quota = json.loads(result.stdout)
+                memory_limit = quota['status']['hard'].get('limits.memory', '0')
+                memory_used = quota['status']['used'].get('limits.memory', '0')
+                cpu_limit = quota['status']['hard'].get('limits.cpu', '0')
+                cpu_used = quota['status']['used'].get('limits.cpu', '0')
+                
+                print(f"  ResourceQuota:")
+                print(f"    Memory: {memory_used} / {memory_limit}")
+                print(f"    CPU: {cpu_used} / {cpu_limit}")
+        except Exception as e:
+            print(f"  Could not get ResourceQuota: {e}")
+        
+        # Get all evaluation pods with their status
+        try:
+            result = subprocess.run(
+                ["kubectl", "get", "pods", "-n", "crucible", 
+                 "-l", "app=evaluation", "-o", "json"],
+                capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                pods_data = json.loads(result.stdout)
+                pods = pods_data.get('items', [])
+                
+                running_pods = []
+                pending_pods = []
+                failed_pods = []
+                
+                for pod in pods:
+                    pod_name = pod['metadata']['name']
+                    phase = pod['status']['phase']
+                    
+                    # Extract eval ID from pod name (format: evaluation-<eval_id>-job-<suffix>)
+                    eval_id = None
+                    if pod_name.startswith('evaluation-') and '-job-' in pod_name:
+                        eval_id = pod_name.split('-job-')[0].replace('evaluation-', '')
+                    
+                    if phase == 'Running':
+                        running_pods.append((pod_name, eval_id))
+                    elif phase == 'Pending':
+                        pending_pods.append((pod_name, eval_id))
+                    elif phase == 'Failed':
+                        failed_pods.append((pod_name, eval_id))
+                
+                print(f"\n  Evaluation Pods:")
+                if running_pods:
+                    print(f"    Running ({len(running_pods)}):")
+                    for pod_name, eval_id in running_pods[:5]:  # Show first 5
+                        in_waiting = eval_id in waiting_eval_ids if eval_id else False
+                        waiting_marker = " [WAITING]" if in_waiting else ""
+                        print(f"      - {pod_name}{waiting_marker}")
+                    if len(running_pods) > 5:
+                        print(f"      ... and {len(running_pods) - 5} more")
+                
+                if pending_pods:
+                    print(f"    Pending ({len(pending_pods)}):")
+                    for pod_name, eval_id in pending_pods[:5]:
+                        in_waiting = eval_id in waiting_eval_ids if eval_id else False
+                        waiting_marker = " [WAITING]" if in_waiting else ""
+                        print(f"      - {pod_name}{waiting_marker}")
+                    if len(pending_pods) > 5:
+                        print(f"      ... and {len(pending_pods) - 5} more")
+                
+                if failed_pods:
+                    print(f"    Failed ({len(failed_pods)}):")
+                    for pod_name, eval_id in failed_pods[:3]:
+                        print(f"      - {pod_name}")
+                    if len(failed_pods) > 3:
+                        print(f"      ... and {len(failed_pods) - 3} more")
+                
+                # Show which eval IDs we're waiting for that don't have pods
+                eval_ids_with_pods = set()
+                for _, eval_id in running_pods + pending_pods + failed_pods:
+                    if eval_id:
+                        eval_ids_with_pods.add(eval_id)
+                
+                missing_eval_ids = set(waiting_eval_ids) - eval_ids_with_pods
+                if missing_eval_ids:
+                    print(f"\n  Evaluations without pods ({len(missing_eval_ids)}):")
+                    for eval_id in list(missing_eval_ids)[:5]:
+                        print(f"    - {eval_id}")
+                    if len(missing_eval_ids) > 5:
+                        print(f"    ... and {len(missing_eval_ids) - 5} more")
+                        
+        except Exception as e:
+            print(f"  Could not get pod details: {e}")
+        
+        print("  === End Detailed Status ===")
 
 
 def wait_with_progress(api_session, api_base_url: str, eval_ids: List[str], 

@@ -3,6 +3,7 @@ Flexible storage manager that can work with any storage backend.
 """
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
@@ -10,6 +11,8 @@ from .base import StorageService
 from ..backends.memory import InMemoryStorage
 from ..backends.file import FileStorage
 from .config import StorageConfig
+
+logger = logging.getLogger(__name__)
 
 # Conditional import for database
 try:
@@ -64,14 +67,14 @@ class FlexibleStorageManager:
                 primary_storage = DatabaseStorage(config.database_url)
                 print("Using database as primary storage")
             except Exception as e:
-                print(f"Failed to initialize database storage: {e}")
+                logger.warning(f"Failed to initialize database storage: {e}")
 
         # Set up file storage as primary or fallback
         if config.file_storage_path:
             file_storage = FileStorage(config.file_storage_path)
             if primary_storage is None:
                 primary_storage = file_storage
-                print("Using file storage as primary")
+                logger.info("Using file storage as primary")
             else:
                 fallback_storage = file_storage
                 print("Using file storage as fallback")
@@ -155,14 +158,14 @@ class FlexibleStorageManager:
                 self.primary.store_events(eval_id, events)
                 return True
         except Exception as e:
-            print(f"Primary storage failed: {e}")
+            logger.warning(f"Primary storage failed: {e}, attempting fallback")
 
             # Try fallback
             if self.fallback:
                 try:
                     return self.fallback.store_evaluation(eval_id, data)
                 except Exception as e2:
-                    print(f"Fallback storage also failed: {e2}")
+                    logger.error(f"Fallback storage also failed: {e2}")
 
         return False
 
@@ -255,7 +258,7 @@ class FlexibleStorageManager:
             return result
 
         except Exception as e:
-            print(f"Update failed: {e}")
+            logger.warning(f"Update failed: {e}, attempting fallback")
             if self.fallback:
                 return self.fallback.store_evaluation(eval_id, current)
 
@@ -278,14 +281,14 @@ class FlexibleStorageManager:
                     self.cache.store_evaluation(eval_id, result)
                 return result
         except Exception as e:
-            print(f"Primary retrieval failed: {e}")
+            logger.debug(f"Primary retrieval failed: {e}, trying cache/fallback")
 
         # Try fallback
         if self.fallback:
             try:
                 return self.fallback.retrieve_evaluation(eval_id)
             except Exception as e:
-                print(f"Fallback retrieval failed: {e}")
+                logger.warning(f"Fallback retrieval also failed: {e}")
 
         return None
 
@@ -306,7 +309,7 @@ class FlexibleStorageManager:
             # Store updated events
             return self.primary.store_events(eval_id, events)
         except Exception as e:
-            print(f"Failed to add event: {e}")
+            logger.error(f"Failed to add event: {e}")
             return False
 
     def get_events(self, eval_id: str) -> List[Dict[str, Any]]:
@@ -314,7 +317,7 @@ class FlexibleStorageManager:
         try:
             return self.primary.retrieve_events(eval_id)
         except Exception as e:
-            print(f"Failed to get events: {e}")
+            logger.warning(f"Failed to get events from primary: {e}")
             if self.fallback:
                 return self.fallback.retrieve_events(eval_id)
         return []
@@ -339,7 +342,7 @@ class FlexibleStorageManager:
             return evaluations
 
         except Exception as e:
-            print(f"Failed to list evaluations: {e}")
+            logger.warning(f"Failed to list evaluations from primary: {e}")
             if self.fallback:
                 try:
                     eval_ids = self.fallback.list_evaluations(limit, offset)
@@ -361,7 +364,7 @@ class FlexibleStorageManager:
             try:
                 return self.primary.count_evaluations(status)
             except Exception as e:
-                print(f"Failed to count evaluations: {e}")
+                logger.debug(f"Failed to count evaluations: {e}")
 
         # Fallback to counting via list (inefficient but works)
         try:
@@ -377,7 +380,7 @@ class FlexibleStorageManager:
             else:
                 return len(all_items)
         except Exception as e:
-            print(f"Failed to count evaluations via list: {e}")
+            logger.warning(f"Failed to count evaluations via list: {e}")
             return 0
 
     def delete_evaluation(self, eval_id: str) -> bool:
@@ -397,7 +400,7 @@ class FlexibleStorageManager:
             return result
 
         except Exception as e:
-            print(f"Failed to delete evaluation: {e}")
+            logger.error(f"Failed to delete evaluation: {e}")
             if self.fallback:
                 return self.fallback.delete_evaluation(eval_id)
 

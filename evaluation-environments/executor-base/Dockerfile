@@ -10,6 +10,11 @@ LABEL security="restricted"
 # Create non-root user for execution
 RUN groupadd -r executor && useradd -r -g executor executor
 
+# Copy timeout wrapper script
+# Note: timeout command is already available in python:3.11-slim base image
+COPY --chown=root:root evaluation-environments/shared/timeout_wrapper.sh /usr/local/bin/
+RUN chmod 755 /usr/local/bin/timeout_wrapper.sh
+
 # Set up minimal environment
 # No pip, no apt, minimal attack surface
 # The executor service handles:

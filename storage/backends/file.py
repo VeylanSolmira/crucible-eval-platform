@@ -3,11 +3,14 @@ File-based storage implementation.
 """
 
 import json
+import logging
 import threading
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from ..core.base import StorageService
+
+logger = logging.getLogger(__name__)
 
 
 class FileStorage(StorageService):
@@ -84,7 +87,8 @@ class FileStorage(StorageService):
             with open(path, "r") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
-            print(f"Error reading JSON from {path}: {e}")
+            # Log at debug level - this is expected for tests that validate error handling
+            logger.debug(f"Error reading JSON from {path}: {e}")
             return None
 
     def store_evaluation(self, eval_id: str, data: Dict[str, Any]) -> bool:

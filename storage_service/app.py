@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic_settings import BaseSettings
 import uvicorn
 import yaml
@@ -43,11 +43,12 @@ logger = logging.getLogger(__name__)
 
 # Configuration using Pydantic Settings
 class Settings(BaseSettings):
-    redis_url: str
+    model_config = ConfigDict(
+        case_sensitive=False,
+        # Don't load .env file - only use actual environment variables
+    )
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    redis_url: str
 
 # Create settings instance - lazy initialization for OpenAPI generation
 try:

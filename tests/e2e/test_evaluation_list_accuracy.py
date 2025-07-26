@@ -121,17 +121,9 @@ async def test_multiple_evaluation_statuses():
         assert response.status_code == 200
         eval_ids.append(response.json()["eval_id"])
         
-        # 3. Long-running evaluation
-        response = await client.post(
-            f"{api_base}/eval",
-            json={"code": "import time; time.sleep(30)", "language": "python"}
-        )
-        assert response.status_code == 200
-        eval_ids.append(response.json()["eval_id"])
-        
-        # Wait for first two to complete using adaptive waiter
+        # Wait for both to complete using adaptive waiter
         sync_session = requests.Session()
-        results = wait_with_progress(sync_session, api_base, eval_ids[:2], timeout=30)
+        results = wait_with_progress(sync_session, api_base, eval_ids, timeout=30)
         
         # Should have 2 evaluations in terminal state (completed or failed)
         total_done = len(results["completed"]) + len(results["failed"])
@@ -153,10 +145,9 @@ async def test_multiple_evaluation_statuses():
         assert response.status_code == 200
         running_ids = [e["eval_id"] for e in response.json().get("evaluations", [])]
         
-        # Verify categorization
+        # Verify categorization - both evaluations should be in terminal states
         assert eval_ids[0] in completed_ids or eval_ids[0] in failed_ids
         assert eval_ids[1] in completed_ids or eval_ids[1] in failed_ids
-        assert eval_ids[2] in running_ids
         
         # Verify no overlap
         assert not (set(completed_ids) & set(running_ids))

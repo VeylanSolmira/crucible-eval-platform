@@ -552,6 +552,22 @@ components:
           title: Priority
           description: High priority flag
           default: false
+        memory_limit:
+          type: string
+          title: Memory Limit
+          description: Memory limit (e.g., 512Mi, 1Gi)
+          default: 512Mi
+        cpu_limit:
+          type: string
+          title: Cpu Limit
+          description: CPU limit (e.g., 500m, 1)
+          default: 500m
+        executor_image:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Executor Image
+          description: Executor image name (e.g., 'python-base') or full image path
       type: object
       required:
       - code

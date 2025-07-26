@@ -88,6 +88,22 @@ if os.environ.get("CELERY_DEVELOPMENT", "false").lower() == "true":
     task_eager_propagates = True
     worker_log_color = True
 
+# Task retry configuration for resource constraints
+task_annotations = {
+    'celery_worker.tasks.evaluate_code': {
+        'max_retries': None,  # Unlimited retries for resource constraints
+        'retry_backoff': True,  # Exponential backoff
+        'retry_backoff_max': 600,  # Max 10 min between retries
+        'retry_jitter': True,  # Add randomness to prevent thundering herd
+    },
+    'celery_worker.tasks.evaluate_code_high_priority': {
+        'max_retries': None,
+        'retry_backoff': True,
+        'retry_backoff_max': 300,  # Shorter backoff for high priority
+        'retry_jitter': True,
+    },
+}
+
 # Redis connection pool settings
 broker_connection_retry_on_startup = True
 broker_connection_retry = True

@@ -24,6 +24,9 @@ class EvaluationRequest(BaseModel):
     engine: str = Field("docker", description="Execution engine")
     timeout: int = Field(30, description="Timeout in seconds", ge=MIN_TIMEOUT, le=MAX_TIMEOUT)
     priority: bool = Field(False, description="High priority flag")
+    memory_limit: str = Field("512Mi", description="Memory limit (e.g., 512Mi, 1Gi)")
+    cpu_limit: str = Field("500m", description="CPU limit (e.g., 500m, 1)")
+    executor_image: Optional[str] = Field(None, description="Executor image name (e.g., 'python-base') or full image path")
     
     @validator('code')
     def validate_code_size(cls, v):

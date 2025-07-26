@@ -73,7 +73,7 @@ class TestCeleryConnection:
             # If we get stats, workers are running
             if stats:
                 assert isinstance(stats, dict)
-                print(f"Found {len(stats)} active workers")
+                print(f"\nFound {len(stats)} active workers")
         except Exception as e:
             # Connection errors would raise here
             pytest.fail(f"Failed to connect to Celery broker: {e}")

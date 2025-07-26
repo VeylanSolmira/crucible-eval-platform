@@ -32,6 +32,13 @@ RETRY_POLICIES = {
         "exponential_base": 2,
         "jitter": False,
     },
+    "quota_exceeded": {
+        "max_retries": 10,
+        "base_delay": 10,  # Start at 10 seconds
+        "max_delay": 300,  # Cap at 5 minutes
+        "exponential_base": 1.5,  # Increase by 1.5x each time
+        "jitter": True,
+    },
 }
 
 # Error categories that determine retry behavior

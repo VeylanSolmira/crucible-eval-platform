@@ -15,6 +15,7 @@ resources:
 patches:
   # - path: deployment-patch.yaml  # Commented out since deployment is disabled in base
   - path: frontend-patch.yaml
+  - path: executor-images-ecr-patch.yaml
 
 # Override images for production
 # Note: ECR URL is hardcoded. For multi-account deployments, consider:

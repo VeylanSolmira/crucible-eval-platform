@@ -232,8 +232,27 @@ class TestStorageWorkerSimple:
         mock_response.status_code = 200
         mock_response.json = AsyncMock(return_value={"message": "success"})
         worker.client.post = AsyncMock(return_value=mock_response)
-        worker.client.patch = AsyncMock(return_value=mock_response)
+        worker.client.put = AsyncMock(return_value=mock_response)
         worker.client.get = AsyncMock(return_value=mock_response)
+        
+        # Mock Redis client
+        worker.redis = AsyncMock()
+        worker.redis.setex = AsyncMock()
+        worker.redis.sadd = AsyncMock()
+        
+        # Mock the HTTP client properly
+        worker.client = AsyncMock()
+        
+        # Mock GET response (for status check)
+        get_response = AsyncMock()
+        get_response.status_code = 200
+        get_response.json = lambda: {"status": "provisioning"}
+        worker.client.get = AsyncMock(return_value=get_response)
+        
+        # Mock PUT response (for status update - validate_and_update_status uses PUT)
+        put_response = AsyncMock()
+        put_response.status_code = 200
+        worker.client.put = AsyncMock(return_value=put_response)
         
         # Create a message in the format the worker expects
         message = {
@@ -249,8 +268,9 @@ class TestStorageWorkerSimple:
         # Should process without error
         await worker.handle_message(message)
         
-        # Verify some HTTP call was made (could be GET or PATCH)
-        assert worker.client.get.called or worker.client.patch.called
+        # Verify HTTP calls were made
+        assert worker.client.get.called
+        assert worker.client.put.called
     
     @pytest.mark.asyncio
     async def test_process_output_event(self):
@@ -278,6 +298,11 @@ class TestStorageWorkerSimple:
         # Just verify it was added to buffer
         assert "test-123" in worker.log_buffers
         assert len(worker.log_buffers["test-123"]) > 0
+        
+        # Clean up any pending tasks
+        if "test-123" in worker.log_buffer_timers:
+            worker.log_buffer_timers["test-123"].cancel()
+        await asyncio.sleep(0)  # Let cancelled tasks finish
     
     @pytest.mark.asyncio
     async def test_process_completion_event(self):
@@ -288,10 +313,19 @@ class TestStorageWorkerSimple:
         worker.client = AsyncMock()
         mock_response = AsyncMock()
         mock_response.status_code = 200
-        mock_response.json = AsyncMock(return_value={"status": "running"})
+        mock_response.json = lambda: {"status": "running"}
         worker.client.post = AsyncMock(return_value=mock_response)
-        worker.client.patch = AsyncMock(return_value=mock_response)
+        worker.client.put = AsyncMock(return_value=mock_response)
         worker.client.get = AsyncMock(return_value=mock_response)
+        
+        # Mock Redis client
+        worker.redis = AsyncMock()
+        worker.redis.delete = AsyncMock()
+        worker.redis.srem = AsyncMock()
+        worker.redis.set = AsyncMock()
+        
+        # Initialize empty log buffer timers to avoid cleanup issues
+        worker.log_buffer_timers = {}
         
         # Create a message for completion event
         message = {
@@ -310,7 +344,13 @@ class TestStorageWorkerSimple:
         await worker.handle_message(message)
         
         # Should make some HTTP calls (GET to check status, PATCH to update)
-        assert worker.client.get.called or worker.client.patch.called
+        assert worker.client.get.called
+        assert worker.client.put.called
+        
+        # Clean up any pending tasks
+        for timer in worker.log_buffer_timers.values():
+            timer.cancel()
+        await asyncio.sleep(0)  # Let cancelled tasks finish
     
     @pytest.mark.asyncio
     async def test_event_validation(self):

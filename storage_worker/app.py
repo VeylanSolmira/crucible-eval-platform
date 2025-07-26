@@ -528,6 +528,14 @@ class StorageWorker:
         """Graceful shutdown"""
         logger.info("Storage worker shutting down...")
         self.running = False
+        
+        # Cancel all pending log flush timers
+        for eval_id, timer in list(self.log_buffer_timers.items()):
+            timer.cancel()
+            # Flush any remaining logs
+            await self.flush_logs(eval_id)
+        self.log_buffer_timers.clear()
+        
         if self.pubsub:
             await self.pubsub.unsubscribe()
         if self.redis:

@@ -47,6 +47,10 @@ RUN rm -rf /opt/venv/bin/pip* /opt/venv/bin/easy_install*
 # Create app directory
 WORKDIR /app
 
+# Copy timeout wrapper script
+COPY --chown=root:root evaluation-environments/shared/timeout_wrapper.sh /usr/local/bin/
+RUN chmod 755 /usr/local/bin/timeout_wrapper.sh
+
 # Pre-download models to avoid network access during execution
 # This is commented out for now - in production you might want to pre-cache models
 # RUN python -c "from transformers import AutoModel; AutoModel.from_pretrained('distilgpt2')"

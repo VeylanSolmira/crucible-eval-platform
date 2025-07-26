@@ -1,19 +1,16 @@
+# Production overlay: Use ECR images for user-selectable executors
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: executor-images
   namespace: crucible
-  annotations:
-    # Force Skaffold to build/load these images
-    skaffold.dev/load-images: "crucible-platform/executor-base"
 data:
-  # Default executor images
   images.yaml: |
     images:
       - name: "executor-base"
-        image: "executor-base"
+        image: "${ECR_REGISTRY}/${PROJECT_NAME}/executor-base:latest"
         description: "Basic Python 3.11 environment"
       - name: "executor-ml"
-        image: "executor-ml"
+        image: "${ECR_REGISTRY}/${PROJECT_NAME}/executor-ml:latest"
         description: "Python with ML libraries (PyTorch, NumPy, etc.)"
         default: true

@@ -1,9 +1,10 @@
 #!/bin/bash
 # One-command startup script for Crucible Platform
-# Usage: ./start-platform.sh [build] [--skip-tests|--no-browser]
-#   build        - Force rebuild all images (no cache)
-#   --skip-tests - Skip running tests after startup
-#   --no-browser - Don't open browser after startup
+# Usage: ./start-platform.sh [build] [--skip-tests|--no-browser|--publish-executors]
+#   build              - Force rebuild all images (no cache)
+#   --skip-tests       - Skip running tests after startup
+#   --no-browser       - Don't open browser after startup
+#   --publish-executors - Build and push executor images to ECR
 #
 # This script will:
 #   - Create/activate Python virtual environment
@@ -32,6 +33,7 @@ NC='\033[0m' # No Color
 FORCE_BUILD=false
 SKIP_TESTS=false
 NO_BROWSER=false
+PUBLISH_EXECUTORS=false
 
 # Check for additional flags
 for arg in "$@"; do
@@ -44,6 +46,9 @@ for arg in "$@"; do
             ;;
         --no-browser)
             NO_BROWSER=true
+            ;;
+        --publish-executors)
+            PUBLISH_EXECUTORS=true
             ;;
     esac
 done
@@ -82,6 +87,33 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
         echo -e "${RED}kubectl cannot connect to cluster and Kind is not installed.${NC}"
         echo "For Docker Desktop: Enable Kubernetes in settings"
         echo "For Kind: Install from https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
+        exit 1
+    fi
+fi
+
+# No registry setup needed - Skaffold will load images directly into Kind
+
+# Load .env for ECR configuration
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
+# Create namespace and ECR secret if needed
+if [ -n "$ECR_REGISTRY" ]; then
+    echo -e "${YELLOW}Setting up ECR access...${NC}"
+    # Create namespace if it doesn't exist
+    kubectl create namespace crucible --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+    
+    # Create ECR pull secret
+    if kubectl create secret docker-registry ecr-secret \
+        --docker-server=$ECR_REGISTRY \
+        --docker-username=AWS \
+        --docker-password=$(aws ecr get-login-password --region ${AWS_REGION:-us-west-2}) \
+        -n crucible \
+        --dry-run=client -o yaml | kubectl apply -f -; then
+        echo -e "${GREEN}✓ ECR pull secret ready${NC}"
+    else
+        echo -e "${RED}Failed to create ECR pull secret. Check AWS credentials.${NC}"
         exit 1
     fi
 fi
@@ -131,6 +163,17 @@ if ./scripts/generate-all-openapi-specs.sh; then
 else
     echo -e "${YELLOW}⚠️  Some OpenAPI specs failed to generate${NC}"
     echo "   Frontend type generation may use fallback types"
+fi
+
+# Publish executor images to ECR if requested
+if [ "$PUBLISH_EXECUTORS" = true ]; then
+    echo -e "${YELLOW}Publishing executor images to ECR...${NC}"
+    if ./scripts/publish-executor-images.sh; then
+        echo -e "${GREEN}✓ Executor images published to ECR${NC}"
+    else
+        echo -e "${RED}Failed to publish executor images to ECR${NC}"
+        exit 1
+    fi
 fi
 
 # Function to cleanup on exit
@@ -236,6 +279,7 @@ if [ "$DEPLOYMENTS_READY" = false ]; then
     echo "Check Skaffold log: $SKAFFOLD_LOG"
     exit 1
 fi
+
 
 # Display service status
 echo -e "\n${GREEN}Platform Status:${NC}"

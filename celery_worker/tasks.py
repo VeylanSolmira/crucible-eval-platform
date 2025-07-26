@@ -49,7 +49,7 @@ dlq = DeadLetterQueue(redis_client)
     retry_backoff_max=600,  # Max 10 minutes between retries
     retry_jitter=True,  # Add randomness to prevent thundering herd
 )
-def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeout: int = 300, priority: int = 0) -> Dict[str, Any]:
+def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeout: int = 300, priority: int = 0, executor_image: Optional[str] = None, memory_limit: str = "512Mi", cpu_limit: str = "500m") -> Dict[str, Any]:
     """
     Main task for evaluating code submissions using the dispatcher service.
 
@@ -59,6 +59,9 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
         language: Programming language (currently only python)
         timeout: Execution timeout in seconds (default: 300)
         priority: Priority level (0=normal, 1=high, -1=low) (default: 0)
+        executor_image: Executor image name (e.g., 'executor-base') or full image path
+        memory_limit: Memory limit for the evaluation (e.g., '512Mi', '1Gi') (default: 512Mi)
+        cpu_limit: CPU limit for the evaluation (e.g., '500m', '1') (default: 500m)
 
     Returns:
         Evaluation result dictionary
@@ -73,8 +76,62 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
             )
             storage_response.raise_for_status()
 
-        # Call dispatcher to create a Kubernetes Job
+        # Check cluster capacity before attempting to create job
+        # Use the resource limits passed from the API
+        
         with httpx.Client(timeout=30.0) as client:
+            # Check capacity first
+            capacity_response = client.post(
+                f"{DISPATCHER_SERVICE_URL}/capacity/check",
+                json={
+                    "memory_limit": memory_limit,
+                    "cpu_limit": cpu_limit
+                }
+            )
+            
+            if capacity_response.status_code == 200:
+                capacity_data = capacity_response.json()
+                if not capacity_data.get("has_capacity", False):
+                    # No capacity available - this is a temporary condition, retry
+                    retry_count = self.request.retries
+                    max_retries = 10  # Same as quota_exceeded policy
+                    
+                    # Check if we've exceeded retry limit
+                    if retry_count >= max_retries:
+                        error_msg = (
+                            f"Evaluation {eval_id} failed after {retry_count} capacity retries. "
+                            f"Cluster resources exhausted. Final state: "
+                            f"{capacity_data.get('available_memory_mb')}MB memory, "
+                            f"{capacity_data.get('available_cpu_millicores')}m CPU available"
+                        )
+                        logger.error(error_msg)
+                        # Update storage to mark as failed
+                        with httpx.Client() as storage_client:
+                            storage_client.put(
+                                f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
+                                json={
+                                    "status": "failed",
+                                    "error": error_msg,
+                                    "metadata": {"reason": "resource_exhaustion"}
+                                }
+                            )
+                        # Return failure instead of proceeding
+                        return {
+                            "eval_id": eval_id,
+                            "status": "failed",
+                            "error": error_msg
+                        }
+                    else:
+                        logger.info(
+                            f"No cluster capacity for eval {eval_id}: {capacity_data.get('reason')}. "
+                            f"Available: {capacity_data.get('available_memory_mb')}MB memory, "
+                            f"{capacity_data.get('available_cpu_millicores')}m CPU. "
+                            f"Retry {retry_count + 1}/{max_retries}"
+                        )
+                        delay = calculate_retry_delay(retry_count, "quota_exceeded")
+                        raise self.retry(countdown=delay)
+            
+            # Capacity available (or check failed), proceed with job creation
             dispatch_response = client.post(
                 f"{DISPATCHER_SERVICE_URL}/execute",
                 json={
@@ -82,9 +139,10 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
                     "code": code,
                     "language": language,
                     "timeout": timeout,  # Use the actual timeout from the request
-                    "memory_limit": "512Mi",
-                    "cpu_limit": "500m",
-                    "priority": priority  # Pass priority to dispatcher
+                    "memory_limit": memory_limit,
+                    "cpu_limit": cpu_limit,
+                    "priority": priority,  # Pass priority to dispatcher
+                    "executor_image": executor_image  # Pass executor image to dispatcher
                 }
             )
             dispatch_response.raise_for_status()
@@ -136,26 +194,69 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
             if 400 <= status_code < 500:
                 if status_code in [408, 429]:  # Timeout or rate limit
                     retry_count = self.request.retries
-                    delay = calculate_retry_delay(
-                        retry_count, "aggressive" if status_code == 429 else "default"
-                    )
-
+                    
+                    if status_code == 429:
+                        # For quota exceeded, use special policy with 10 retries
+                        policy = "quota_exceeded"
+                        max_retries = 10
+                        
+                        # Check if we've exceeded quota retry limit
+                        if retry_count >= max_retries:
+                            logger.error(
+                                f"Evaluation {eval_id} failed after {retry_count} quota retries. "
+                                "Cluster resources exhausted."
+                            )
+                            # Don't retry further - let it fail
+                            raise
+                    else:
+                        policy = "default"
+                        max_retries = self.max_retries
+                    
+                    delay = calculate_retry_delay(retry_count, policy)
                     message = get_retry_message(
                         "evaluate_code",
                         eval_id,
                         retry_count,
-                        self.max_retries,
+                        max_retries,
                         delay,
                         f"HTTP {status_code}",
                     )
                     logger.warning(message)
+                    
+                    # Retry with calculated delay
                     raise self.retry(exc=e, countdown=delay)
                 else:
                     # Don't retry other 4xx errors
                     logger.error(
                         f"Non-retryable client error for evaluation {eval_id}: {status_code}"
                     )
-                    raise
+                    
+                    # Update evaluation status to failed
+                    error_detail = "Unknown client error"
+                    if hasattr(e.response, "text"):
+                        try:
+                            error_data = e.response.json()
+                            error_detail = error_data.get("detail", e.response.text)
+                        except:
+                            error_detail = e.response.text
+                    
+                    # Update storage to mark as failed
+                    with httpx.Client() as storage_client:
+                        storage_client.put(
+                            f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}",
+                            json={
+                                "status": "failed",
+                                "error": f"Validation error: {error_detail}",
+                                "metadata": {"reason": "validation_error", "status_code": status_code}
+                            }
+                        )
+                    
+                    # Don't retry - this is a permanent failure
+                    return {
+                        "eval_id": eval_id,
+                        "status": "failed",
+                        "error": f"Validation error: {error_detail}"
+                    }
 
             # Always retry server errors (5xx) with exponential backoff
             elif status_code >= 500:
@@ -191,7 +292,8 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
         logger.error(f"Unexpected error during evaluation {eval_id}: {e}")
 
         # Check if we've exhausted retries
-        if self.request.retries >= self.max_retries:
+        max_retries = self.max_retries if self.max_retries is not None else 5
+        if self.request.retries >= max_retries:
             # Add to Dead Letter Queue
             try:
                 dlq.add_task(
@@ -219,7 +321,8 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
         try:
             with httpx.Client() as client:
                 # Only mark as failed if we've exhausted retries
-                is_final_failure = self.request.retries >= self.max_retries
+                max_retries = self.max_retries if self.max_retries is not None else 5
+                is_final_failure = self.request.retries >= max_retries
                 update_data = {
                     "error": str(e),
                     "retries": self.request.retries,
@@ -342,7 +445,8 @@ def monitor_job_status(self, eval_id: str, job_name: str) -> Dict[str, Any]:
             
     except httpx.HTTPError as e:
         logger.error(f"Error monitoring job {job_name}: {e}")
-        if self.request.retries >= self.max_retries:
+        max_retries = self.max_retries if self.max_retries is not None else 60
+        if self.request.retries >= max_retries:
             # Mark evaluation as failed after too many retries
             try:
                 with httpx.Client() as client:

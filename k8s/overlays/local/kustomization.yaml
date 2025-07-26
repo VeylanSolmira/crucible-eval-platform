@@ -12,6 +12,8 @@ resources:
 - test-priority-classes.yaml
 # ResourceQuota for evaluation jobs - prevents runaway resource usage
 - evaluation-resource-quota.yaml
+# ECR configuration for executor images
+- ecr-config.yaml
 
 # Override images for local development
 # NOTE: Commented out to let Skaffold manage image tags with SHA hashes
@@ -45,6 +47,7 @@ patches:
 - path: memory-optimization-patch.yaml
 - path: dispatcher-redis-patch.yaml
 - path: dispatcher-executor-image-patch.yaml
+- path: dispatcher-env-patch.yaml
 - path: dispatcher-role-patch.json
   target:
     kind: Role

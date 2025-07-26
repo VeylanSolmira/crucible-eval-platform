@@ -38,7 +38,9 @@ spec:
         - name: KUBERNETES_NAMESPACE
           value: "crucible"
         - name: EXECUTOR_IMAGE
-          value: "crucible-platform/executor-ml"
+          value: "executor-ml"
+        - name: REGISTRY_PREFIX
+          value: ""  # Will be overridden in production
         - name: MAX_JOB_TTL
           value: "3600"
         - name: JOB_CLEANUP_TTL

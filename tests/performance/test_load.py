@@ -24,18 +24,14 @@ from collections import deque
 from datetime import datetime, timedelta
 import redis
 import asyncio
-import sys
-from pathlib import Path
 import pytest
 
-# Add project root to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://api-service:8080/api")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+STORAGE_SERVICE_URL = os.environ.get("STORAGE_SERVICE_URL", "http://storage-service:8082")
 
-from shared.generated.python import EvaluationStatus
-
-API_BASE_URL = "http://localhost:8000/api"
-REDIS_URL = "redis://localhost:6379/0"
-STORAGE_SERVICE_URL = "http://localhost:8082"
+# Terminal states for evaluations
+TERMINAL_STATES = ["completed", "failed", "cancelled", "timeout"]
 
 # Rate limiting configuration
 MAX_REQUESTS_PER_SECOND = 10  # nginx limit
@@ -43,7 +39,7 @@ BURST_ALLOWANCE = 10  # nginx burst
 RATE_LIMIT_WINDOW = 1.0  # 1 second
 
 # Monitoring mode
-MONITOR_MODE = os.environ.get("MONITOR_MODE", "http")  # "http" or "redis"
+MONITOR_MODE = os.environ.get("MONITOR_MODE", "batch")  # "http", "batch", or "redis"
 
 
 class RateLimiter:
@@ -147,22 +143,29 @@ def submit_evaluation(index: int, code: str) -> Tuple[Optional[str], LoadTestRes
 
 
 def monitor_evaluation_http(eval_id: str, result: LoadTestResult, timeout: int = 120) -> LoadTestResult:
-    """Monitor a single evaluation via HTTP polling."""
+    """Monitor a single evaluation via HTTP polling with exponential backoff."""
     start_time = result.submit_timestamp
     queue_start = time.time()
     execution_start = None
     
-    # Poll for completion
-    max_polls = int(timeout / 0.5)
-    poll_interval = 0.5
+    # Exponential backoff parameters
+    min_interval = 0.5
+    max_interval = 10.0
+    backoff_factor = 1.5
+    poll_interval = min_interval
+    consecutive_failures = 0
     
-    for poll_num in range(max_polls):
-        # Rate limit status checks too (but less aggressively)
-        if poll_num % 3 == 0:  # Check every 1.5 seconds
-            rate_limiter.acquire(0.1)  # Use fractional tokens for status checks
+    end_time = time.time() + timeout
+    
+    while time.time() < end_time:
+        # Rate limit status checks with exponential backoff
+        rate_limiter.acquire(0.1)  # Use fractional tokens for status checks
         
         try:
-            response = requests.get(f"{API_BASE_URL}/eval/{eval_id}", timeout=5)
+            # Increase timeout based on load
+            request_timeout = min(30, 5 + consecutive_failures * 2)
+            response = requests.get(f"{API_BASE_URL}/eval/{eval_id}", timeout=request_timeout)
+            
             if response.status_code == 200:
                 status_data = response.json()
                 result.status = status_data.get("status", "unknown")
@@ -172,7 +175,7 @@ def monitor_evaluation_http(eval_id: str, result: LoadTestResult, timeout: int =
                     execution_start = time.time()
                     result.queue_time = execution_start - queue_start
                 
-                if result.status in ["completed", "failed"]:
+                if result.status in TERMINAL_STATES:
                     current_time = time.time()
                     result.complete_time = current_time - start_time
                     result.total_duration = result.complete_time
@@ -180,18 +183,153 @@ def monitor_evaluation_http(eval_id: str, result: LoadTestResult, timeout: int =
                     if execution_start:
                         result.execution_time = current_time - execution_start
                     break
+                
+                # Reset backoff on success
+                consecutive_failures = 0
+                poll_interval = min_interval
+                
+            elif response.status_code == 429:
+                # Rate limited - back off more aggressively
+                consecutive_failures += 1
+                poll_interval = min(max_interval, poll_interval * backoff_factor * 2)
+            else:
+                consecutive_failures += 1
+                
         except Exception as e:
-            # Continue polling even if one check fails
-            pass
+            # Exponential backoff on failures
+            consecutive_failures += 1
+            poll_interval = min(max_interval, poll_interval * backoff_factor)
             
         time.sleep(poll_interval)
     
-    if result.status not in ["completed", "failed"]:
+    if result.status not in TERMINAL_STATES:
         result.error = "Timeout waiting for completion"
         result.status = "timeout"
         result.total_duration = time.time() - start_time
     
     return result
+
+
+def monitor_evaluations_batch(eval_ids: List[str], results_dict: Dict[str, LoadTestResult], timeout: int = 300) -> None:
+    """
+    Monitor multiple evaluations using batch status checks to reduce load.
+    Updates LoadTestResult objects in-place.
+    """
+    print(f"\n📊 Monitoring {len(eval_ids)} evaluations using batch status checks...")
+    
+    start_time = time.time()
+    end_time = start_time + timeout
+    
+    # Track which evaluations are complete
+    incomplete = set(eval_ids)
+    
+    # Adaptive monitoring parameters
+    min_interval = 1.0
+    max_interval = 30.0
+    poll_interval = min_interval
+    consecutive_failures = 0
+    backoff_factor = 1.5
+    
+    # Progress tracking
+    last_progress = start_time
+    completed_count = 0
+    
+    while incomplete and time.time() < end_time:
+        # Rate limit batch checks
+        rate_limiter.acquire(0.5)  # Use more tokens for batch requests
+        
+        try:
+            # Check status of all incomplete evaluations
+            # Note: This assumes the API supports batch status checks
+            # If not, we'll fall back to individual checks with larger intervals
+            batch_statuses = {}
+            
+            # Try to get all statuses (this is more efficient than individual requests)
+            # First check if there's a batch endpoint
+            batch_size = min(50, len(incomplete))  # Limit batch size
+            
+            for batch_start in range(0, len(incomplete), batch_size):
+                batch_eval_ids = list(incomplete)[batch_start:batch_start + batch_size]
+                
+                # Check each evaluation in the batch
+                for eval_id in batch_eval_ids:
+                    try:
+                        response = requests.get(
+                            f"{API_BASE_URL}/eval/{eval_id}", 
+                            timeout=min(30, 10 + consecutive_failures * 2)
+                        )
+                        if response.status_code == 200:
+                            batch_statuses[eval_id] = response.json()
+                    except:
+                        pass  # Will retry in next iteration
+                
+                # Small delay between batches to avoid overwhelming the API
+                if batch_start + batch_size < len(incomplete):
+                    time.sleep(0.1)
+            
+            # Process results
+            newly_completed = []
+            for eval_id, status_data in batch_statuses.items():
+                result = results_dict[eval_id]
+                old_status = result.status
+                result.status = status_data.get("status", "unknown")
+                
+                # Track state transitions
+                current_time = time.time()
+                if result.status == "running" and old_status != "running":
+                    result.queue_time = current_time - result.submit_timestamp
+                
+                if result.status in TERMINAL_STATES:
+                    result.total_duration = current_time - result.submit_timestamp
+                    result.complete_time = result.total_duration
+                    
+                    if result.queue_time > 0:
+                        result.execution_time = result.total_duration - result.queue_time
+                    
+                    incomplete.remove(eval_id)
+                    newly_completed.append(eval_id)
+                    completed_count += 1
+            
+            # Reset backoff on successful batch
+            if batch_statuses:
+                consecutive_failures = 0
+                poll_interval = min_interval
+            else:
+                consecutive_failures += 1
+                poll_interval = min(max_interval, poll_interval * backoff_factor)
+            
+            # Progress update
+            current_time = time.time()
+            if current_time - last_progress > 5 or newly_completed:
+                elapsed = current_time - start_time
+                rate = completed_count / elapsed if elapsed > 0 else 0
+                print(f"  Progress: {completed_count}/{len(eval_ids)} completed "
+                      f"({len(incomplete)} remaining) - Rate: {rate:.1f}/s")
+                last_progress = current_time
+                
+        except Exception as e:
+            print(f"  Batch monitoring error: {e}")
+            consecutive_failures += 1
+            poll_interval = min(max_interval, poll_interval * backoff_factor)
+        
+        # Adaptive sleep based on cluster load
+        if incomplete:
+            # Increase interval based on number of pending evaluations
+            load_factor = min(2.0, len(incomplete) / 50.0)
+            adjusted_interval = poll_interval * (1 + load_factor)
+            time.sleep(min(adjusted_interval, max_interval))
+    
+    # Mark any remaining as timeout
+    for eval_id in incomplete:
+        result = results_dict[eval_id]
+        if result.status not in TERMINAL_STATES:
+            result.status = "timeout"
+            result.error = "Batch monitoring timeout"
+            result.total_duration = time.time() - result.submit_timestamp
+    
+    final_time = time.time() - start_time
+    print(f"\n✅ Batch monitoring complete in {final_time:.1f}s")
+    print(f"   Completed: {completed_count}/{len(eval_ids)}")
 
 
 def monitor_evaluations_redis(results_dict: Dict[str, LoadTestResult], timeout: int = 300) -> None:
@@ -248,7 +386,7 @@ def monitor_evaluations_redis(results_dict: Dict[str, LoadTestResult], timeout: 
                             # Calculate queue time
                             if result.submit_timestamp:
                                 result.queue_time = current_time - result.submit_timestamp
-                        elif status in [s.value for s in EvaluationStatus.terminal_states() if s.value != "cancelled"]:
+                        elif status in [s for s in TERMINAL_STATES if s != "cancelled"]:
                             # Calculate total duration
                             if result.submit_timestamp:
                                 result.total_duration = current_time - result.submit_timestamp
@@ -283,7 +421,7 @@ def monitor_evaluations_redis(results_dict: Dict[str, LoadTestResult], timeout: 
         if eval_id not in completed:
             result = results_dict[eval_id]
             # Check if not already in a terminal state
-            if result.status not in [s.value for s in EvaluationStatus.terminal_states()]:
+            if result.status not in TERMINAL_STATES:
                 result.status = "timeout"
                 result.error = "Redis monitoring timeout"
                 if result.submit_timestamp:
@@ -296,10 +434,7 @@ def monitor_evaluations_redis(results_dict: Dict[str, LoadTestResult], timeout: 
         if eval_id.startswith("failed_"):
             continue  # Skip failed submissions
             
-        # Get terminal states as strings for comparison
-        terminal_state_values = [s.value for s in EvaluationStatus.terminal_states()]
-        
-        if result.status not in terminal_state_values:
+        if result.status not in TERMINAL_STATES:
             try:
                 # Quick HTTP check of actual status
                 response = requests.get(f"{STORAGE_SERVICE_URL}/evaluations/{eval_id}", timeout=2)
@@ -310,7 +445,7 @@ def monitor_evaluations_redis(results_dict: Dict[str, LoadTestResult], timeout: 
                         result.status = actual_status
                         
                         # If it's now in a terminal state, update the completion time
-                        if actual_status in terminal_state_values:
+                        if actual_status in TERMINAL_STATES:
                             result.total_duration = time.time() - result.submit_timestamp
                             completed.add(eval_id)
             except:
@@ -409,33 +544,56 @@ def run_rate_aware_load_test(
     if eval_ids:  # Only monitor if we have successful submissions
         monitor_start = time.time()
         
+        # Adjust monitor timeout based on load
+        adjusted_timeout = monitor_timeout
+        if len(eval_ids) > 20:
+            # Add 2 seconds per evaluation over 20
+            adjusted_timeout = monitor_timeout + (len(eval_ids) - 20) * 2
+            print(f"  Adjusted monitor timeout: {adjusted_timeout}s (based on {len(eval_ids)} evaluations)")
+        
         if MONITOR_MODE == "redis":
             print(f"\n📡 Phase 2: Monitoring via Redis pub/sub...")
             # Pass only successfully submitted evaluations
-            # Note: We pass the same objects that are in results_dict, so updates are reflected
             successful_results = {eid: results_dict[eid] for eid in eval_ids}
-            monitor_evaluations_redis(successful_results, timeout=monitor_timeout)
+            monitor_evaluations_redis(successful_results, timeout=adjusted_timeout)
+        elif MONITOR_MODE == "batch":
+            # Use batch monitoring to reduce load
+            monitor_evaluations_batch(eval_ids, results_dict, timeout=adjusted_timeout)
         else:
-            print(f"\n📊 Phase 2: Monitoring via HTTP polling...")
-            with ThreadPoolExecutor(max_workers=min(concurrent_count, len(eval_ids))) as executor:
-                monitor_futures = []
-                for eval_id in eval_ids:
-                    result = results_dict[eval_id]
-                    future = executor.submit(monitor_evaluation_http, eval_id, result, timeout=120)
-                    monitor_futures.append((future, eval_id))
-                
-                # Collect monitoring results
-                completed = 0
-                for future, eval_id in monitor_futures:
-                    try:
-                        updated_result = future.result(timeout=150)
-                        results_dict[eval_id] = updated_result
-                        completed += 1
-                        
-                        if completed % 10 == 0:
-                            print(f"  Monitored: {completed}/{len(eval_ids)}")
-                    except Exception as e:
-                        print(f"Error monitoring {eval_id}: {e}")
+            # For small loads, use individual monitoring with adaptive waiting
+            if len(eval_ids) <= 10:
+                print(f"\n📊 Phase 2: Monitoring via individual HTTP polling...")
+                with ThreadPoolExecutor(max_workers=min(5, len(eval_ids))) as executor:
+                    monitor_futures = []
+                    for eval_id in eval_ids:
+                        result = results_dict[eval_id]
+                        # Increase individual timeout based on total load
+                        individual_timeout = 120 + len(eval_ids) * 2
+                        future = executor.submit(monitor_evaluation_http, eval_id, result, timeout=individual_timeout)
+                        monitor_futures.append((future, eval_id))
+                    
+                    # Collect monitoring results
+                    completed = 0
+                    for future, eval_id in monitor_futures:
+                        try:
+                            # Give extra time for the future to complete
+                            future_timeout = individual_timeout + 30
+                            updated_result = future.result(timeout=future_timeout)
+                            results_dict[eval_id] = updated_result
+                            completed += 1
+                            
+                            if completed % 5 == 0:
+                                print(f"  Monitored: {completed}/{len(eval_ids)}")
+                        except Exception as e:
+                            print(f"Error monitoring {eval_id}: {e}")
+                            # Mark as timeout in results
+                            if eval_id in results_dict:
+                                results_dict[eval_id].status = "timeout"
+                                results_dict[eval_id].error = f"Monitor error: {str(e)}"
+            else:
+                # For larger loads, use batch monitoring
+                print(f"\n📊 Phase 2: Using batch monitoring for {len(eval_ids)} evaluations...")
+                monitor_evaluations_batch(eval_ids, results_dict, timeout=adjusted_timeout)
         
         monitor_time = time.time() - monitor_start
         print(f"\n✅ Monitoring phase complete in {monitor_time:.1f}s")
@@ -601,11 +759,11 @@ def run_sustained_load_test(duration_seconds: int = 60):
 @pytest.mark.performance
 @pytest.mark.integration
 @pytest.mark.load
+@pytest.mark.kubernetes
 @pytest.mark.parametrize("concurrent,total,expected_success_rate", [
     (5, 10, 0.9),    # Small test - expect 90%+ success
     (10, 20, 0.9),   # Medium test - expect 90%+ success
 ])
-@pytest.mark.whitebox
 def test_load_rate_aware(concurrent, total, expected_success_rate):
     """Pytest wrapper for load testing."""
     # Use shorter timeout for automated tests
@@ -618,19 +776,17 @@ def test_load_rate_aware(concurrent, total, expected_success_rate):
     # Check that rate limiting worked
     assert metrics["effective_rate"] <= MAX_REQUESTS_PER_SECOND * 1.2, \
         f"Effective rate {metrics['effective_rate']} exceeded rate limit"
-    
-    return metrics
 
 
 @pytest.mark.performance
 @pytest.mark.integration
 @pytest.mark.load
 @pytest.mark.slow
+@pytest.mark.kubernetes
 def test_large_load():
     """Larger load test - marked as slow."""
     metrics = run_rate_aware_load_test(20, 50, monitor_timeout=300)
     assert metrics["success_rate"] >= 0.9
-    return metrics
 
 
 if __name__ == "__main__":

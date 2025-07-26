@@ -49,7 +49,8 @@ if CELERY_ENABLED:
 
 
 def submit_evaluation_to_celery(
-    eval_id: str, code: str, language: str = "python", priority: bool = False, timeout: int = 300
+    eval_id: str, code: str, language: str = "python", priority: bool = False, timeout: int = 300,
+    executor_image: Optional[str] = None, memory_limit: str = "512Mi", cpu_limit: str = "500m"
 ) -> Optional[str]:
     """
     Submit evaluation task to Celery if enabled.
@@ -60,6 +61,9 @@ def submit_evaluation_to_celery(
         language: Programming language
         priority: Whether this is a high-priority task
         timeout: Execution timeout in seconds
+        executor_image: Executor image name (e.g., 'executor-base') or full image path
+        memory_limit: Memory limit for the evaluation (e.g., '512Mi', '1Gi')
+        cpu_limit: CPU limit for the evaluation (e.g., '500m', '1')
 
     Returns:
         Celery task ID if submitted, None otherwise
@@ -75,11 +79,11 @@ def submit_evaluation_to_celery(
         # Convert boolean to int: True -> 1 (high), False -> 0 (normal)
         priority_level = 1 if priority else 0
         
-        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}")
+        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}")
 
         result = celery_app.send_task(
             task_name,
-            args=[eval_id, code, language, timeout, priority_level],
+            args=[eval_id, code, language, timeout, priority_level, executor_image, memory_limit, cpu_limit],
             queue=queue,
             # Note: priority parameter doesn't work with Redis broker
             # We use separate queues instead

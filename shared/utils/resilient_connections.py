@@ -499,7 +499,7 @@ class ResilientRedisClient:
         
         if self._client:
             try:
-                await self._client.close()
+                await self._client.aclose()
                 logger.info(f"[{self.service_name}] Closed Redis connection")
             except Exception as e:
                 logger.error(f"[{self.service_name}] Error closing Redis client: {e}")

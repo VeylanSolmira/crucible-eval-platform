@@ -7,5 +7,24 @@
       "resources": ["nodes"],
       "verbs": ["get", "list"]
     }
+  },
+  {
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": [""],
+      "resources": ["configmaps"],
+      "resourceNames": ["executor-images"],
+      "verbs": ["get"]
+    }
+  },
+  {
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": [""],
+      "resources": ["resourcequotas"],
+      "verbs": ["get", "list"]
+    }
   }
 ]

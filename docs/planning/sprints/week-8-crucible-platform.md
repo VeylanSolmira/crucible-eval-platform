@@ -47,9 +47,28 @@
   - [ ] Enable priority parameter functionality
   - [ ] Add routing key support
 
-### 2. Production Deployment Preparation
+### 2. Test Infrastructure Consolidation
 
-#### 2.1 Security Hardening
+#### 2.1 Wait Function Consolidation
+- [ ] Consolidate duplicate wait_for_evaluation functions across test suite
+  - [ ] Integration tests have multiple custom implementations:
+    - `test_priority_queue.py` - Returns (status, duration) tuple
+    - `test_evaluation_job_imports.py` - Takes api_session/api_base_url params
+    - `test_docker_event_diagnostics.py` - Uses AdaptiveWaiter
+    - `test_resource_cleanup_example.py` - Class method implementation
+  - [ ] Chaos tests (`test_pod_resilience.py`) - 120s timeout for resilience testing
+  - [ ] Consider creating a unified wait utility that supports:
+    - Different return types (full result vs status/duration tuple)
+    - Session/URL parameters for cluster-internal tests
+    - Configurable timeouts and polling intervals
+    - Optional adaptive waiting for load scenarios
+- [ ] Document when to use simple vs adaptive waiting
+  - Simple: Unit tests, single evaluation tests
+  - Adaptive: E2E tests, load tests, parallel test execution
+
+### 3. Production Deployment Preparation
+
+#### 3.1 Security Hardening
 - [ ] Complete gVisor integration verification
   - [ ] Test all evaluation scenarios with gVisor
   - [ ] Performance benchmarking
@@ -107,6 +126,11 @@
   - [ ] Message recovery after crash
   - [ ] Queue reconstruction
   - [ ] Priority preservation
+- [ ] Kubernetes chaos testing
+  - [ ] Implement kubectl-based chaos tests - see [Kubernetes Chaos Testing Guide](../../testing/kubernetes-chaos-testing.md)
+  - [ ] Pod deletion scenarios
+  - [ ] Service scaling disruptions
+  - [ ] Evaluation completion verification
 
 ### 4. Network Isolation Testing Infrastructure
 
@@ -270,6 +294,25 @@
   - [ ] See [Automatic Cleanup Strategies](../../testing/automatic-cleanup-strategies.md) for advanced approaches
   - [ ] Consider implementing time-based or label-based auto-cleanup
 
+#### 6.3 Replace All Test Waits with Adaptive Waiting
+- [ ] Audit all test files for hardcoded timeouts and simple polling
+  - [ ] Integration tests: Check for direct time.sleep() or simple wait loops
+  - [ ] E2E tests: Ensure all use adaptive waiting for cluster load resilience
+  - [ ] Performance tests: Update to handle variable load conditions
+  - [ ] Chaos tests: Already use longer timeouts but could benefit from adaptive approach
+- [ ] Update remaining tests to use adaptive waiting
+  - [ ] Replace manual polling loops with wait_for_completion(use_adaptive=True)
+  - [ ] Convert hardcoded timeouts to use AdaptiveWaiter
+  - [ ] Ensure tests pass under significant cluster load (e.g., 100+ concurrent evaluations)
+- [ ] Document adaptive waiting patterns
+  - [ ] When to use simple vs adaptive waiting
+  - [ ] How to configure timeouts for different test scenarios
+  - [ ] Best practices for load-resilient tests
+- [ ] Consider making adaptive waiting the default
+  - [ ] Update wait_for_completion to use adaptive by default
+  - [ ] Add use_simple=True parameter for tests that need deterministic timing
+  - [ ] Update test documentation accordingly
+
 ### 7. Code Quality & Technical Debt
 
 #### 7.1 Clean Up sys.path Manipulations
@@ -388,7 +431,174 @@
 
 **Rationale**: The storage service is critical infrastructure that needs clear logging, proper documentation, and potential architectural improvements to handle different data types and lifecycle requirements effectively.
 
-### 10. Exit Code and Evaluation Status Architecture
+### 10. Logging Infrastructure Standardization
+
+#### 10.1 Add Proper Logging to All Python Services
+- [ ] Replace print statements with proper logging across all services
+  - [ ] **API Service** (api/)
+    - [ ] FastAPI request/response logging
+    - [ ] Error handling with proper log levels
+    - [ ] Structured logging for metrics
+  - [ ] **Dispatcher Service** (dispatcher/)
+    - [ ] Job submission logging
+    - [ ] Resource allocation decisions
+    - [ ] Error tracking with context
+  - [ ] **Storage Worker** (storage_worker/)
+    - [ ] Event processing logs
+    - [ ] Storage operation tracking
+    - [ ] Performance metrics logging
+  - [ ] **Test Infrastructure** (tests/)
+    - [ ] Test execution logging
+    - [ ] Resource cleanup operations
+    - [ ] Performance timing logs
+- [ ] Standardize logging configuration
+  - [ ] Create shared logging config module
+  - [ ] Use consistent format across services
+  - [ ] Include service name, timestamp, level
+  - [ ] Support structured JSON logging for production
+- [ ] Configure log levels appropriately
+  - [ ] DEBUG: Detailed diagnostic info
+  - [ ] INFO: General operational messages
+  - [ ] WARNING: Handled errors and fallbacks
+  - [ ] ERROR: Failures requiring attention
+  - [ ] CRITICAL: System-threatening issues
+- [ ] Test output improvements
+  - [ ] Ensure logs don't interfere with pytest output
+  - [ ] Configure pytest to capture logs appropriately
+  - [ ] Show logs only for failed tests
+
+#### 10.2 Logging Best Practices Documentation
+- [ ] Create logging guidelines document
+  - [ ] When to use each log level
+  - [ ] What information to include
+  - [ ] Performance considerations
+  - [ ] Security (no secrets in logs)
+- [ ] Add logging examples
+  - [ ] Service startup/shutdown
+  - [ ] Request handling
+  - [ ] Error scenarios
+  - [ ] Performance tracking
+- [ ] Integration with monitoring
+  - [ ] Log aggregation patterns
+  - [ ] Metrics extraction from logs
+  - [ ] Alert configuration
+
+**Rationale**: Proper logging is essential for production debugging, monitoring, and maintaining clean test output. The current mix of print statements makes debugging harder and clutters test results.
+
+### 11. Queue Optimization and Resource-Aware Scheduling
+
+#### 11.1 Implement Task Peeking or Resource Checking
+- [ ] Investigate queue optimization strategies
+  - [ ] Option 1: Redis-based task peeking
+    - Peek at queue without dequeuing
+    - Check resource requirements before pulling task
+    - Maintain queue visibility
+  - [ ] Option 2: Capacity pre-flight endpoint
+    - Add `/capacity/check` endpoint to dispatcher
+    - Workers check before dequeuing
+    - Include resource requirements in check
+  - [ ] Option 3: Resource-based queue routing
+    - Multiple queues by resource size (small/medium/large)
+    - Workers pull from appropriate queue based on capacity
+- [ ] Evaluate trade-offs
+  - [ ] Complexity vs benefit analysis
+  - [ ] Impact on queue visibility/monitoring
+  - [ ] Celery compatibility considerations
+- [ ] Implement chosen solution
+  - [ ] Start with simple dequeue/requeue pattern
+  - [ ] Add optimizations based on production metrics
+
+#### 11.2 Improve Retry Strategy for Resource Constraints
+- [x] Update Celery retry configuration
+  - [x] Unlimited retries for resource constraints
+  - [x] Exponential backoff with jitter
+  - [x] Longer retry windows (hours not minutes)
+  - [x] Distinguish resource constraints from real failures
+- [x] Add cluster capacity visibility
+  - [x] Expose available resources via API (`/capacity/check`)
+  - [x] Help tasks make informed retry decisions
+  - [ ] Consider queue depth in capacity calculations
+
+#### 11.3 Add Resource Requirements to Evaluation API
+- [ ] Extend evaluation request model
+  - [ ] Add `memory_limit` field (e.g., "512Mi", "1Gi", "2Gi")
+  - [ ] Add `cpu_limit` field (e.g., "500m", "1", "2")
+  - [ ] Set sensible defaults and maximum limits
+  - [ ] Validate resource requests against cluster capacity
+- [ ] Update task signatures
+  - [ ] Pass resource requirements through Celery tasks
+  - [ ] Update dispatcher calls to use requested resources
+- [ ] Implement resource-based routing
+  - [ ] Small tasks (≤256Mi) to lightweight queue
+  - [ ] Large tasks (≥1Gi) to heavyweight queue
+  - [ ] Prevent small tasks from being blocked by large ones
+- [ ] Update capacity check logic
+  - [ ] Check capacity before dequeuing based on actual requirements
+  - [ ] More accurate queue wait time estimates
+- [ ] Add resource usage to billing/tracking
+  - [ ] Track actual resource consumption per evaluation
+  - [ ] Enable usage-based pricing models
+
+**Rationale**: Under load, tasks may need to wait hours for resources. The current 3-retry limit is insufficient. Smart queueing and capacity awareness can reduce wasted work and improve throughput. Resource requirements should be first-class citizens in the API to enable proper scheduling and capacity planning.
+
+### 12. Resource Requirements and Default Strategy
+
+#### 12.1 Analyze Resource Requirements Patterns
+- [ ] Profile different evaluation workloads
+  - [ ] Simple print/calculation tasks (minimal resources)
+  - [ ] Data processing tasks (memory intensive)
+  - [ ] Compute-heavy tasks (CPU intensive)
+  - [ ] Long-running tasks (timeout considerations)
+- [ ] Collect metrics on actual resource usage
+  - [ ] Memory high-water marks
+  - [ ] CPU utilization patterns
+  - [ ] Correlation with code complexity/size
+- [ ] Document findings and patterns
+
+#### 12.2 Design Default Resource Strategy
+- [ ] Consider multiple approaches:
+  - [ ] **Static defaults**: Simple but may waste resources
+  - [ ] **Tiered defaults**: Based on code size/complexity heuristics
+  - [ ] **Historical data**: Learn from past evaluations
+  - [ ] **User profiles**: Different defaults per user/organization
+  - [ ] **Dynamic adjustment**: Start small, scale up if needed
+- [ ] Cost implications analysis
+  - [ ] Resource waste from over-provisioning
+  - [ ] Failure costs from under-provisioning
+  - [ ] Retry overhead costs
+- [ ] Performance implications
+  - [ ] Queue wait times with different resource allocations
+  - [ ] Success rates with different limits
+  - [ ] Time to first result
+
+#### 12.3 Implementation Considerations
+- [ ] API design decisions
+  - [ ] Keep fields optional with server-side defaults
+  - [ ] Allow override for power users
+  - [ ] Consider resource "profiles" (small/medium/large)
+  - [ ] Version the API for future changes
+- [ ] Migration strategy
+  - [ ] How to update defaults without breaking existing clients
+  - [ ] A/B testing different default strategies
+  - [ ] Gradual rollout approach
+- [ ] Monitoring and alerting
+  - [ ] Track resource utilization efficiency
+  - [ ] Alert on consistent under/over-provisioning
+  - [ ] Dashboard for resource usage patterns
+
+#### 12.4 Documentation and Communication
+- [ ] Document default resource allocations clearly
+  - [ ] In API documentation
+  - [ ] In error messages when limits hit
+  - [ ] In billing/usage documentation
+- [ ] Provide guidance for users
+  - [ ] When to override defaults
+  - [ ] How to estimate resource needs
+  - [ ] Best practices for efficient code
+
+**Rationale**: Proper resource defaults are critical for system efficiency and user experience. Rushing to add arbitrary defaults now would lock us into values that are hard to change later. This needs careful analysis of actual workload patterns, cost considerations, and user needs. The system should be smart about resource allocation while remaining simple for users who don't want to think about infrastructure details.
+
+### 13. Exit Code and Evaluation Status Architecture
 
 #### 10.1 Fix Exit Code Tracking Issues
 - [ ] Address fundamental exit code tracking problems
@@ -442,3 +652,50 @@
   - [ ] What happens when information is incomplete
 
 **Rationale**: The current system's reliance on exit codes for determining evaluation success/failure is fundamentally flawed due to Kubernetes' async nature and the complexity of tracking exit codes through multiple layers (job -> pod -> container). A more robust architecture is needed that doesn't depend on race conditions and unreliable signals.
+
+### 14. Resource Validation and Quota Management
+
+#### 14.1 Implement Three-Tier Resource Validation
+- [ ] **API-Level Validation** (Immediate rejection for impossible requests)
+  - [ ] Add cluster capacity validation to dispatcher `/execute` endpoint
+  - [ ] Check against maximum possible capacity (with scaling)
+  - [ ] Validate against node-level constraints (largest instance type)
+  - [ ] Return clear 400 errors with actionable messages
+  - [ ] See [Resource Validation Patterns](../../testing/resource-validation-patterns.md)
+  - [ ] **Note**: Current implementation validates synchronously through Celery → Dispatcher chain, 
+        adding 50-500ms latency. Consider moving validation to API level with cached limits 
+        for better performance at scale
+- [ ] **Admission Controller** (Future: Policy-based validation)
+  - [ ] Research ValidatingAdmissionWebhook for dynamic policies
+  - [ ] Design user quota system
+  - [ ] Priority-based admission during resource pressure
+  - [ ] Document admission control strategy
+- [ ] **Scheduler-Level** (Queue with bounded timeout)
+  - [ ] Keep current activeDeadlineSeconds approach
+  - [ ] Consider adding scheduling timeout annotations
+  - [ ] Monitor unschedulable pod metrics
+
+#### 14.2 Improve Resource Feedback Loop
+- [ ] Enhance capacity checking endpoint
+  - [ ] Add queue depth to capacity calculations
+  - [ ] Estimate wait times based on current load
+  - [ ] Expose per-node capacity information
+  - [ ] Add "why rejected" detailed explanations
+- [ ] Update error messages and documentation
+  - [ ] Provide maximum allowed values in errors
+  - [ ] Suggest alternative resource configurations
+  - [ ] Link to resource limit documentation
+  - [ ] Add examples of valid requests
+
+#### 14.3 Testing Resource Validation
+- [ ] Update test expectations
+  - [ ] Fix test_quota_error_handling to expect 400 errors
+  - [ ] Test immediate rejection of impossible requests
+  - [ ] Test queueing of possible but unavailable requests
+  - [ ] Verify error message quality
+- [ ] Add performance tests for validation
+  - [ ] Measure validation overhead
+  - [ ] Test under high submission rates
+  - [ ] Verify no race conditions
+
+**Rationale**: Fast validation at the API level provides immediate feedback for impossible requests while allowing the scheduler flexibility to handle possible requests. This balances user experience with system efficiency and follows industry best practices from systems like Databricks, AWS Batch, and HPC schedulers.

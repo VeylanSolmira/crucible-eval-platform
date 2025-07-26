@@ -96,6 +96,11 @@ export default function ResearcherUI() {
         engine: 'docker',
         timeout: execConfig.timeout,
         priority: execConfig.priority,
+        // TODO: Update with proper resource requirement logic
+        // See docs/planning/sprints/week-8-crucible-platform.md section 12: Resource Requirements and Default Strategy
+        // For now, using API defaults to fix TypeScript compilation
+        memory_limit: '512Mi',  // Default from API
+        cpu_limit: '500m',      // Default from API
       }))
 
       const results = (await batchSubmit.mutateAsync(evaluations)) as BatchSubmissionResult[]

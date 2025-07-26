@@ -1,5 +1,6 @@
-# Override imagePullPolicy for local development
-# This patches all deployments to use Never to avoid registry lookups
+# Override imagePullPolicy for local development without registry
+# This patches all deployments to use Never to ensure they use locally loaded images
+# Kind loads images directly into the cluster, so we don't need to pull
 # Only locally-built images are patched; external images (redis, postgres) keep their defaults
 apiVersion: apps/v1
 kind: Deployment

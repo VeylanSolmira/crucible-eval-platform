@@ -18,10 +18,7 @@ import requests
 import json
 from typing import Dict, Any
 
-# Import shared test configuration
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Import from local conftest
 from conftest import get_api_url, get_request_config
 
 

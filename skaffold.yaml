@@ -3,6 +3,8 @@ kind: Config
 metadata:
   name: crucible-platform
 build:
+  local:
+    push: false
   artifacts:
     - image: crucible-platform/base
       context: .
@@ -74,16 +76,8 @@ build:
       context: .
       docker:
         dockerfile: frontend/Dockerfile
-    - image: crucible-platform/executor-ml
-      context: .
-      docker:
-        dockerfile: evaluation-environments/executor-ml/Dockerfile
   tagPolicy:
-    sha256: {}
-  local:
-    push: false
-    useBuildkit: true
-    concurrency: 4
+    gitCommit: {}
 manifests:
   kustomize:
     paths:
@@ -134,6 +128,9 @@ profiles:
         value: true
       - op: add
         path: /build/artifacts/7/docker/noCache
+        value: true
+      - op: add
+        path: /build/artifacts/8/docker/noCache
         value: true
   - name: prod
     build:

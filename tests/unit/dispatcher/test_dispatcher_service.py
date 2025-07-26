@@ -41,6 +41,21 @@ class TestDispatcherService:
         # Mock gVisor check to avoid permission errors
         mock_gvisor_check.return_value = False
         
+        # Mock ResourceQuota to return 404 (not found)
+        from kubernetes.client.rest import ApiException
+        from kubernetes.client import V1ConfigMap
+        mock_k8s_core.read_namespaced_resource_quota.side_effect = ApiException(status=404)
+        
+        # Mock ConfigMap for executor images
+        mock_config_map = V1ConfigMap(
+            data={"images.yaml": """images:
+  - name: "executor-ml"
+    image: "executor-ml"
+    default: true
+"""}
+        )
+        mock_k8s_core.read_namespaced_config_map.return_value = mock_config_map
+        
         # Mock node images to simulate development environment
         mock_node = V1Node(
             status=V1NodeStatus(
@@ -94,16 +109,32 @@ class TestDispatcherService:
         
         # Verify job spec
         job = call_args[1]['body']
-        # Check that the image starts with the expected prefix (ignoring the tag)
+        # Check that the image is correct (no registry prefix in test environment)
         image = job.spec.template.spec.containers[0].image
-        assert image.startswith("crucible-platform/executor-ml:") or image.startswith("docker.io/crucible-platform/executor-ml:")
-        assert job.spec.template.spec.containers[0].command == ["python", "-u", "-c", request.code]
+        assert image == "executor-ml:latest"
+        assert job.spec.template.spec.containers[0].command == ["timeout_wrapper.sh", str(request.timeout), "python", "-u", "-c", request.code]
         assert job.spec.template.spec.containers[0].resources.limits['memory'] == "256Mi"
         assert job.spec.template.spec.containers[0].resources.limits['cpu'] == "0.5"
     
-    def test_execute_handles_k8s_error(self, mock_k8s_batch):
+    @patch('dispatcher_service.app.core_v1')
+    def test_execute_handles_k8s_error(self, mock_k8s_core, mock_k8s_batch):
         """Test that execute handles Kubernetes API errors."""
         from dispatcher_service.app import execute
+        from kubernetes.client.rest import ApiException
+        
+        # Mock ResourceQuota to return 404 (not found)
+        mock_k8s_core.read_namespaced_resource_quota.side_effect = ApiException(status=404)
+        
+        # Mock ConfigMap for executor images
+        from kubernetes.client import V1ConfigMap
+        mock_config_map = V1ConfigMap(
+            data={"images.yaml": """images:
+  - name: "executor-ml"
+    image: "executor-ml"
+    default: true
+"""}
+        )
+        mock_k8s_core.read_namespaced_config_map.return_value = mock_config_map
         
         request = ExecuteRequest(
             eval_id="test_eval_error",
@@ -288,9 +319,25 @@ class TestDispatcherService:
         assert result["exit_code"] == 1
         assert result["message"] == "No pods found for job and no logs in Loki"
     
-    def test_eval_id_sanitization(self):
+    @patch('dispatcher_service.app.core_v1')
+    def test_eval_id_sanitization(self, mock_k8s_core):
         """Test that eval IDs are properly sanitized for K8s names."""
         from dispatcher_service.app import execute
+        from kubernetes.client.rest import ApiException
+        
+        # Mock ResourceQuota to return 404 (not found)
+        mock_k8s_core.read_namespaced_resource_quota.side_effect = ApiException(status=404)
+        
+        # Mock ConfigMap for executor images
+        from kubernetes.client import V1ConfigMap
+        mock_config_map = V1ConfigMap(
+            data={"images.yaml": """images:
+  - name: "executor-ml"
+    image: "executor-ml"
+    default: true
+"""}
+        )
+        mock_k8s_core.read_namespaced_config_map.return_value = mock_config_map
         
         with patch('dispatcher_service.app.batch_v1') as mock_batch:
             mock_batch.create_namespaced_job.return_value = V1Job(
@@ -311,9 +358,25 @@ class TestDispatcherService:
             # Job name format is "{eval_id_safe}-{uuid}"
             assert response.job_name.startswith("test-under-score-")
     
-    def test_timeout_configuration(self, mock_k8s_batch):
+    @patch('dispatcher_service.app.core_v1')
+    def test_timeout_configuration(self, mock_k8s_core, mock_k8s_batch):
         """Test that timeout is properly configured in job spec."""
         from dispatcher_service.app import execute
+        from kubernetes.client.rest import ApiException
+        
+        # Mock ResourceQuota to return 404 (not found)
+        mock_k8s_core.read_namespaced_resource_quota.side_effect = ApiException(status=404)
+        
+        # Mock ConfigMap for executor images
+        from kubernetes.client import V1ConfigMap
+        mock_config_map = V1ConfigMap(
+            data={"images.yaml": """images:
+  - name: "executor-ml"
+    image: "executor-ml"
+    default: true
+"""}
+        )
+        mock_k8s_core.read_namespaced_config_map.return_value = mock_config_map
         
         request = ExecuteRequest(
             eval_id="test_timeout",
@@ -333,6 +396,6 @@ class TestDispatcherService:
         call_args = mock_k8s_batch.create_namespaced_job.call_args
         job = call_args[1]['body']
         
-        # Verify timeout settings
-        assert job.spec.active_deadline_seconds == 30
+        # Verify timeout settings (now includes 5 minute buffer)
+        assert job.spec.active_deadline_seconds == 330  # 30 + 300 buffer
         assert job.spec.backoff_limit == 0  # No retries for user code

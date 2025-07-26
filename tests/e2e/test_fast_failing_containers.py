@@ -25,6 +25,7 @@ import time
 import requests
 from typing import Dict, Any
 from tests.k8s_test_config import API_URL
+from tests.utils.utils import wait_for_completion
 
 # Test code that should fail immediately
 FAST_FAILING_CODE = 'print("Before error"); 1/0'
@@ -36,29 +37,6 @@ result = 1/0  # This will cause immediate failure
 '''
 
 
-def wait_for_evaluation_completion(
-    eval_id: str, 
-    timeout: int = 30
-) -> Dict[str, Any]:
-    """Wait for an evaluation to reach a terminal state.
-    
-    TODO: Reduce timeout once we implement Kubernetes event-based processing instead of 10s polling
-    """
-    start_time = time.time()
-    
-    while time.time() - start_time < timeout:
-        response = requests.get(f"{API_URL}/eval/{eval_id}")
-        if response.status_code == 200:
-            result = response.json()
-            status = result.get("status")
-            
-            # Check if we've reached a terminal state
-            if status in ["completed", "failed", "timeout", "cancelled"]:
-                return result
-        
-        time.sleep(0.5)
-    
-    raise TimeoutError(f"Evaluation {eval_id} did not complete within {timeout} seconds")
 
 
 @pytest.mark.whitebox
@@ -85,7 +63,7 @@ def test_fast_failing_container_logs_captured():
     eval_id = response.json()["eval_id"]
     
     # Wait for evaluation to complete
-    result = wait_for_evaluation_completion(eval_id)
+    result = wait_for_completion(eval_id, use_adaptive=True)
     
     # Verify the evaluation failed as expected
     assert result["status"] == "failed", f"Expected status 'failed', got '{result['status']}'"
@@ -131,7 +109,7 @@ def test_mixed_stdout_stderr_fast_failure():
     eval_id = response.json()["eval_id"]
     
     # Wait for evaluation to complete
-    result = wait_for_evaluation_completion(eval_id)
+    result = wait_for_completion(eval_id, use_adaptive=True)
     
     # Verify the evaluation failed
     assert result["status"] == "failed"
@@ -187,7 +165,8 @@ def test_multiple_fast_failures_no_stuck_evaluations():
                     # Check if it's been running for too long
                     # In Kubernetes, allow more time due to monitoring intervals
                     # TODO: Reduce threshold once we implement Kubernetes event-based processing
-                    if result.get("runtime_ms", 0) > 20000:  # More than 20 seconds
+                    runtime_ms = result.get("runtime_ms", 0)
+                    if runtime_ms is not None and runtime_ms > 20000:  # More than 20 seconds
                         stuck_evaluations.append((eval_id, result["status"]))
                 elif result["status"] in ["queued", "provisioning"]:
                     # These are transitional states, not stuck
@@ -230,7 +209,7 @@ def test_extremely_fast_exit():
     eval_id = response.json()["eval_id"]
     
     # Wait for completion
-    result = wait_for_evaluation_completion(eval_id)
+    result = wait_for_completion(eval_id, use_adaptive=True)
     
     # Should be marked as failed (non-zero exit code)
     assert result["status"] == "failed", (

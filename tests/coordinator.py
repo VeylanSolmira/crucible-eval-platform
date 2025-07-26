@@ -58,7 +58,7 @@ class TestCoordinator:
             "e2e": {
                 "path": "tests/e2e",
                 "description": "End-to-end tests",
-                "parallel_safe": False  # May need sequential execution
+                "parallel_safe": True  # Now safe with improved infrastructure
             },
             "performance": {
                 "path": "tests/performance",
@@ -82,28 +82,43 @@ class TestCoordinator:
         if test_files:
             suite_info = []
             for test_file in test_files:
-                # Check if it's a path without "tests/" prefix (e.g., unit/storage/test_file.py)
-                test_path = f"/app/tests/{test_file}"
-                if os.path.exists(test_path):
-                    # Extract the suite name from the path
-                    path_parts = test_file.split('/')
-                    suite_name = path_parts[0] if path_parts else "unknown"
-                    
-                    # Find the suite's parallel_safe setting
-                    parallel_safe = all_suites.get(suite_name, {}).get("parallel_safe", True)
-                    
-                    # Create a shorter name for the test file
-                    file_name = os.path.basename(test_file).replace('.py', '')
-                    # Use just the filename for the suite name to keep it short
+                # Handle pytest :: syntax for specific tests
+                if '::' in test_file:
+                    # Trust user knows what they're doing with pytest syntax
+                    file_part, test_part = test_file.split('::', 1)
+                    # Create a Kubernetes-safe name from the test specification
+                    safe_name = test_part.replace('::', '-').replace('_', '-')[:30]
                     suite_info.append({
-                        "name": file_name,
-                        "path": test_path,
-                        "description": f"Test file: {test_file}",
-                        "parallel_safe": parallel_safe,
-                        "test_count": 1  # Will be counted properly later
+                        "name": safe_name,
+                        "path": f"/app/tests/{test_file}",  # Pass full spec to pytest
+                        "description": f"Test: {test_file}",
+                        "parallel_safe": True,  # Single test should be safe
+                        "test_count": 1
                     })
                 else:
-                    print(f"⚠️  Test file not found: {test_file} (looked at {test_path})")
+                    # Original file-based logic
+                    # Check if it's a path without "tests/" prefix (e.g., unit/storage/test_file.py)
+                    test_path = f"/app/tests/{test_file}"
+                    if os.path.exists(test_path):
+                        # Extract the suite name from the path
+                        path_parts = test_file.split('/')
+                        suite_name = path_parts[0] if path_parts else "unknown"
+                        
+                        # Find the suite's parallel_safe setting
+                        parallel_safe = all_suites.get(suite_name, {}).get("parallel_safe", True)
+                        
+                        # Create a shorter name for the test file
+                        file_name = os.path.basename(test_file).replace('.py', '')
+                        # Use just the filename for the suite name to keep it short
+                        suite_info.append({
+                            "name": file_name,
+                            "path": test_path,
+                            "description": f"Test file: {test_file}",
+                            "parallel_safe": parallel_safe,
+                            "test_count": 1  # Will be counted properly later
+                        })
+                    else:
+                        print(f"⚠️  Test file not found: {test_file} (looked at {test_path})")
             return suite_info
         
         # Build suite info for full suites
@@ -190,6 +205,7 @@ class TestCoordinator:
                                 {"name": "REDIS_URL", "value": f"redis://redis.{self.namespace}.svc.cluster.local:6379/0"},
                                 {"name": "CELERY_BROKER_URL", "value": f"redis://celery-redis.{self.namespace}.svc.cluster.local:6379/0"},
                                 {"name": "API_URL", "value": f"http://api-service.{self.namespace}.svc.cluster.local:8080/api"},
+                                {"name": "VERBOSE_TESTS", "value": "true" if self.verbose else "false"},
                             ],
                             "command": pytest_cmd,
                             "resources": {
@@ -233,10 +249,15 @@ class TestCoordinator:
     
     def monitor_job(self, job_name: str) -> Dict[str, any]:
         """Monitor a job until completion and return results."""
-        print(f"\n📊 Monitoring: {job_name}")
+        # Extract suite name from job name (e.g., "security-tests-20240125-01" -> "security")
+        suite_name = job_name.split('-tests-')[0] if '-tests-' in job_name else job_name
         
         if self.verbose:
+            print(f"\n📊 Monitoring: {job_name}")
             print("  Verbose mode: Will show full output on failure")
+        else:
+            # In non-verbose mode, just show we're monitoring without extra newline
+            print(f"  📊 Monitoring: {job_name}", end="", flush=True)
         
         start_time = time.time()
         
@@ -281,6 +302,9 @@ class TestCoordinator:
                 while True:
                     line = log_queue.get_nowait()
                     
+                    # Prefix with suite name for parallel execution
+                    prefixed_line = f"[{suite_name}] {line}"
+                    
                     # Color code different types of output
                     if self.verbose:
                         # ANSI color codes
@@ -293,25 +317,25 @@ class TestCoordinator:
                         
                         # Pytest test results
                         if " PASSED " in line:
-                            print(f"  │ {GREEN}{line}{RESET}")
+                            print(f"  │ {GREEN}{prefixed_line}{RESET}")
                         elif " FAILED " in line:
-                            print(f"  │ {RED}{line}{RESET}")
+                            print(f"  │ {RED}{prefixed_line}{RESET}")
                         elif " SKIPPED " in line:
-                            print(f"  │ {YELLOW}{line}{RESET}")
+                            print(f"  │ {YELLOW}{prefixed_line}{RESET}")
                         # Adaptive timeout output
                         elif any(x in line for x in ["Progress:", "Resource-based timeout:", "Evaluation Summary"]):
-                            print(f"  │ {CYAN}{line}{RESET}")
+                            print(f"  │ {CYAN}{prefixed_line}{RESET}")
                         # Warnings
                         elif "WARNING" in line or "⚠️" in line:
-                            print(f"  │ {YELLOW}{line}{RESET}")
+                            print(f"  │ {YELLOW}{prefixed_line}{RESET}")
                         # Test names/collection
                         elif line.startswith("tests/") and "::" in line and " PASSED" not in line:
-                            print(f"  │ {BLUE}{line}{RESET}")
+                            print(f"  │ {BLUE}{prefixed_line}{RESET}")
                         else:
-                            print(f"  │ {line}")
+                            print(f"  │ {prefixed_line}")
                     else:
                         # Non-verbose mode: just show the line
-                        print(f"  │ {line}")
+                        print(f"  │ {prefixed_line}")
             except queue.Empty:
                 pass
             
@@ -368,16 +392,15 @@ class TestCoordinator:
                 passed = failed = skipped = deselected = 0
                 found_results = False
                 
-                # First, look for deselected count in collection phase
+                # Look for pytest summary line - check every line since output may be prefixed
                 for line in log_output.split('\n'):
+                    # First, look for deselected count in collection phase
                     if 'collected' in line and 'deselected' in line:
                         match = re.search(r'(\d+) deselected', line)
                         if match:
                             deselected = int(match.group(1))
-                        break
-                
-                # Then parse test results
-                for line in reversed(log_output.split('\n')):
+                    
+                    # Look for pytest summary line (may have job name prefix)
                     if '=====' in line and (' passed' in line or ' failed' in line or ' skipped' in line):
                         # This is likely the summary line
                         # Parse all test counts in one pass
@@ -386,11 +409,12 @@ class TestCoordinator:
                             count, status = match.groups()
                             counts[status] = int(count)
                         
-                        passed = counts['passed']
-                        failed = counts['failed'] 
-                        skipped = counts['skipped']
-                        found_results = any(counts.values())
-                        break
+                        if any(counts.values()):  # Only update if we found actual counts
+                            passed = counts['passed']
+                            failed = counts['failed'] 
+                            skipped = counts['skipped']
+                            found_results = True
+                            # Don't break - in case there are multiple summary lines, use the last one
                 
                 if not found_results:
                     # If job failed and no results, get tail of logs for error
@@ -405,7 +429,7 @@ class TestCoordinator:
                         return {
                             "job_name": job_name,
                             "status": "error",
-                            "error": "No TEST_RESULTS_JSON found in output",
+                            "error": "No pytest summary line found in output",
                             "duration": time.time() - start_time
                         }
                 
@@ -443,33 +467,50 @@ class TestCoordinator:
         
         results = {"succeeded": [], "failed": []}
         
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            # Submit all jobs
-            future_to_job = {}
+        # First, submit all parallel-safe jobs
+        print("\n📤 Submitting parallel-safe test jobs...")
+        parallel_jobs = []  # List of (job_name, suite_name) tuples
+        
+        for i, suite in enumerate(suites):
+            if suite["parallel_safe"]:
+                job_manifest = self.create_test_job(suite, i, pytest_args, self.resource_cleanup)
+                job_name, submitted = self.submit_job(job_manifest)
+                
+                if submitted:
+                    parallel_jobs.append((job_name, suite["name"]))
+                    self.test_jobs.append(job_name)
+        
+        print(f"\n📊 Monitoring {len(parallel_jobs)} jobs in parallel...")
+        
+        # Handle case where no parallel-safe jobs were found
+        if not parallel_jobs:
+            print("\n⚠️  No parallel-safe test suites found. Consider running without --parallel flag.")
+            # Run non-parallel-safe suites sequentially
+            return self.run_sequential(suites, pytest_args)
+        
+        # Now monitor all jobs concurrently
+        with ThreadPoolExecutor(max_workers=min(10, len(parallel_jobs))) as executor:
+            future_to_info = {}
             
-            for i, suite in enumerate(suites):
-                if suite["parallel_safe"]:
-                    job_manifest = self.create_test_job(suite, i, pytest_args, self.resource_cleanup)
-                    job_name, submitted = self.submit_job(job_manifest)
-                    
-                    if submitted:
-                        future = executor.submit(self.monitor_job, job_name)
-                        future_to_job[future] = suite["name"]
-                        self.test_jobs.append(job_name)
+            for job_name, suite_name in parallel_jobs:
+                future = executor.submit(self.monitor_job, job_name)
+                future_to_info[future] = suite_name
             
-            # Monitor completion
-            for future in as_completed(future_to_job):
-                suite_name = future_to_job[future]
+            # Process results as they complete
+            completed = 0
+            for future in as_completed(future_to_info):
+                completed += 1
+                suite_name = future_to_info[future]
                 result = future.result()
                 
                 if result["status"] == "succeeded":
                     results["succeeded"].append(result)
-                    print(f"✅ {suite_name}: {result['passed']} passed, "
+                    print(f"\n[{completed}/{len(parallel_jobs)}] ✅ {suite_name}: {result['passed']} passed, "
                           f"{result['failed']} failed, {result['skipped']} skipped "
                           f"({result['duration']:.1f}s)")
                 else:
                     results["failed"].append(result)
-                    print(f"❌ {suite_name}: {result['status']} ({result['duration']:.1f}s)")
+                    print(f"\n[{completed}/{len(parallel_jobs)}] ❌ {suite_name}: {result['status']} ({result['duration']:.1f}s)")
         
         # Run non-parallel-safe tests sequentially
         for i, suite in enumerate(suites):
@@ -667,7 +708,7 @@ def main():
     parser = argparse.ArgumentParser(description="Test coordinator")
     parser.add_argument("--timestamp", required=True, help="Test run timestamp")
     parser.add_argument("--suites", nargs="+", default=["all"], help="Test suites to run")
-    parser.add_argument("--test-files", nargs="+", help="Specific test files to run")
+    parser.add_argument("--test-files", nargs="+", help="Specific test files to run. Examples: unit/test_api.py, unit/test_api.py::test_health_check, unit/test_api.py::TestClass::test_method, unit/test_api.py::test_func[param1]")
     parser.add_argument("--parallel", action="store_true", help="Run in parallel")
     parser.add_argument("--sequential", action="store_true", help="Run sequentially")
     parser.add_argument("--include-slow", action="store_true", help="Include slow tests")

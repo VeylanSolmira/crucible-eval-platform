@@ -1,0 +1,18 @@
+# Production overlay: Configure dispatcher to use ECR executor images
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        env:
+        - name: EXECUTOR_IMAGES_CONFIG_MAP
+          value: "executor-images"
+        - name: EXECUTOR_IMAGE_PREFIX
+          value: "${ECR_REGISTRY}/${PROJECT_NAME}:"
+        # Remove the hardcoded EXECUTOR_IMAGE env var - dispatcher should read from ConfigMap
+        - name: EXECUTOR_IMAGE
+          $patch: delete

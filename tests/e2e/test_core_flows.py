@@ -14,24 +14,7 @@ import time
 import requests
 from typing import Dict, Any
 from tests.k8s_test_config import API_URL
-
-
-def wait_for_evaluation(
-    eval_id: str,
-    timeout: int = 30
-) -> Dict[str, Any]:
-    """Wait for an evaluation to reach a terminal state."""
-    start_time = time.time()
-    
-    while time.time() - start_time < timeout:
-        response = requests.get(f"{API_URL}/eval/{eval_id}")
-        if response.status_code == 200:
-            result = response.json()
-            if result.get("status") in ["completed", "failed", "timeout", "cancelled"]:
-                return result
-        time.sleep(0.5)
-    
-    raise TimeoutError(f"Evaluation {eval_id} did not complete within {timeout} seconds")
+from tests.utils.utils import wait_for_completion
 
 
 @pytest.mark.e2e
@@ -95,7 +78,7 @@ def test_evaluation_lifecycle():
     eval_id = response.json()["eval_id"]
     
     # Wait for completion
-    result = wait_for_evaluation(eval_id)
+    result = wait_for_completion(eval_id, use_adaptive=True)
     
     # Verify completion
     assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -125,7 +108,7 @@ def test_error_handling():
     assert response.status_code == 200
     
     eval_id = response.json()["eval_id"]
-    result = wait_for_evaluation(eval_id, timeout=15)
+    result = wait_for_completion(eval_id, timeout=15, use_adaptive=True)
     
     assert result["status"] == "failed", f"Expected failed status for sys.exit(1), got: {result['status']}"
     
@@ -146,7 +129,7 @@ def test_error_handling():
     assert response.status_code == 200
     
     eval_id = response.json()["eval_id"]
-    result = wait_for_evaluation(eval_id)
+    result = wait_for_completion(eval_id, use_adaptive=True)
     
     assert result["status"] == "failed", "Division by zero should fail"
     error_output = (result.get("error") or "") + (result.get("output") or "")
@@ -175,24 +158,20 @@ def test_concurrent_evaluations():
     
     assert len(eval_ids) == num_evaluations, f"Expected {num_evaluations} eval IDs"
     
-    # Wait for all to complete
-    completed = []
-    timeout = 30
-    start_time = time.time()
+    # Wait for all to complete with adaptive waiting
+    completed = 0
+    failed = []
     
-    while len(completed) < num_evaluations and time.time() - start_time < timeout:
-        for eval_id in eval_ids:
-            if eval_id not in completed:
-                response = requests.get(f"{API_URL}/eval/{eval_id}")
-                if response.status_code == 200:
-                    result = response.json()
-                    if result["status"] in ["completed", "failed"]:
-                        completed.append(eval_id)
-                        assert result["status"] == "completed", f"Evaluation {eval_id} failed"
-        time.sleep(0.5)
+    for eval_id in eval_ids:
+        result = wait_for_completion(eval_id, timeout=30, use_adaptive=True)
+        if result["status"] == "completed":
+            completed += 1
+        else:
+            failed.append((eval_id, result["status"]))
     
-    assert len(completed) == num_evaluations, (
-        f"Only {len(completed)}/{num_evaluations} evaluations completed within {timeout}s"
+    assert completed == num_evaluations, (
+        f"Only {completed}/{num_evaluations} evaluations completed. "
+        f"Failed: {failed}"
     )
 
 
@@ -213,7 +192,7 @@ def test_storage_retrieval():
     eval_id = response.json()["eval_id"]
     
     # Wait for completion
-    result = wait_for_evaluation(eval_id)
+    result = wait_for_completion(eval_id, use_adaptive=True)
     assert result["status"] == "completed"
     
     # Test storage retrieval endpoint (if it exists)
@@ -263,7 +242,7 @@ def test_evaluation_timeout():
     eval_id = response.json()["eval_id"]
     
     # Wait for timeout - need to wait longer than the 2 second timeout plus overhead
-    result = wait_for_evaluation(eval_id, timeout=30)
+    result = wait_for_completion(eval_id, timeout=30, use_adaptive=True)
     
     # The evaluation should timeout or fail
     assert result["status"] in ["timeout", "failed"], f"Expected timeout status, got: {result['status']}"
@@ -272,9 +251,11 @@ def test_evaluation_timeout():
     # longer than the actual timeout. Kubernetes DOES enforce the timeout (activeDeadlineSeconds),
     # but Celery only detects the failure on its next poll cycle.
     # TODO: This will be fixed when we implement Kubernetes event-based status updates
-    runtime_ms = result.get("runtime_ms", 0)
+    runtime_ms = result.get("runtime_ms")
     # Accept runtime up to 15 seconds (2s timeout + 10s polling + overhead)
-    assert runtime_ms < 15000, f"Evaluation ran much longer than expected: {runtime_ms}ms"
+    # runtime_ms can be None if evaluation failed before starting
+    if runtime_ms is not None:
+        assert runtime_ms < 15000, f"Evaluation ran much longer than expected: {runtime_ms}ms"
 
 
 @pytest.mark.e2e
@@ -309,7 +290,7 @@ def test_language_parameter():
     elif response.status_code == 200:
         # API accepted - it will try to run as Python
         eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(eval_id)
+        result = wait_for_completion(eval_id, use_adaptive=True)
         # Since it's Python code, it will actually succeed
         # This is expected behavior for now
         assert result["status"] in ["completed", "failed"], "Should have a terminal status"
