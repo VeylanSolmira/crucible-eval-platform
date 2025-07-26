@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 KUBERNETES_NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "crucible")
-EXECUTOR_IMAGE = os.getenv("EXECUTOR_IMAGE", None)
+EXECUTOR_IMAGE = os.getenv("EXECUTOR_IMAGE", "executor-ml")
+REGISTRY_PREFIX = os.getenv("REGISTRY_PREFIX", "")  # e.g. "localhost:5000" or "123456.dkr.ecr.region.amazonaws.com"
+DEFAULT_IMAGE_TAG = os.getenv("DEFAULT_IMAGE_TAG", "latest")  # Default tag when none specified
 MAX_JOB_TTL = int(os.getenv("MAX_JOB_TTL", "3600"))  # 1 hour
 JOB_CLEANUP_TTL = int(os.getenv("JOB_CLEANUP_TTL", "300"))  # 5 minutes
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
@@ -379,38 +381,77 @@ def load_executor_images() -> Dict[str, str]:
         # Fallback to environment variable
         return {"default": EXECUTOR_IMAGE}
 
-def get_latest_executor_image(executor_type: str) -> Optional[str]:
-    """Find the most recent executor image from node image store"""
-    try:
-        # List all nodes
-        nodes = core_v1.list_node()
-        if not nodes.items:
-            return None
-            
-        # Get images from first node (in Kind there's usually just one)
-        node_images = nodes.items[0].status.images
+# Commented out - no longer needed with registry approach
+# def get_latest_executor_image(executor_type: str) -> Optional[str]:
+#     """Find the most recent executor image from node image store"""
+#     try:
+#         # List all nodes
+#         nodes = core_v1.list_node()
+#         if not nodes.items:
+#             return None
+#             
+#         # Get images from first node (in Kind there's usually just one)
+#         node_images = nodes.items[0].status.images
+#         
+#         # Find images matching the executor type
+#         matching_images = []
+#         for image in node_images:
+#             if image and image.names:  # Check that image and names exist
+#                 for name in image.names:
+#                     # Handle both "base" and "executor-base" formats
+#                     search_pattern = executor_type if executor_type.startswith("executor-") else f"executor-{executor_type}"
+#                     
+#                     # Match executor images with SHA tags (e.g., executor-ml:6fffbe9ad576...)
+#                     # Also handle docker.io/ prefix that kind adds
+#                     if (f"crucible-platform/{search_pattern}" in name or f"docker.io/crucible-platform/{search_pattern}" in name) and len(name.split(":")[-1]) >= 12:
+#                         # Check if tag looks like a SHA (at least 12 hex chars)
+#                         tag = name.split(":")[-1]
+#                         if all(c in "0123456789abcdef" for c in tag[:12]):
+#                             matching_images.append(name)
+#         
+#         # Return the first match (most recent)
+#         if matching_images:
+#             logger.info(f"Found executor image: {matching_images[0]}")
+#             return matching_images[0]
+#             
+#         return None
+#     except ApiException as e:
+#         logger.error(f"Failed to query node images: {e}")
+#         return None
+
+def resolve_executor_image(requested_image: str, available_images: Dict[str, str]) -> str:
+    """
+    Resolve an executor image name to a full registry path with :latest tag.
+    
+    Args:
+        requested_image: The image name requested (e.g., "executor-base", "base", full path)
+        available_images: Dict of known images from configmap
         
-        # Find images matching the executor type
-        matching_images = []
-        for image in node_images:
-            if image and image.names:  # Check that image and names exist
-                for name in image.names:
-                    # Match executor images with SHA tags (e.g., executor-ml:6fffbe9ad576...)
-                    if f"executor-{executor_type}" in name and len(name.split(":")[-1]) >= 12:
-                        # Check if tag looks like a SHA (at least 12 hex chars)
-                        tag = name.split(":")[-1]
-                        if all(c in "0123456789abcdef" for c in tag[:12]):
-                            matching_images.append(name)
-        
-        # Return the first match (most recent)
-        if matching_images:
-            logger.info(f"Found executor image: {matching_images[0]}")
-            return matching_images[0]
-            
-        return None
-    except ApiException as e:
-        logger.error(f"Failed to query node images: {e}")
-        return None
+    Returns:
+        Full image path with registry prefix and tag
+    """
+    # Check if it's a known image name from configmap
+    if requested_image in available_images:
+        image = available_images[requested_image]
+    # Check if it's already a full image path
+    elif "/" in requested_image or ":" in requested_image:
+        image = requested_image
+    else:
+        # Unknown image, use default
+        logger.warning(f"Unknown executor image '{requested_image}', using default")
+        image = available_images.get("default", EXECUTOR_IMAGE)
+    
+    # Add registry prefix if configured
+    if REGISTRY_PREFIX and not image.startswith(REGISTRY_PREFIX):
+        image = f"{REGISTRY_PREFIX}/{image}"
+    
+    # Add default tag if no tag specified
+    if ":" not in image.split("/")[-1]:  # Check last part for tag
+        image = f"{image}:{DEFAULT_IMAGE_TAG}"
+    
+    logger.info(f"Resolved executor image '{requested_image}' to: {image}")
+    return image
+
 
 def check_gvisor_availability():
     """Check if gVisor RuntimeClass is available in the cluster"""
@@ -513,6 +554,114 @@ class ExecuteResponse(BaseModel):
     message: Optional[str] = None
 
 
+# Capacity check models
+class CapacityRequest(BaseModel):
+    memory_limit: str = Field(default="512Mi", description="Memory limit (e.g., 512Mi, 1Gi)")
+    cpu_limit: str = Field(default="500m", description="CPU limit (e.g., 500m, 1)")
+
+
+class CapacityResponse(BaseModel):
+    has_capacity: bool
+    available_memory_mb: int
+    available_cpu_millicores: int
+    total_memory_mb: int
+    total_cpu_millicores: int
+    reason: Optional[str] = None
+
+
+# Import resource parsing utilities from shared location
+from shared.utils.resource_parsing import parse_memory, parse_cpu
+
+
+def min_resource(limit: str, default: str, resource_type: str) -> str:
+    """Return the minimum of limit and default for resource requests.
+    
+    This ensures that resource requests never exceed limits (Kubernetes requirement).
+    """
+    if resource_type == "memory":
+        limit_mb = parse_memory(limit)
+        default_mb = parse_memory(default)
+        if limit_mb < default_mb:
+            return limit
+        return default
+    elif resource_type == "cpu":
+        limit_mc = parse_cpu(limit)
+        default_mc = parse_cpu(default)
+        if limit_mc < default_mc:
+            return limit
+        return default
+    return default
+
+
+@app.post("/capacity/check", response_model=CapacityResponse)
+async def check_capacity(request: CapacityRequest):
+    """
+    Check if the cluster has capacity for a new evaluation with specified resources.
+    """
+    try:
+        # Get ResourceQuota for evaluations
+        quota = core_v1.read_namespaced_resource_quota(
+            name="evaluation-quota",
+            namespace=KUBERNETES_NAMESPACE
+        )
+        
+        # Parse current usage and limits
+        memory_limit = quota.status.hard.get("limits.memory", "0")
+        memory_used = quota.status.used.get("limits.memory", "0")
+        cpu_limit = quota.status.hard.get("limits.cpu", "0")
+        cpu_used = quota.status.used.get("limits.cpu", "0")
+        
+        # Convert to standard units
+        total_memory_mb = parse_memory(memory_limit)
+        used_memory_mb = parse_memory(memory_used)
+        total_cpu_millicores = parse_cpu(cpu_limit)
+        used_cpu_millicores = parse_cpu(cpu_used)
+        
+        available_memory_mb = total_memory_mb - used_memory_mb
+        available_cpu_millicores = total_cpu_millicores - used_cpu_millicores
+        
+        # Check requested resources
+        requested_memory_mb = parse_memory(request.memory_limit)
+        requested_cpu_millicores = parse_cpu(request.cpu_limit)
+        
+        # Determine if we have capacity
+        has_capacity = (
+            available_memory_mb >= requested_memory_mb and
+            available_cpu_millicores >= requested_cpu_millicores
+        )
+        
+        reason = None
+        if not has_capacity:
+            if available_memory_mb < requested_memory_mb:
+                reason = f"Insufficient memory: {available_memory_mb}MB available, {requested_memory_mb}MB requested"
+            else:
+                reason = f"Insufficient CPU: {available_cpu_millicores}m available, {requested_cpu_millicores}m requested"
+        
+        return CapacityResponse(
+            has_capacity=has_capacity,
+            available_memory_mb=available_memory_mb,
+            available_cpu_millicores=available_cpu_millicores,
+            total_memory_mb=total_memory_mb,
+            total_cpu_millicores=total_cpu_millicores,
+            reason=reason
+        )
+        
+    except ApiException as e:
+        if e.status == 404:
+            # No resource quota found, assume capacity is available
+            logger.warning("No ResourceQuota found, assuming capacity is available")
+            return CapacityResponse(
+                has_capacity=True,
+                available_memory_mb=99999,
+                available_cpu_millicores=99999,
+                total_memory_mb=99999,
+                total_cpu_millicores=99999,
+                reason="No resource quota configured"
+            )
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to check capacity: {str(e)}")
+
+
 @app.post("/execute", response_model=ExecuteResponse)
 async def execute(request: ExecuteRequest):
     """
@@ -550,33 +699,60 @@ async def execute(request: ExecuteRequest):
     
     logger.info(f"Creating job {job_name} for evaluation {request.eval_id}")
     
-    # Determine which executor image to use
-    executor_image = EXECUTOR_IMAGE  # Default fallback
-    
-    # In development, try to find the latest image from node
-    if ENVIRONMENT == "development":
-        latest_image = get_latest_executor_image("ml")
-        if latest_image:
-            executor_image = latest_image
-            logger.info(f"Using latest executor-ml image from node: {executor_image}")
-        else:
-            logger.warning("Could not find executor-ml in node images, using default")
-    
-    if request.executor_image:
-        # Load available images
-        available_images = load_executor_images()
+    # Validate resource limits against cluster capacity
+    try:
+        # Get ResourceQuota to check total limits
+        quota = core_v1.read_namespaced_resource_quota(
+            name="evaluation-quota",
+            namespace=KUBERNETES_NAMESPACE
+        )
         
-        # Check if it's a known image name
-        if request.executor_image in available_images:
-            executor_image = available_images[request.executor_image]
-            logger.info(f"Using named executor image: {executor_image}")
-        # Check if it's a full image path (contains / or :)
-        elif "/" in request.executor_image or ":" in request.executor_image:
-            executor_image = request.executor_image
-            logger.info(f"Using custom executor image: {executor_image}")
+        # Parse total limits
+        total_memory_mb = parse_memory(quota.status.hard.get("limits.memory", "0"))
+        total_cpu_millicores = parse_cpu(quota.status.hard.get("limits.cpu", "0"))
+        
+        # Parse requested resources
+        requested_memory_mb = parse_memory(request.memory_limit)
+        requested_cpu_millicores = parse_cpu(request.cpu_limit)
+        
+        # Check if request exceeds total cluster limits
+        if requested_memory_mb > total_memory_mb:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Requested memory ({request.memory_limit}) exceeds total cluster limit ({quota.status.hard.get('limits.memory')})"
+            )
+        
+        if requested_cpu_millicores > total_cpu_millicores:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Requested CPU ({request.cpu_limit}) exceeds total cluster limit ({quota.status.hard.get('limits.cpu')})"
+            )
+            
+        logger.info(f"Resource validation passed: {request.memory_limit} memory, {request.cpu_limit} CPU")
+        
+    except ApiException as e:
+        if e.status == 404:
+            # No quota configured, allow the request
+            logger.warning("No ResourceQuota found, skipping resource validation")
         else:
-            logger.warning(f"Unknown executor image '{request.executor_image}', using default")
-            executor_image = available_images.get("default", EXECUTOR_IMAGE)
+            raise HTTPException(status_code=500, detail=f"Failed to validate resources: {str(e)}")
+    except (ValueError, AttributeError) as e:
+        logger.error(f"Failed to parse resource limits: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid resource format: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error during resource validation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Resource validation error: {str(e)}")
+    
+    # Determine which executor image to use
+    if request.executor_image:
+        # Load available images and resolve
+        available_images = load_executor_images()
+        executor_image = resolve_executor_image(request.executor_image, available_images)
+    else:
+        # Use default and resolve it too
+        available_images = load_executor_images()
+        executor_image = resolve_executor_image(EXECUTOR_IMAGE, available_images)
+        logger.info(f"No executor specified, using default: {executor_image}")
     
     # Create job manifest
     job = client.V1Job(
@@ -596,7 +772,7 @@ async def execute(request: ExecuteRequest):
             # Clean up job after completion
             ttl_seconds_after_finished=JOB_CLEANUP_TTL,
             # Maximum runtime
-            active_deadline_seconds=request.timeout,
+            active_deadline_seconds=request.timeout + 300,  # 5 minute buffer
             # Don't retry on failure (evaluations shouldn't be retried)
             backoff_limit=0,
             # Pod template
@@ -619,6 +795,8 @@ async def execute(request: ExecuteRequest):
                     ),
                     # Reduce grace period so timeouts are enforced quickly
                     termination_grace_period_seconds=1,
+                    # Pull secret for ECR images
+                    image_pull_secrets=[client.V1LocalObjectReference(name="ecr-secret")] if REGISTRY_PREFIX else None,
                     # Security context for pod
                     security_context=client.V1PodSecurityContext(
                         run_as_non_root=True,
@@ -633,7 +811,7 @@ async def execute(request: ExecuteRequest):
                             name="evaluation",
                             image=executor_image,
                             image_pull_policy="IfNotPresent",  # Don't try to pull if image exists locally
-                            command=["python", "-u", "-c", request.code],
+                            command=["timeout_wrapper.sh", str(request.timeout), "python", "-u", "-c", request.code],
                             # Environment variables
                             env=[
                                 client.V1EnvVar(name="EVAL_ID", value=request.eval_id),
@@ -646,8 +824,10 @@ async def execute(request: ExecuteRequest):
                                     "cpu": request.cpu_limit
                                 },
                                 requests={
-                                    "memory": "128Mi",
-                                    "cpu": "100m"
+                                    # Set requests to be min of limit or reasonable defaults
+                                    # This ensures requests <= limits (Kubernetes requirement)
+                                    "memory": min_resource(request.memory_limit, "128Mi", "memory"),
+                                    "cpu": min_resource(request.cpu_limit, "100m", "cpu")
                                 }
                             ),
                             # Security context for container

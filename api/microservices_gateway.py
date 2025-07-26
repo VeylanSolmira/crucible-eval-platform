@@ -46,17 +46,20 @@ logger = logging.getLogger(__name__)
 
 # Import Pydantic Settings
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 # Configuration using Pydantic Settings
 class Settings(BaseSettings):
+    model_config = ConfigDict(
+        case_sensitive=False,
+        # Don't load .env file - only use actual environment variables
+    )
+    
     queue_service_url: str
     storage_service_url: str
+    dispatcher_service_url: str
     redis_url: str
     internal_api_key: str
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
 
 # Create settings instance - lazy initialization for OpenAPI generation
 try:
@@ -355,6 +358,9 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
             language=request.language,
             priority=request.priority,
             timeout=request.timeout,
+            executor_image=request.executor_image,
+            memory_limit=request.memory_limit,
+            cpu_limit=request.cpu_limit,
         )
         if celery_task_id:
             logger.info(f"Submitted evaluation {eval_id} to Celery: {celery_task_id}")
@@ -387,11 +393,68 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
         raise HTTPException(status_code=502, detail="Failed to queue evaluation")
 
 
+async def validate_resource_limits(memory_limit: str, cpu_limit: str) -> None:
+    """
+    Validate that requested resources don't exceed cluster limits.
+    Raises HTTPException if validation fails.
+    """
+    # Import resource parsing utilities
+    from shared.utils.resource_parsing import parse_memory, parse_cpu
+    
+    # Parse requested resources
+    requested_memory_mb = parse_memory(memory_limit)
+    requested_cpu_mc = parse_cpu(cpu_limit)
+    
+    # Check with dispatcher's capacity endpoint
+    async with create_http_client() as client:
+        try:
+            response = await client.post(
+                f"{settings.dispatcher_service_url}/capacity/check",
+                json={
+                    "memory_limit": memory_limit,
+                    "cpu_limit": cpu_limit
+                }
+            )
+            
+            if response.status_code == 200:
+                capacity_data = response.json()
+                
+                # Check if request exceeds total cluster limits
+                total_memory_mb = capacity_data.get("total_memory_mb", 0)
+                total_cpu_mc = capacity_data.get("total_cpu_millicores", 0)
+                
+                # If request exceeds total cluster limits, reject immediately
+                if requested_memory_mb > total_memory_mb:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Requested memory ({memory_limit}) exceeds total cluster limit ({total_memory_mb}MB)"
+                    )
+                
+                if requested_cpu_mc > total_cpu_mc:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Requested CPU ({cpu_limit}) exceeds total cluster limit ({total_cpu_mc}m)"
+                    )
+                
+                # Note: We don't check available capacity here - that's for the dispatcher/scheduler
+                # We only validate that the request is theoretically possible
+                
+        except httpx.HTTPError:
+            # If we can't validate, log but don't block submission
+            logger.warning("Failed to validate resource limits with dispatcher")
+        except HTTPException:
+            # Re-raise validation errors
+            raise
+
+
 @app.post("/api/eval", response_model=EvaluationSubmitResponse)
 async def evaluate(request: EvaluationRequest):
     """Submit code for evaluation"""
     if not service_health["queue"]:
         raise HTTPException(status_code=503, detail="Queue service unavailable")
+    
+    # Validate resource limits don't exceed cluster capacity
+    await validate_resource_limits(request.memory_limit, request.cpu_limit)
 
     # Generate eval ID and immediately acknowledge with "submitted" status
     eval_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
