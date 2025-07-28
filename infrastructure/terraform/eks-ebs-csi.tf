@@ -22,10 +22,10 @@ module "ebs_csi_driver_irsa" {
 
 # Install the EBS CSI driver addon
 resource "aws_eks_addon" "ebs_csi_driver" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "aws-ebs-csi-driver"
-  addon_version            = data.aws_eks_addon_version.ebs_csi.version
-  service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "aws-ebs-csi-driver"
+  addon_version               = data.aws_eks_addon_version.ebs_csi.version
+  service_account_role_arn    = module.ebs_csi_driver_irsa.iam_role_arn
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -49,9 +49,9 @@ resource "kubernetes_storage_class" "gp3" {
   }
 
   storage_provisioner    = "ebs.csi.aws.com"
-  reclaim_policy        = "Delete"
+  reclaim_policy         = "Delete"
   allow_volume_expansion = true
-  volume_binding_mode   = "WaitForFirstConsumer"
+  volume_binding_mode    = "WaitForFirstConsumer"
 
   parameters = {
     type = "gp3"

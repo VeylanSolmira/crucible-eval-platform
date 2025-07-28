@@ -1,7 +1,7 @@
 # Get latest Ubuntu AMI
 data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["099720109477"]  # Canonical
+  owners      = ["099720109477"] # Canonical
 
   filter {
     name   = "name"
@@ -22,7 +22,7 @@ data "aws_availability_zones" "available" {
 # VPC for our cluster (optional)
 resource "aws_vpc" "k8s_vpc" {
   count = var.create_vpc ? 1 : 0
-  
+
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -35,7 +35,7 @@ resource "aws_vpc" "k8s_vpc" {
 # Internet Gateway
 resource "aws_internet_gateway" "k8s_igw" {
   count = var.create_vpc ? 1 : 0
-  
+
   vpc_id = aws_vpc.k8s_vpc[0].id
 
   tags = merge(var.tags, {
@@ -46,7 +46,7 @@ resource "aws_internet_gateway" "k8s_igw" {
 # Public Subnet
 resource "aws_subnet" "k8s_public" {
   count = var.create_vpc ? 1 : 0
-  
+
   vpc_id                  = aws_vpc.k8s_vpc[0].id
   cidr_block              = var.subnet_cidr
   availability_zone       = data.aws_availability_zones.available.names[0]
@@ -60,7 +60,7 @@ resource "aws_subnet" "k8s_public" {
 # Route Table
 resource "aws_route_table" "k8s_public" {
   count = var.create_vpc ? 1 : 0
-  
+
   vpc_id = aws_vpc.k8s_vpc[0].id
 
   route {
@@ -75,7 +75,7 @@ resource "aws_route_table" "k8s_public" {
 
 resource "aws_route_table_association" "k8s_public" {
   count = var.create_vpc ? 1 : 0
-  
+
   subnet_id      = aws_subnet.k8s_public[0].id
   route_table_id = aws_route_table.k8s_public[0].id
 }
@@ -175,12 +175,12 @@ resource "aws_iam_instance_profile" "k8s_node" {
 resource "aws_instance" "k8s_node" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
-  
+
   subnet_id                   = var.create_vpc ? aws_subnet.k8s_public[0].id : var.subnet_id
   vpc_security_group_ids      = [aws_security_group.k8s_node.id]
   key_name                    = aws_key_pair.k8s_key.key_name
   associate_public_ip_address = true
-  
+
   iam_instance_profile = aws_iam_instance_profile.k8s_node.name
 
   root_block_device {

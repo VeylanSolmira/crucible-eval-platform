@@ -48,9 +48,9 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-public-${data.aws_availability_zones.available.names[count.index]}"
-    Type = "public"
-    "kubernetes.io/role/elb" = "1"  # For K8s ELB
+    Name                     = "${var.project_name}-public-${data.aws_availability_zones.available.names[count.index]}"
+    Type                     = "public"
+    "kubernetes.io/role/elb" = "1" # For K8s ELB
   })
 }
 
@@ -62,9 +62,9 @@ resource "aws_subnet" "private" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-private-${data.aws_availability_zones.available.names[count.index]}"
-    Type = "private"
-    "kubernetes.io/role/internal-elb" = "1"  # For K8s internal ELB
+    Name                              = "${var.project_name}-private-${data.aws_availability_zones.available.names[count.index]}"
+    Type                              = "private"
+    "kubernetes.io/role/internal-elb" = "1" # For K8s internal ELB
   })
 }
 
@@ -108,7 +108,7 @@ resource "aws_route_table" "private" {
   #   cidr_block     = "0.0.0.0/0"
   #   nat_gateway_id = aws_nat_gateway.main[count.index].id
   # }
-  
+
   # When using NAT instance instead:
   dynamic "route" {
     for_each = var.use_nat_instance ? [1] : []
@@ -144,7 +144,7 @@ resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.main.id
   service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
-  route_table_ids   = concat(
+  route_table_ids = concat(
     [aws_route_table.public.id],
     aws_route_table.private[*].id
   )

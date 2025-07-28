@@ -20,32 +20,32 @@ data "aws_ami" "ubuntu" {
 # Auto Scaling Group for K8s nodes
 resource "aws_autoscaling_group" "k8s_cluster" {
   count = var.enable_cluster_autoscaler ? 1 : 0
-  
+
   name                = "${var.project_name}-k8s-cluster"
   vpc_zone_identifier = var.subnet_ids
-  
+
   min_size         = var.min_size
   max_size         = var.max_size
   desired_capacity = var.desired_capacity
-  
+
   launch_template {
     id      = aws_launch_template.k8s_node[0].id
     version = "$Latest"
   }
-  
+
   # Tags required for Cluster Autoscaler to find this ASG
   tag {
     key                 = "Name"
     value               = "${var.project_name}-k8s-node"
     propagate_at_launch = true
   }
-  
+
   tag {
     key                 = "k8s.io/cluster-autoscaler/enabled"
     value               = "true"
     propagate_at_launch = true
   }
-  
+
   tag {
     key                 = "k8s.io/cluster-autoscaler/${var.project_name}"
     value               = "owned"
@@ -56,19 +56,19 @@ resource "aws_autoscaling_group" "k8s_cluster" {
 # Launch template for K8s nodes
 resource "aws_launch_template" "k8s_node" {
   count = var.enable_cluster_autoscaler ? 1 : 0
-  
+
   name_prefix = "${var.project_name}-k8s-node-"
-  
+
   image_id      = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   key_name      = var.key_name
-  
+
   vpc_security_group_ids = [aws_security_group.k8s_cluster[0].id]
-  
+
   iam_instance_profile {
     name = aws_iam_instance_profile.k8s_cluster[0].name
   }
-  
+
   block_device_mappings {
     device_name = "/dev/sda1"
     ebs {
@@ -77,13 +77,13 @@ resource "aws_launch_template" "k8s_node" {
       encrypted   = true
     }
   }
-  
+
   # User data installs K3s
   user_data = base64encode(templatefile("${path.module}/userdata.sh", {
     cluster_name   = var.project_name
     ssh_public_key = var.ssh_public_key
   }))
-  
+
   tag_specifications {
     resource_type = "instance"
     tags = merge(var.tags, {
@@ -96,7 +96,7 @@ resource "aws_launch_template" "k8s_node" {
 # Security group for cluster
 resource "aws_security_group" "k8s_cluster" {
   count = var.enable_cluster_autoscaler ? 1 : 0
-  
+
   name_prefix = "${var.project_name}-k8s-cluster-"
   description = "Security group for K8s cluster"
   vpc_id      = var.vpc_id
@@ -122,7 +122,7 @@ resource "aws_security_group" "k8s_cluster" {
     from_port = 0
     to_port   = 0
     protocol  = "-1"
-    self      = true  # Allow all traffic between nodes
+    self      = true # Allow all traffic between nodes
   }
 
   # NodePort services

@@ -10,7 +10,7 @@ locals {
 provider "acme" {
   # Production URL - use this for real certificates
   server_url = "https://acme-v02.api.letsencrypt.org/directory"
-  
+
   # For testing, uncomment this to use staging environment
   # server_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
 }
@@ -42,10 +42,10 @@ resource "acme_certificate" "crucible_wildcard" {
   account_key_pem           = acme_registration.registration[0].account_key_pem
   common_name               = "*.crucible.veylan.dev"
   subject_alternative_names = ["crucible.veylan.dev"]
-  
+
   dns_challenge {
     provider = "route53"
-    
+
     config = {
       AWS_HOSTED_ZONE_ID = aws_route53_zone.crucible[0].zone_id
       AWS_REGION         = var.aws_region
@@ -56,11 +56,11 @@ resource "acme_certificate" "crucible_wildcard" {
 # Store certificate in SSM at the path nginx expects
 resource "aws_ssm_parameter" "ssl_certificate" {
   count = local.create_ssl ? 1 : 0
-  
+
   name  = "/${var.project_name}/ssl/certificate"
   type  = "SecureString"
   value = acme_certificate.crucible_wildcard[0].certificate_pem
-  
+
   tags = merge(local.common_tags, {
     Name    = "${var.project_name}-ssl-certificate"
     Purpose = "Wildcard SSL certificate for crucible.veylan.dev and its subdomains"
@@ -69,11 +69,11 @@ resource "aws_ssm_parameter" "ssl_certificate" {
 
 resource "aws_ssm_parameter" "ssl_private_key" {
   count = local.create_ssl ? 1 : 0
-  
+
   name  = "/${var.project_name}/ssl/private_key"
   type  = "SecureString"
   value = acme_certificate.crucible_wildcard[0].private_key_pem
-  
+
   tags = merge(local.common_tags, {
     Name    = "${var.project_name}-ssl-private-key"
     Purpose = "Private key for crucible.veylan.dev and its subdomains SSL certificate"
@@ -82,11 +82,11 @@ resource "aws_ssm_parameter" "ssl_private_key" {
 
 resource "aws_ssm_parameter" "ssl_issuer_pem" {
   count = local.create_ssl ? 1 : 0
-  
+
   name  = "/${var.project_name}/ssl/issuer_pem"
   type  = "SecureString"
   value = acme_certificate.crucible_wildcard[0].issuer_pem
-  
+
   tags = merge(local.common_tags, {
     Name    = "${var.project_name}-ssl-issuer"
     Purpose = "SSL certificate issuer chain"
@@ -96,7 +96,7 @@ resource "aws_ssm_parameter" "ssl_issuer_pem" {
 # Update IAM policy to allow EC2 instances to read SSL certificates
 resource "aws_iam_role_policy" "eval_server_ssl" {
   count = local.create_ssl ? 1 : 0
-  
+
   name = "crucible-eval-server-ssl-policy"
   role = aws_iam_role.eval_server.id
 

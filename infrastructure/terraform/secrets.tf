@@ -12,7 +12,7 @@ resource "random_password" "db_password" {
 resource "aws_secretsmanager_secret" "db_password" {
   name                    = "${var.project_name}/db-password"
   description             = "PostgreSQL password for Crucible platform"
-  recovery_window_in_days = 7  # Keep deleted secrets for 7 days
+  recovery_window_in_days = 7 # Keep deleted secrets for 7 days
 
   tags = merge(local.common_tags, {
     Name    = "${var.project_name}-db-password"

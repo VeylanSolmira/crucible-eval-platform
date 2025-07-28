@@ -35,9 +35,9 @@ resource "aws_security_group" "nat_instance" {
 
   # Allow all traffic from private subnets
   ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
     cidr_blocks = [
       aws_subnet.private[0].cidr_block,
       aws_subnet.private[1].cidr_block
@@ -72,10 +72,10 @@ resource "aws_security_group" "nat_instance" {
 resource "aws_instance" "nat_instance" {
   count                  = var.use_nat_instance ? 1 : 0
   ami                    = data.aws_ami.nat_instance[0].id
-  instance_type          = "t3.nano"  # Cheapest instance type
+  instance_type          = "t3.nano" # Cheapest instance type
   subnet_id              = aws_subnet.public[0].id
   vpc_security_group_ids = [aws_security_group.nat_instance[0].id]
-  source_dest_check      = false  # IMPORTANT: Must be disabled for NAT
+  source_dest_check      = false # IMPORTANT: Must be disabled for NAT
 
   # Use existing SSH key
   key_name = aws_key_pair.eval_server_key.key_name

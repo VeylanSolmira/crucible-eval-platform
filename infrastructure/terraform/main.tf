@@ -1,9 +1,9 @@
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
+      source = "hashicorp/aws"
       # See PROVIDER_COMPATIBILITY.md for version testing details
       # Versions 5.90+ have initialization issues with OpenTofu
       version = "~> 5.0"

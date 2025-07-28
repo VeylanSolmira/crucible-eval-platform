@@ -4,12 +4,12 @@
 # Create the OIDC provider
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
-  
+
   client_id_list = ["sts.amazonaws.com"]
-  
+
   # GitHub's OIDC thumbprint (this is stable and documented by GitHub)
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-  
+
   tags = {
     Name        = "github-actions-oidc"
     Environment = var.environment
@@ -19,9 +19,9 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 # IAM Role that GitHub Actions can assume
 resource "aws_iam_role" "github_actions" {
-  name               = "${var.environment}-github-actions-crucible"
-  description        = "Role for GitHub Actions to deploy Crucible Platform"
-  
+  name        = "${var.environment}-github-actions-crucible"
+  description = "Role for GitHub Actions to deploy Crucible Platform"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -41,7 +41,7 @@ resource "aws_iam_role" "github_actions" {
       }
     }]
   })
-  
+
   tags = {
     Name        = "github-actions-role"
     Environment = var.environment
@@ -53,7 +53,7 @@ resource "aws_iam_role" "github_actions" {
 resource "aws_iam_role_policy" "github_actions" {
   name = "crucible-deployment-permissions"
   role = aws_iam_role.github_actions.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -83,8 +83,8 @@ resource "aws_iam_role_policy" "github_actions" {
       },
       {
         # ECR login permission (requires * resource)
-        Effect = "Allow"
-        Action = "ecr:GetAuthorizationToken"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
         Resource = "*"
       },
       {
@@ -143,7 +143,7 @@ data "aws_region" "current" {}
 
 # Output the role ARN for use in GitHub
 output "github_actions_role_arn" {
-  value = aws_iam_role.github_actions.arn
+  value       = aws_iam_role.github_actions.arn
   description = "ARN of the IAM role for GitHub Actions. Add this to your GitHub repository variables as AWS_ROLE_ARN"
 }
 

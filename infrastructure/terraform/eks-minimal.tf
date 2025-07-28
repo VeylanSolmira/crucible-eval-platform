@@ -18,7 +18,7 @@ resource "aws_iam_role" "eks_cluster" {
   })
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-eks-cluster-role"
+    Name    = "${var.project_name}-eks-cluster-role"
     Purpose = "IAM role for EKS cluster"
   })
 }
@@ -38,7 +38,7 @@ resource "aws_iam_role_policy_attachment" "eks_vpc_resource_controller" {
 resource "aws_eks_cluster" "main" {
   name     = var.project_name
   role_arn = aws_iam_role.eks_cluster.arn
-  version  = "1.28"  # Latest stable version
+  version  = "1.28" # Latest stable version
 
   vpc_config {
     # Use existing subnets from your VPC
@@ -46,20 +46,20 @@ resource "aws_eks_cluster" "main" {
       [for s in aws_subnet.private : s.id],
       [for s in aws_subnet.public : s.id]
     )
-    
+
     # Security settings
     endpoint_private_access = true
     endpoint_public_access  = true
     # Restrict to your IP for security
-    public_access_cidrs    = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : ["0.0.0.0/0"]
+    public_access_cidrs = length(var.allowed_web_ips) > 0 ? var.allowed_web_ips : ["0.0.0.0/0"]
   }
 
   # Enable logging for debugging
   enabled_cluster_log_types = ["api", "audit", "authenticator"]
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-eks-cluster"
-    Phase = "learning"
+    Name      = "${var.project_name}-eks-cluster"
+    Phase     = "learning"
     ManagedBy = "terraform"
   })
 
@@ -85,7 +85,7 @@ resource "aws_iam_role" "eks_nodes" {
   })
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-eks-node-role"
+    Name    = "${var.project_name}-eks-node-role"
     Purpose = "IAM role for EKS worker nodes"
   })
 }
@@ -133,9 +133,9 @@ resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.project_name}-workers"
   node_role_arn   = aws_iam_role.eks_nodes.arn
-  
+
   # Use private subnets for nodes
-  subnet_ids      = [for s in aws_subnet.private : s.id]
+  subnet_ids = [for s in aws_subnet.private : s.id]
 
   # Single large instance for better pod capacity
   scaling_config {
@@ -145,16 +145,16 @@ resource "aws_eks_node_group" "main" {
   }
 
   # Large instance for more pods
-  instance_types = ["t3.large"]  # ~$60/month, supports 35 pods vs 17 on medium
-  
+  instance_types = ["t3.large"] # ~$60/month, supports 35 pods vs 17 on medium
+
   # Use standard EKS-optimized AMI
   ami_type = "AL2_x86_64"
-  
+
   # Disk size
-  disk_size = 20  # GB, minimum for Kubernetes
+  disk_size = 20 # GB, minimum for Kubernetes
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-eks-nodes"
+    Name    = "${var.project_name}-eks-nodes"
     Purpose = "Worker nodes for EKS cluster"
   })
 
@@ -176,36 +176,36 @@ resource "aws_iam_openid_connect_provider" "eks" {
   url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-eks-oidc"
+    Name    = "${var.project_name}-eks-oidc"
     Purpose = "OIDC provider for EKS IRSA"
   })
 }
 
 # Outputs for kubectl configuration
 output "eks_cluster_endpoint" {
-  value = aws_eks_cluster.main.endpoint
+  value       = aws_eks_cluster.main.endpoint
   description = "Endpoint for EKS control plane"
 }
 
 output "eks_cluster_certificate" {
-  value = aws_eks_cluster.main.certificate_authority[0].data
-  sensitive = true
+  value       = aws_eks_cluster.main.certificate_authority[0].data
+  sensitive   = true
   description = "Base64 encoded certificate data for cluster"
 }
 
 output "eks_cluster_name" {
-  value = aws_eks_cluster.main.name
+  value       = aws_eks_cluster.main.name
   description = "Name of the EKS cluster"
 }
 
 output "kubectl_config_command" {
-  value = "aws eks --region ${var.aws_region} update-kubeconfig --name ${aws_eks_cluster.main.name}"
+  value       = "aws eks --region ${var.aws_region} update-kubeconfig --name ${aws_eks_cluster.main.name}"
   description = "Command to configure kubectl"
 }
 
 # Cost-saving tip: Use NodePort instead of LoadBalancer
 output "access_without_loadbalancer" {
-  value = <<EOF
+  value       = <<EOF
 To access services without a LoadBalancer:
 1. Get a node's external IP: kubectl get nodes -o wide
 2. Create a NodePort service: kubectl expose deployment my-app --type=NodePort --port=8080 --node-port=30080

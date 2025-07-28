@@ -28,10 +28,10 @@ resource "aws_security_group" "eval_server_shared" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Required for Let's Encrypt
+    cidr_blocks = ["0.0.0.0/0"] # Required for Let's Encrypt
     description = "HTTP for LetsEncrypt challenge only"
   }
-  
+
   # HTTPS access (main web interface) - SECURE BY DEFAULT
   dynamic "ingress" {
     for_each = length(var.allowed_web_ips) > 0 ? [1] : []
@@ -49,7 +49,7 @@ resource "aws_security_group" "eval_server_shared" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["127.0.0.1/32"]  # Only localhost (via SSH tunnel)
+    cidr_blocks = ["127.0.0.1/32"] # Only localhost (via SSH tunnel)
     description = "Platform API (SSH tunnel only)"
   }
 
@@ -58,7 +58,7 @@ resource "aws_security_group" "eval_server_shared" {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = ["127.0.0.1/32"]  # Only localhost (via SSH tunnel)
+    cidr_blocks = ["127.0.0.1/32"] # Only localhost (via SSH tunnel)
     description = "Frontend dev (SSH tunnel only)"
   }
 
@@ -79,7 +79,7 @@ resource "aws_security_group" "eval_server_shared" {
 # Color-specific security groups (for SSH access that needs per-environment control)
 resource "aws_security_group" "eval_server_color" {
   for_each = toset(["blue", "green"])
-  
+
   name        = "crucible-eval-server-${each.key}-sg"
   description = "Color-specific security group for ${each.key} evaluation server"
 
@@ -94,13 +94,13 @@ resource "aws_security_group" "eval_server_color" {
 
   # Additional monitoring/debugging ports can be added per-color
   # Example: Open port 9090 only on green for testing
-  
+
   tags = merge(local.common_tags, {
-    Name             = "crucible-eval-${each.key}-sg"
-    Purpose          = "Color-specific security rules"
-    DeploymentColor  = each.key
+    Name            = "crucible-eval-${each.key}-sg"
+    Purpose         = "Color-specific security rules"
+    DeploymentColor = each.key
   })
-  
+
   # Note: Use deploy-green or deploy-blue aliases to target specific colors
 }
 
@@ -245,13 +245,13 @@ resource "aws_key_pair" "eval_server_key" {
 
 # EC2 instances with for_each for blue-green deployment
 resource "aws_instance" "eval_server" {
-  for_each = toset(["blue", "green"])  # Always create both
-  
-  ami                    = var.ubuntu_ami_id
-  instance_type          = var.instance_type
-  iam_instance_profile   = aws_iam_instance_profile.eval_server.name
-  
-  key_name               = aws_key_pair.eval_server_key.key_name
+  for_each = toset(["blue", "green"]) # Always create both
+
+  ami                  = var.ubuntu_ami_id
+  instance_type        = var.instance_type
+  iam_instance_profile = aws_iam_instance_profile.eval_server.name
+
+  key_name = aws_key_pair.eval_server_key.key_name
   vpc_security_group_ids = [
     aws_security_group.eval_server_shared.id,
     aws_security_group.eval_server_color[each.key].id
@@ -271,35 +271,35 @@ resource "aws_instance" "eval_server" {
     # github_branch     = var.github_branch
     # deployment_bucket = aws_s3_bucket.deployment.id
     # deployment_key    = var.deployment_key
-    
+
     # Active variables used in template
-    ecr_repository_url = aws_ecr_repository.crucible_platform.repository_url
-    project_name      = var.project_name
+    ecr_repository_url      = aws_ecr_repository.crucible_platform.repository_url
+    project_name            = var.project_name
     compose_service_content = file("${path.module}/../systemd/crucible-compose.service")
-    deployment_color  = each.key
-    
+    deployment_color        = each.key
+
     # SSL refresh automation scripts
     ssl_refresh_script  = file("${path.module}/templates/refresh-ssl-certs.sh")
     ssl_refresh_service = file("${path.module}/../systemd/ssl-refresh.service")
     ssl_refresh_timer   = file("${path.module}/../systemd/ssl-refresh.timer")
-    
+
     # Domain configuration
     domain_name = var.domain_name
   })
-  
+
   # Replace instance when user data changes (ensures updates are applied)
   user_data_replace_on_change = true
 
   tags = merge(local.common_tags, {
-    Name             = "${var.project_name}-eval-server-${each.key}"
-    Purpose          = "AI evaluation with gVisor and Docker isolation"
-    DeploymentColor  = each.key
+    Name              = "${var.project_name}-eval-server-${each.key}"
+    Purpose           = "AI evaluation with gVisor and Docker isolation"
+    DeploymentColor   = each.key
     DeploymentVersion = var.deployment_version
   })
 
   # Note: Use deploy-green or deploy-blue aliases to target specific colors
   # Both instances are always created but updates can be targeted
-  
+
   # Ensure SSL certificates exist before creating instance
   # This prevents the instance from failing during userdata execution
   depends_on = [
@@ -311,26 +311,26 @@ resource "aws_instance" "eval_server" {
 
 # Outputs (moved most outputs to route53.tf for Elastic IPs)
 output "instance_ids" {
-  value = { for k, v in aws_instance.eval_server : k => v.id }
+  value       = { for k, v in aws_instance.eval_server : k => v.id }
   description = "EC2 instance IDs by deployment color"
 }
 
 output "ssh_commands_elastic" {
-  value = { for k, v in aws_eip.eval_server : k => "ssh ubuntu@${v.public_ip}" }
+  value       = { for k, v in aws_eip.eval_server : k => "ssh ubuntu@${v.public_ip}" }
   description = "SSH commands using Elastic IPs"
 }
 
 output "ssh_tunnel_commands_elastic" {
-  value = { for k, v in aws_eip.eval_server : k => "ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@${v.public_ip}" }
+  value       = { for k, v in aws_eip.eval_server : k => "ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@${v.public_ip}" }
   description = "SSH tunnel commands using Elastic IPs"
 }
 
 output "platform_url_local" {
-  value = "http://localhost:8080"
+  value       = "http://localhost:8080"
   description = "URL to access the platform through SSH tunnel"
 }
 
 output "platform_url_public" {
-  value = var.domain_name != "" ? "https://${var.domain_name}" : "Configure domain_name variable"
+  value       = var.domain_name != "" ? "https://${var.domain_name}" : "Configure domain_name variable"
   description = "Public URL for the platform (once DNS is configured)"
 }

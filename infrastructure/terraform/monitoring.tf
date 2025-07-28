@@ -8,7 +8,7 @@ locals {
 # SNS Topic for Alerts
 resource "aws_sns_topic" "crucible_alerts" {
   name = "${var.project_name}-alerts"
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-alerts"
   })
@@ -25,7 +25,7 @@ resource "aws_sns_topic_subscription" "crucible_alerts_email" {
 resource "aws_cloudwatch_log_group" "crucible_docker" {
   name              = "/aws/ec2/${var.project_name}/docker"
   retention_in_days = 7
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-docker-logs"
   })
@@ -34,7 +34,7 @@ resource "aws_cloudwatch_log_group" "crucible_docker" {
 resource "aws_cloudwatch_log_group" "crucible_system" {
   name              = "/aws/ec2/${var.project_name}/system"
   retention_in_days = 7
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-system-logs"
   })
@@ -42,8 +42,8 @@ resource "aws_cloudwatch_log_group" "crucible_system" {
 
 # CloudWatch Agent Configuration
 resource "aws_ssm_parameter" "cloudwatch_agent_config" {
-  name  = "/${var.project_name}/cloudwatch-agent/config"
-  type  = "String"
+  name = "/${var.project_name}/cloudwatch-agent/config"
+  type = "String"
   value = jsonencode({
     agent = {
       metrics_collection_interval = 60
@@ -55,18 +55,18 @@ resource "aws_ssm_parameter" "cloudwatch_agent_config" {
         cpu = {
           measurement = [
             {
-              name = "cpu_usage_idle"
+              name   = "cpu_usage_idle"
               rename = "CPU_USAGE_IDLE"
-              unit = "Percent"
+              unit   = "Percent"
             },
             {
-              name = "cpu_usage_iowait"
+              name   = "cpu_usage_iowait"
               rename = "CPU_USAGE_IOWAIT"
-              unit = "Percent"
+              unit   = "Percent"
             },
             "cpu_time_guest"
           ]
-          totalcpu = false
+          totalcpu                    = false
           metrics_collection_interval = 60
         }
         disk = {
@@ -119,29 +119,29 @@ resource "aws_ssm_parameter" "cloudwatch_agent_config" {
         files = {
           collect_list = [
             {
-              file_path = "/var/log/docker/**/*.log"
-              log_group_name = "/aws/ec2/${var.project_name}/docker"
+              file_path       = "/var/log/docker/**/*.log"
+              log_group_name  = "/aws/ec2/${var.project_name}/docker"
               log_stream_name = "{instance_id}/{container_name}"
-              timezone = "UTC"
+              timezone        = "UTC"
             },
             {
-              file_path = "/var/log/syslog"
-              log_group_name = "/aws/ec2/${var.project_name}/system"
+              file_path       = "/var/log/syslog"
+              log_group_name  = "/aws/ec2/${var.project_name}/system"
               log_stream_name = "{instance_id}/syslog"
-              timezone = "UTC"
+              timezone        = "UTC"
             },
             {
-              file_path = "/var/log/messages"
-              log_group_name = "/aws/ec2/${var.project_name}/system"
+              file_path       = "/var/log/messages"
+              log_group_name  = "/aws/ec2/${var.project_name}/system"
               log_stream_name = "{instance_id}/messages"
-              timezone = "UTC"
+              timezone        = "UTC"
             }
           ]
         }
       }
     }
   })
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-cloudwatch-config"
   })
@@ -154,7 +154,7 @@ resource "aws_cloudwatch_log_metric_filter" "oom_kills" {
   name           = "${var.project_name}-oom-kills"
   log_group_name = aws_cloudwatch_log_group.crucible_docker.name
   pattern        = "[time, id, level, component, msg = \"*OOMKilled*\" || msg = \"*memory limit*\" || msg = \"*out of memory*\"]"
-  
+
   metric_transformation {
     name          = "OOMKillCount"
     namespace     = "${var.project_name}/Containers"
@@ -168,7 +168,7 @@ resource "aws_cloudwatch_log_metric_filter" "container_restarts" {
   name           = "${var.project_name}-container-restarts"
   log_group_name = aws_cloudwatch_log_group.crucible_docker.name
   pattern        = "[time, id, level, component, msg = \"*container die*\" || msg = \"*restarting*\"]"
-  
+
   metric_transformation {
     name          = "ContainerRestartCount"
     namespace     = "${var.project_name}/Containers"
@@ -182,7 +182,7 @@ resource "aws_cloudwatch_log_metric_filter" "container_start_failures" {
   name           = "${var.project_name}-container-start-failures"
   log_group_name = aws_cloudwatch_log_group.crucible_docker.name
   pattern        = "[time, id, level, component, msg = \"*failed to start*\" || msg = \"*error creating container*\"]"
-  
+
   metric_transformation {
     name          = "ContainerStartFailureCount"
     namespace     = "${var.project_name}/Containers"
@@ -196,7 +196,7 @@ resource "aws_cloudwatch_log_metric_filter" "docker_errors" {
   name           = "${var.project_name}-docker-errors"
   log_group_name = aws_cloudwatch_log_group.crucible_system.name
   pattern        = "[time, id, level = ERROR, component = docker*, ...]"
-  
+
   metric_transformation {
     name          = "DockerErrorCount"
     namespace     = "${var.project_name}/System"
@@ -220,7 +220,7 @@ resource "aws_cloudwatch_metric_alarm" "oom_alarm" {
   alarm_description   = "Container OOM kills detected in ${var.project_name}"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-oom-alarm"
   })
@@ -239,7 +239,7 @@ resource "aws_cloudwatch_metric_alarm" "container_restart_alarm" {
   alarm_description   = "Multiple container restarts detected in ${var.project_name}"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-restart-alarm"
   })
@@ -254,11 +254,11 @@ resource "aws_cloudwatch_metric_alarm" "low_memory_alarm" {
   namespace           = "${var.project_name}/System"
   period              = "60"
   statistic           = "Average"
-  threshold           = "104857600"  # 100MB in bytes
+  threshold           = "104857600" # 100MB in bytes
   alarm_description   = "Available memory below 100MB in ${var.project_name}"
   treat_missing_data  = "breaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-low-memory-alarm"
   })
@@ -277,7 +277,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_pressure_alarm" {
   alarm_description   = "Sustained high memory usage (>95%) in ${var.project_name}"
   treat_missing_data  = "breaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-memory-pressure-alarm"
   })
@@ -296,7 +296,7 @@ resource "aws_cloudwatch_metric_alarm" "swap_usage_alarm" {
   alarm_description   = "High swap usage detected in ${var.project_name}"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-swap-alarm"
   })
@@ -315,7 +315,7 @@ resource "aws_cloudwatch_metric_alarm" "container_start_failure_alarm" {
   alarm_description   = "Container failed to start in ${var.project_name}"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-start-failure-alarm"
   })
@@ -338,13 +338,13 @@ resource "aws_cloudwatch_metric_alarm" "disk_usage_alarm" {
   alarm_description   = "High disk usage (>85%) in ${var.project_name}"
   treat_missing_data  = "breaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   dimensions = {
     device = "xvda1"
     fstype = "ext4"
     path   = "/"
   }
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-disk-alarm"
   })
@@ -363,7 +363,7 @@ resource "aws_cloudwatch_metric_alarm" "docker_error_alarm" {
   alarm_description   = "Multiple Docker daemon errors in ${var.project_name}"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.crucible_alerts.arn]
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-docker-error-alarm"
   })
@@ -372,7 +372,7 @@ resource "aws_cloudwatch_metric_alarm" "docker_error_alarm" {
 # CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "crucible_monitoring" {
   dashboard_name = "${var.project_name}-monitoring"
-  
+
   dashboard_body = jsonencode({
     widgets = [
       {
@@ -477,7 +477,7 @@ resource "aws_cloudwatch_dashboard" "crucible_monitoring" {
 resource "aws_ssm_document" "install_cloudwatch_agent" {
   name          = "${var.project_name}-install-cloudwatch-agent"
   document_type = "Command"
-  
+
   content = jsonencode({
     schemaVersion = "2.2"
     description   = "Install and configure CloudWatch Agent"
@@ -502,7 +502,7 @@ resource "aws_ssm_document" "install_cloudwatch_agent" {
       }
     ]
   })
-  
+
   tags = merge(var.common_tags, {
     Name = "${var.project_name}-cw-agent-install"
   })

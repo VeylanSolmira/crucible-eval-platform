@@ -9,34 +9,34 @@ locals {
   gpu_instance_configs = {
     # For small models (1B-3B parameters)
     small_model = {
-      instance_type = "g4dn.xlarge"  # T4 GPU, 16GB VRAM
+      instance_type = "g4dn.xlarge" # T4 GPU, 16GB VRAM
       ami_type      = "AL2_x86_64_GPU"
       disk_size     = 100
       spot_enabled  = true
       description   = "For Llama 3.2-1B, Phi-3-mini, GPT-2"
     }
-    
+
     # For medium models (7B parameters)
     medium_model = {
-      instance_type = "g4dn.2xlarge"  # T4 GPU, 16GB VRAM, more CPU
+      instance_type = "g4dn.2xlarge" # T4 GPU, 16GB VRAM, more CPU
       ami_type      = "AL2_x86_64_GPU"
       disk_size     = 200
       spot_enabled  = true
       description   = "For Mistral-7B, Llama-2-7B"
     }
-    
+
     # For large models or multi-model testing
     large_model = {
-      instance_type = "g5.2xlarge"  # A10G GPU, 24GB VRAM
+      instance_type = "g5.2xlarge" # A10G GPU, 24GB VRAM
       ami_type      = "AL2_x86_64_GPU"
       disk_size     = 500
-      spot_enabled  = false  # More stable for long experiments
+      spot_enabled  = false # More stable for long experiments
       description   = "For 13B models or multiple 7B models"
     }
-    
+
     # Budget option using older generation
     budget_gpu = {
-      instance_type = "g3s.xlarge"  # M60 GPU, 8GB VRAM
+      instance_type = "g3s.xlarge" # M60 GPU, 8GB VRAM
       ami_type      = "AL2_x86_64_GPU"
       disk_size     = 100
       spot_enabled  = true
@@ -48,7 +48,7 @@ locals {
 # Security group for GPU instances
 resource "aws_security_group" "gpu_instance" {
   count = var.gpu_instances_enabled ? 1 : 0
-  
+
   name_prefix = "gpu-model-testing-"
   description = "Security group for GPU model testing instances"
   # vpc_id = aws_vpc.main.id  # Uncomment when VPC is created
@@ -61,7 +61,7 @@ resource "aws_security_group" "gpu_instance" {
     cidr_blocks = [var.allowed_ssh_ip]
     description = "SSH access"
   }
-  
+
   # Jupyter/notebook access (if needed)
   ingress {
     from_port   = 8888
@@ -70,13 +70,13 @@ resource "aws_security_group" "gpu_instance" {
     cidr_blocks = [var.allowed_ssh_ip]
     description = "Jupyter notebook"
   }
-  
+
   # Model serving API (if needed)
   ingress {
     from_port   = 8000
     to_port     = 8000
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]  # Update when VPC is created
+    cidr_blocks = ["10.0.0.0/16"] # Update when VPC is created
     description = "Model API (VPC only)"
   }
 
@@ -97,7 +97,7 @@ resource "aws_security_group" "gpu_instance" {
 # IAM role for GPU instances
 resource "aws_iam_role" "gpu_instance" {
   count = var.gpu_instances_enabled ? 1 : 0
-  
+
   name = "gpu-model-testing-role"
 
   assume_role_policy = jsonencode({
@@ -117,7 +117,7 @@ resource "aws_iam_role" "gpu_instance" {
 # Instance profile for GPU instances
 resource "aws_iam_instance_profile" "gpu_instance" {
   count = var.gpu_instances_enabled ? 1 : 0
-  
+
   name = "gpu-model-testing-profile"
   role = aws_iam_role.gpu_instance[0].name
 }
@@ -125,7 +125,7 @@ resource "aws_iam_instance_profile" "gpu_instance" {
 # Policy for S3 model storage access
 resource "aws_iam_role_policy" "gpu_s3_access" {
   count = var.gpu_instances_enabled ? 1 : 0
-  
+
   name = "gpu-s3-model-access"
   role = aws_iam_role.gpu_instance[0].id
 
@@ -151,39 +151,39 @@ resource "aws_iam_role_policy" "gpu_s3_access" {
 # Launch template for GPU instances
 resource "aws_launch_template" "gpu_instance" {
   for_each = var.gpu_instances_enabled ? local.gpu_instance_configs : {}
-  
-  name_prefix   = "gpu-${each.key}-"
-  description   = each.value.description
-  
+
+  name_prefix = "gpu-${each.key}-"
+  description = each.value.description
+
   image_id      = data.aws_ami.gpu_optimized.id
   instance_type = each.value.instance_type
-  
+
   iam_instance_profile {
     arn = aws_iam_instance_profile.gpu_instance[0].arn
   }
-  
+
   vpc_security_group_ids = [aws_security_group.gpu_instance[0].id]
-  
+
   # GPU-optimized EBS settings
   block_device_mappings {
     device_name = "/dev/xvda"
-    
+
     ebs {
       volume_size           = each.value.disk_size
       volume_type           = "gp3"
       delete_on_termination = true
-      encrypted            = true
+      encrypted             = true
     }
   }
-  
+
   # User data to install Docker and NVIDIA container toolkit
   user_data = base64encode(templatefile("${path.module}/scripts/gpu-init.sh", {
     model_type = each.key
   }))
-  
+
   tag_specifications {
     resource_type = "instance"
-    
+
     tags = {
       Name        = "gpu-model-testing-${each.key}"
       ModelType   = each.key
@@ -194,19 +194,19 @@ resource "aws_launch_template" "gpu_instance" {
 
 # Spot instance requests (cost-optimized)
 resource "aws_spot_instance_request" "gpu_instance" {
-  for_each = { 
-    for k, v in local.gpu_instance_configs : k => v 
-    if var.gpu_instances_enabled && v.spot_enabled 
+  for_each = {
+    for k, v in local.gpu_instance_configs : k => v
+    if var.gpu_instances_enabled && v.spot_enabled
   }
-  
+
   launch_template {
     id      = aws_launch_template.gpu_instance[each.key].id
     version = "$Latest"
   }
-  
+
   spot_type            = "persistent"
   wait_for_fulfillment = true
-  
+
   tags = {
     Name = "gpu-spot-${each.key}"
   }
@@ -214,18 +214,18 @@ resource "aws_spot_instance_request" "gpu_instance" {
 
 # On-demand instances (for stable workloads)
 resource "aws_instance" "gpu_instance" {
-  for_each = { 
-    for k, v in local.gpu_instance_configs : k => v 
-    if var.gpu_instances_enabled && !v.spot_enabled 
+  for_each = {
+    for k, v in local.gpu_instance_configs : k => v
+    if var.gpu_instances_enabled && !v.spot_enabled
   }
-  
+
   launch_template {
     id      = aws_launch_template.gpu_instance[each.key].id
     version = "$Latest"
   }
-  
+
   # subnet_id = aws_subnet.private[0].id  # Uncomment when VPC is created
-  
+
   tags = {
     Name = "gpu-ondemand-${each.key}"
   }
@@ -235,12 +235,12 @@ resource "aws_instance" "gpu_instance" {
 data "aws_ami" "gpu_optimized" {
   most_recent = true
   owners      = ["amazon"]
-  
+
   filter {
     name   = "name"
     values = ["Deep Learning AMI GPU PyTorch * (Amazon Linux 2) *"]
   }
-  
+
   filter {
     name   = "architecture"
     values = ["x86_64"]
@@ -253,9 +253,9 @@ output "gpu_instance_connection_info" {
     security_group_id = aws_security_group.gpu_instance[0].id
     launch_templates = {
       for k, v in aws_launch_template.gpu_instance : k => {
-        id           = v.id
+        id            = v.id
         instance_type = local.gpu_instance_configs[k].instance_type
-        description  = local.gpu_instance_configs[k].description
+        description   = local.gpu_instance_configs[k].description
       }
     }
     spot_instances = {
@@ -266,7 +266,7 @@ output "gpu_instance_connection_info" {
       }
     }
   } : null
-  
+
   description = "GPU instance connection information"
 }
 
@@ -278,6 +278,6 @@ output "gpu_instance_hourly_costs" {
     large_model  = "$2.012/hour (on-demand)"
     budget_gpu   = "$0.225/hour (on-demand) or ~$0.07-0.15/hour (spot)"
   }
-  
+
   description = "Estimated hourly costs for GPU instances"
 }

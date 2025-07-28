@@ -3,7 +3,7 @@
 # Deployment bucket for application packages
 resource "aws_s3_bucket" "deployment" {
   bucket = "${var.environment}-crucible-deployment-${data.aws_caller_identity.current.account_id}"
-  
+
   tags = {
     Name        = "Crucible Deployment Packages"
     Environment = var.environment
@@ -14,7 +14,7 @@ resource "aws_s3_bucket" "deployment" {
 # Versioning for deployment bucket
 resource "aws_s3_bucket_versioning" "deployment" {
   bucket = aws_s3_bucket.deployment.id
-  
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -83,7 +83,7 @@ resource "aws_s3_bucket_policy" "deployment" {
 # Results bucket for evaluation outputs
 resource "aws_s3_bucket" "results" {
   bucket = "${var.environment}-crucible-results-${data.aws_caller_identity.current.account_id}"
-  
+
   tags = {
     Name        = "Crucible Evaluation Results"
     Environment = var.environment
@@ -94,7 +94,7 @@ resource "aws_s3_bucket" "results" {
 # Versioning for results bucket
 resource "aws_s3_bucket_versioning" "results" {
   bucket = aws_s3_bucket.results.id
-  
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -137,7 +137,7 @@ resource "aws_ssm_parameter" "deployment_bucket" {
   name  = "/${var.project_name}/deployment-bucket"
   type  = "String"
   value = aws_s3_bucket.deployment.id
-  
+
   tags = {
     Name        = "Crucible Deployment Bucket Parameter"
     Environment = var.environment
@@ -150,11 +150,11 @@ resource "aws_ssm_parameter" "deployment_version" {
   type      = "String"
   value     = "initial"
   overwrite = true
-  
+
   lifecycle {
     ignore_changes = [value]
   }
-  
+
   tags = {
     Name        = "Crucible Current Version Parameter"
     Environment = var.environment

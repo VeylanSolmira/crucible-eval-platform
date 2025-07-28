@@ -28,7 +28,7 @@ variable "allowed_ssh_ip" {
   description = "IP address allowed to SSH into the EC2 instance (in CIDR format)"
   type        = string
   default     = "73.41.64.209/32"
-  
+
   # To update your IP:
   # 1. Get your current IP: curl -s https://api.ipify.org
   # 2. Update via command line: tofu apply -var="allowed_ssh_ip=YOUR_IP/32"
@@ -65,7 +65,7 @@ variable "gpu_instances_enabled" {
   description = "Enable GPU instances for model testing (set to true to create)"
   type        = bool
   default     = false
-  
+
   # To enable GPU instances:
   # 1. Set this to true in terraform.tfvars:
   #    echo 'gpu_instances_enabled = true' >> terraform.tfvars
@@ -80,7 +80,7 @@ variable "gpu_instances_enabled" {
 variable "instance_type" {
   description = "EC2 instance type"
   type        = string
-  default     = "t3.small"  # Better baseline performance than t2.micro
+  default     = "t3.small" # Better baseline performance than t2.micro
 }
 
 variable "ssh_public_key" {
@@ -122,8 +122,8 @@ variable "deployment_key" {
 variable "enabled_deployment_colors" {
   description = "Which deployment colors to create (for blue-green deployments)"
   type        = set(string)
-  default     = ["blue", "green"]  # Both environments exist
-  
+  default     = ["blue", "green"] # Both environments exist
+
   validation {
     condition     = alltrue([for c in var.enabled_deployment_colors : contains(["blue", "green"], c)])
     error_message = "Deployment colors must be 'blue' or 'green'."
@@ -159,7 +159,7 @@ variable "active_deployment_color" {
   description = "Which deployment color (blue/green) should receive traffic"
   type        = string
   default     = "blue"
-  
+
   validation {
     condition     = contains(["blue", "green"], var.active_deployment_color)
     error_message = "Active deployment color must be 'blue' or 'green'."
@@ -209,7 +209,7 @@ variable "enable_alb" {
 variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
-  default     = {
+  default = {
     Project     = "crucible-platform"
     ManagedBy   = "terraform"
     Environment = "dev"

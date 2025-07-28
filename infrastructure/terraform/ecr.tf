@@ -4,19 +4,19 @@
 locals {
   services = [
     "api",
-    "frontend", 
+    "frontend",
     "storage-service",
     "storage-worker",
     "celery-worker",
     "dispatcher",
     "cleanup-controller"
   ]
-  
+
   executor_images = [
     "executor-base",
     "executor-ml"
   ]
-  
+
   # Base images used for building other images
   base_images = [
     "base"
@@ -26,7 +26,7 @@ locals {
 # ECR Repositories for each service
 resource "aws_ecr_repository" "services" {
   for_each = toset(local.services)
-  
+
   name                 = each.key
   image_tag_mutability = "MUTABLE"
 
@@ -39,16 +39,16 @@ resource "aws_ecr_repository" "services" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${each.key}-ecr"
-    Purpose     = "Container image for ${each.key} service"
-    Service     = each.key
+    Name    = "${each.key}-ecr"
+    Purpose = "Container image for ${each.key} service"
+    Service = each.key
   })
 }
 
 # ECR Repositories for executor images
 resource "aws_ecr_repository" "executors" {
   for_each = toset(local.executor_images)
-  
+
   name                 = each.key
   image_tag_mutability = "MUTABLE"
 
@@ -61,16 +61,16 @@ resource "aws_ecr_repository" "executors" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${each.key}-ecr"
-    Purpose     = "Executor image for evaluations"
-    Type        = "executor"
+    Name    = "${each.key}-ecr"
+    Purpose = "Executor image for evaluations"
+    Type    = "executor"
   })
 }
 
 # ECR Repositories for base images
 resource "aws_ecr_repository" "base_images" {
   for_each = toset(local.base_images)
-  
+
   name                 = each.key
   image_tag_mutability = "MUTABLE"
 
@@ -83,9 +83,9 @@ resource "aws_ecr_repository" "base_images" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${each.key}-ecr"
-    Purpose     = "Base image for building services"
-    Type        = "base"
+    Name    = "${each.key}-ecr"
+    Purpose = "Base image for building services"
+    Type    = "base"
   })
 }
 
@@ -95,35 +95,35 @@ resource "aws_ecr_lifecycle_policy" "services" {
   repository = each.value.name
 
   policy = jsonencode({
-      rules = [
-        {
-          rulePriority = 1
-          description  = "Keep last 10 images per tag prefix"
-          selection = {
-            tagStatus     = "tagged"
-            tagPrefixList = ["dev", "staging", "prod"]
-            countType     = "imageCountMoreThan"
-            countNumber   = 10
-          }
-          action = {
-            type = "expire"
-          }
-        },
-        {
-          rulePriority = 2
-          description  = "Remove untagged images after 7 days"
-          selection = {
-            tagStatus   = "untagged"
-            countType   = "sinceImagePushed"
-            countUnit   = "days"
-            countNumber = 7
-          }
-          action = {
-            type = "expire"
-          }
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 images per tag prefix"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["dev", "staging", "prod"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
         }
-      ]
-    })
+        action = {
+          type = "expire"
+        }
+      },
+      {
+        rulePriority = 2
+        description  = "Remove untagged images after 7 days"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 7
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 # ECR Lifecycle Policy for executor repositories
@@ -132,21 +132,21 @@ resource "aws_ecr_lifecycle_policy" "executors" {
   repository = each.value.name
 
   policy = jsonencode({
-      rules = [
-        {
-          rulePriority = 1
-          description  = "Keep last 20 executor images"
-          selection = {
-            tagStatus     = "any"
-            countType     = "imageCountMoreThan"
-            countNumber   = 20
-          }
-          action = {
-            type = "expire"
-          }
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 20 executor images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 20
         }
-      ]
-    })
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 # ECR Lifecycle Policy for base images
@@ -155,21 +155,21 @@ resource "aws_ecr_lifecycle_policy" "base_images" {
   repository = each.value.name
 
   policy = jsonencode({
-      rules = [
-        {
-          rulePriority = 1
-          description  = "Keep last 5 base images"
-          selection = {
-            tagStatus     = "any"
-            countType     = "imageCountMoreThan"
-            countNumber   = 5
-          }
-          action = {
-            type = "expire"
-          }
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 5 base images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 5
         }
-      ]
-    })
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 # ECR Repository Policy for service repositories - Allow GitHub Actions and EKS to pull
@@ -306,9 +306,9 @@ resource "aws_ecr_repository" "crucible_platform" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${var.project_name}-ecr"
-    Purpose     = "Legacy repository - to be removed"
-    Deprecated  = "true"
+    Name       = "${var.project_name}-ecr"
+    Purpose    = "Legacy repository - to be removed"
+    Deprecated = "true"
   })
 }
 
