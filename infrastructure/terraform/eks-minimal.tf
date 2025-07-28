@@ -38,7 +38,7 @@ resource "aws_iam_role_policy_attachment" "eks_vpc_resource_controller" {
 resource "aws_eks_cluster" "main" {
   name     = var.project_name
   role_arn = aws_iam_role.eks_cluster.arn
-  version  = "1.28" # Latest stable version
+  version  = "1.29" # Upgraded from 1.28
 
   vpc_config {
     # Use existing subnets from your VPC

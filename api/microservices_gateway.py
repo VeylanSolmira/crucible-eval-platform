@@ -169,7 +169,7 @@ async def check_service_health():
                 response = await health_client.get(f"{settings.storage_service_url}/health")
                 service_health["storage"] = response.status_code == 200
             except Exception as e:
-                logger.error(f"Storage health check failed: {e}")
+                logger.error(f"Storage health check failed: {type(e).__name__}: {str(e)}")
                 service_health["storage"] = False
 
         # Check Redis
@@ -307,22 +307,48 @@ async def root():
     }
 
 
+@app.get("/healthz")
+async def healthz():
+    """Liveness probe - just checks if the service is alive"""
+    # Simple check - can we respond to requests?
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+async def readyz():
+    """Readiness probe - checks if we're ready to serve traffic"""
+    # Check only critical dependencies for serving traffic
+    # We can still serve some requests even if storage is temporarily down
+    if service_health["gateway"] and service_health["redis"]:
+        return {"status": "ready"}
+    else:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "reason": "Critical services not available"}
+        )
+
+
 @app.get("/health")
 async def health():
-    """Gateway health check"""
+    """Comprehensive health check - for monitoring, not for k8s probes"""
     all_healthy = all(
         [service_health["gateway"], service_health["queue"], service_health["storage"]]
     )
     
-    # Simple response for Kubernetes health checks
-    if all_healthy:
-        return {"status": "healthy"}
-    else:
-        # Return 503 for unhealthy state
-        return JSONResponse(
-            status_code=503,
-            content={"status": "unhealthy", "services": service_health}
-        )
+    # Detailed response for monitoring systems
+    return JSONResponse(
+        status_code=200 if all_healthy else 503,
+        content={
+            "status": "healthy" if all_healthy else "unhealthy",
+            "services": service_health,
+            "details": {
+                "gateway": "healthy" if service_health["gateway"] else "unhealthy",
+                "queue": "healthy" if service_health["queue"] else "unhealthy", 
+                "storage": "healthy" if service_health["storage"] else "unhealthy",
+                "redis": "healthy" if service_health["redis"] else "unhealthy",
+            }
+        }
+    )
 
 
 async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] = None) -> EvaluationResponse:

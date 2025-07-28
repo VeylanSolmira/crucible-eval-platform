@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Infrastructure components that are cluster-wide (not per-environment)
+resources:
+  # NGINX Ingress Controller
+  - nginx-ingress-controller.yaml
+  
+  # NGINX ConfigMaps for security headers
+  - nginx-configmap.yaml
+  
+  # Cert-manager for SSL certificates
+  - cert-manager-v1.12.0.yaml  # Full cert-manager installation
+  - cert-manager.yaml          # Our ClusterIssuers

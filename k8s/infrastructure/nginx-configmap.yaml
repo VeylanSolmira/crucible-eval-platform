@@ -1,0 +1,24 @@
+# Note: ingress-nginx-controller ConfigMap is defined in nginx-ingress-controller.yaml
+# We only need to define the custom headers here
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: ingress-nginx
+data:
+  X-Frame-Options: "DENY"
+  X-Content-Type-Options: "nosniff"
+  X-XSS-Protection: "1; mode=block"
+  Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+  Referrer-Policy: "strict-origin-when-cross-origin"
+  Content-Security-Policy: "default-src 'self' http: https: data: blob: 'unsafe-inline'"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: websocket-headers
+  namespace: ingress-nginx
+data:
+  Upgrade: "$http_upgrade"
+  Connection: "upgrade"

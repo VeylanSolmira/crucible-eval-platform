@@ -699,3 +699,152 @@
   - [ ] Verify no race conditions
 
 **Rationale**: Fast validation at the API level provides immediate feedback for impossible requests while allowing the scheduler flexibility to handle possible requests. This balances user experience with system efficiency and follows industry best practices from systems like Databricks, AWS Batch, and HPC schedulers.
+
+### 15. EKS Infrastructure Improvements
+
+#### 15.1 Permanent Fix for AZ Volume Affinity Issues 
+- [ ] **HIGH PRIORITY** - Implement solution to prevent volume affinity conflicts during node replacements
+  - [ ] Option 1: Create separate node groups per AZ
+    ```hcl
+    resource "aws_eks_node_group" "workers_az_a" {
+      subnet_ids = ["subnet-in-us-west-2a"]
+      # Ensures nodes in us-west-2a for volumes
+    }
+    resource "aws_eks_node_group" "workers_az_b" {
+      subnet_ids = ["subnet-in-us-west-2b"]
+      # Ensures nodes in us-west-2b for volumes
+    }
+    ```
+  - [ ] Option 2: Implement pod topology spread constraints
+    ```yaml
+    topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: DoNotSchedule
+    ```
+  - [ ] Option 3: Migrate to EFS for cross-AZ storage
+    - Works across all AZs
+    - Good for read-heavy workloads
+    - No affinity issues
+  - [ ] Option 4: Implement data replication
+    - PostgreSQL streaming replication
+    - Redis Cluster mode
+    - Loki HA mode
+- [ ] Document chosen solution and implementation plan
+- [ ] Test solution with node replacements/upgrades
+- [ ] Update runbooks for handling volume issues
+
+**Background**: EBS volumes are AZ-specific. When nodes get replaced (upgrades, scaling, failures), new nodes may launch in different AZs, making existing volumes unmountable. This causes downtime and potential data loss.
+
+#### 15.2 Complete EKS Upgrade Path to 1.32
+- [ ] **HIGH PRIORITY** - Continue upgrading from 1.29 → 1.32
+  - [ ] Phase 1: Upgrade 1.29 → 1.30
+    - [ ] Update control plane
+    - [ ] Check add-on compatibility
+    - [ ] Update node groups
+    - [ ] Update Terraform eks-minimal.tf
+    - [ ] Test applications
+  - [ ] Phase 2: Upgrade 1.30 → 1.31
+    - [ ] Update control plane
+    - [ ] Check add-on compatibility
+    - [ ] Update node groups
+    - [ ] Update Terraform
+    - [ ] Test applications
+  - [ ] Phase 3: Upgrade 1.31 → 1.32
+    - [ ] Update control plane
+    - [ ] Check add-on compatibility
+    - [ ] Update node groups
+    - [ ] Update Terraform
+    - [ ] Test applications
+- [ ] Update kubectl to 1.32
+- [ ] Review and update deprecated APIs
+- [ ] Performance testing on 1.32
+- [ ] Document any breaking changes
+
+**Rationale**: Staying on 1.28 incurs extended support charges ($0.10/hour). Version 1.32 is the latest stable version with the longest support window. Each version must be upgraded sequentially due to Kubernetes compatibility requirements.
+
+### 16. Implement Proper Health Check Pattern Across All Services
+
+#### 16.1 Standardize Health Check Endpoints
+- [ ] **HIGH PRIORITY** - Implement healthz/readyz pattern for all services
+  - [ ] Create standard health check interface/pattern
+    ```python
+    # /healthz - Liveness: Is the process alive?
+    @app.get("/healthz")
+    async def healthz():
+        return {"status": "ok"}
+    
+    # /readyz - Readiness: Can I serve my purpose?
+    @app.get("/readyz") 
+    async def readyz():
+        # Check only critical deps (e.g., can I connect to my database?)
+        # NOT: Is every downstream service perfect?
+        
+    # /health - Full status for monitoring
+    @app.get("/health")
+    async def health():
+        # Comprehensive check for dashboards/debugging
+    ```
+- [ ] Update all service deployments to use correct probes
+  - [ ] API Service ✓ (completed)
+  - [ ] Storage Service - Remove database check from liveness
+  - [ ] Storage Worker - Separate Redis availability from liveness  
+  - [ ] Dispatcher - Don't fail liveness on K8s API issues
+  - [ ] Celery Worker - Handle broker reconnection gracefully
+  - [ ] Frontend - Simple Next.js server check
+- [ ] Set appropriate timeouts
+  - [ ] Liveness: 1-2 second timeout (just HTTP response)
+  - [ ] Readiness: 2-3 second timeout (critical checks only)
+  - [ ] No health check should make external API calls
+
+#### 16.2 Fix Cascading Failure Patterns
+- [ ] Audit current health check dependencies
+  - [ ] Map out which services check which dependencies
+  - [ ] Identify circular health check dependencies
+  - [ ] Remove unnecessary coupling
+- [ ] Implement circuit breakers where appropriate
+  - [ ] Services should degrade gracefully, not restart
+  - [ ] Return partial results when possible
+  - [ ] Use async health checks that don't block requests
+
+#### 16.3 Documentation and Monitoring
+- [ ] Create health check best practices guide
+  - [ ] When to use each endpoint type
+  - [ ] What should/shouldn't be in health checks
+  - [ ] Anti-patterns to avoid
+- [ ] Update monitoring dashboards
+  - [ ] Separate liveness/readiness metrics
+  - [ ] Track false positive restarts
+  - [ ] Alert on cascading failures
+
+**Rationale**: The current health check implementation causes cascading failures when any service has a temporary issue. Services are restarting unnecessarily because they're checking external dependencies in their liveness probes. This violates Kubernetes best practices and reduces system reliability. Proper health checks should be fast, focused, and independent.
+
+### 17. Optimize OpenAPI Generation to Prevent Unnecessary Rebuilds
+
+#### 17.1 Implement Content-Based Comparison
+- [ ] Update OpenAPI generation scripts to avoid unnecessary file writes
+  - [ ] Modify `api/scripts/export-openapi-spec.py` to compare content before writing
+  - [ ] Modify `storage_service/scripts/export-openapi-spec.py` similarly
+  - [ ] Use consistent formatting (sort_keys=True) for deterministic output
+  - [ ] Add hash comparison or direct content comparison
+- [ ] Test that unchanged APIs don't trigger frontend rebuilds
+  - [ ] Verify timestamps are preserved when content is identical
+  - [ ] Ensure Docker layer caching works correctly
+  - [ ] Measure build time improvements
+
+#### 17.2 Improve Build Pipeline Efficiency
+- [ ] Optimize Docker layer ordering for better caching
+  - [ ] Copy OpenAPI specs before source code in frontend Dockerfile
+  - [ ] Structure layers to maximize cache reuse
+- [ ] Consider implementing checksum files for explicit change tracking
+  - [ ] Generate `.sha256` files alongside OpenAPI specs
+  - [ ] Update frontend build to check checksums before regenerating types
+
+#### 17.3 Documentation and Long-term Improvements
+- [ ] Document the new behavior in developer guides
+- [ ] Consider adopting content-aware build tools (Turbo, Nx) for future
+- [ ] Evaluate moving OpenAPI generation out of build pipeline entirely
+
+**Reference**: See [OpenAPI Generation Optimization](../../development/openapi-generation-optimization.md) for detailed analysis and implementation options.
+
+**Rationale**: Currently, any change to the API service triggers a complete frontend rebuild because OpenAPI spec files are regenerated with new timestamps, even when the API contract hasn't changed. This causes unnecessary build time, Docker layer invalidation, and CI/CD pipeline delays. Implementing content-based comparison will significantly improve developer experience and reduce build times.

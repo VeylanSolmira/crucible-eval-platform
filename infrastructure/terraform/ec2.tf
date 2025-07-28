@@ -243,94 +243,94 @@ resource "aws_key_pair" "eval_server_key" {
   })
 }
 
-# EC2 instances with for_each for blue-green deployment
-resource "aws_instance" "eval_server" {
-  for_each = toset(["blue", "green"]) # Always create both
+# EC2 instances - REMOVED - Migrated to Kubernetes/EKS
+# resource "aws_instance" "eval_server" {
+#   for_each = toset(["blue", "green"]) # Always create both
+# 
+#   ami                  = var.ubuntu_ami_id
+#   instance_type        = var.instance_type
+#   iam_instance_profile = aws_iam_instance_profile.eval_server.name
+# 
+#   key_name = aws_key_pair.eval_server_key.key_name
+#   vpc_security_group_ids = [
+#     aws_security_group.eval_server_shared.id,
+#     aws_security_group.eval_server_color[each.key].id
+#   ]
+# 
+#   # Increase root volume to have space for Docker images
+#   root_block_device {
+#     volume_size = 30 # GB, free tier includes 30GB
+#     volume_type = "gp3"
+#     encrypted   = true
+#   }
+# 
+#   # User data script to install dependencies and setup systemd service
+#   user_data = templatefile("${path.module}/templates/userdata-compose.sh.tpl", {
+#     # Variables from old S3/GitHub deployment - kept for reference
+#     # github_repo       = var.github_repo
+#     # github_branch     = var.github_branch
+#     # deployment_bucket = aws_s3_bucket.deployment.id
+#     # deployment_key    = var.deployment_key
+# 
+#     # Active variables used in template
+#     ecr_repository_url      = aws_ecr_repository.crucible_platform.repository_url
+#     project_name            = var.project_name
+#     compose_service_content = file("${path.module}/../systemd/crucible-compose.service")
+#     deployment_color        = each.key
+# 
+#     # SSL refresh automation scripts
+#     ssl_refresh_script  = file("${path.module}/templates/refresh-ssl-certs.sh")
+#     ssl_refresh_service = file("${path.module}/../systemd/ssl-refresh.service")
+#     ssl_refresh_timer   = file("${path.module}/../systemd/ssl-refresh.timer")
+# 
+#     # Domain configuration
+#     domain_name = var.domain_name
+#   })
+# 
+#   # Replace instance when user data changes (ensures updates are applied)
+#   user_data_replace_on_change = true
+# 
+#   tags = merge(local.common_tags, {
+#     Name              = "${var.project_name}-eval-server-${each.key}"
+#     Purpose           = "AI evaluation with gVisor and Docker isolation"
+#     DeploymentColor   = each.key
+#     DeploymentVersion = var.deployment_version
+#   })
+# 
+#   # Note: Use deploy-green or deploy-blue aliases to target specific colors
+#   # Both instances are always created but updates can be targeted
+# 
+#   # Ensure SSL certificates exist before creating instance
+#   # This prevents the instance from failing during userdata execution
+#   depends_on = [
+#     aws_ssm_parameter.ssl_certificate,
+#     aws_ssm_parameter.ssl_private_key,
+#     aws_ssm_parameter.ssl_issuer_pem
+#   ]
+# }
 
-  ami                  = var.ubuntu_ami_id
-  instance_type        = var.instance_type
-  iam_instance_profile = aws_iam_instance_profile.eval_server.name
-
-  key_name = aws_key_pair.eval_server_key.key_name
-  vpc_security_group_ids = [
-    aws_security_group.eval_server_shared.id,
-    aws_security_group.eval_server_color[each.key].id
-  ]
-
-  # Increase root volume to have space for Docker images
-  root_block_device {
-    volume_size = 30 # GB, free tier includes 30GB
-    volume_type = "gp3"
-    encrypted   = true
-  }
-
-  # User data script to install dependencies and setup systemd service
-  user_data = templatefile("${path.module}/templates/userdata-compose.sh.tpl", {
-    # Variables from old S3/GitHub deployment - kept for reference
-    # github_repo       = var.github_repo
-    # github_branch     = var.github_branch
-    # deployment_bucket = aws_s3_bucket.deployment.id
-    # deployment_key    = var.deployment_key
-
-    # Active variables used in template
-    ecr_repository_url      = aws_ecr_repository.crucible_platform.repository_url
-    project_name            = var.project_name
-    compose_service_content = file("${path.module}/../systemd/crucible-compose.service")
-    deployment_color        = each.key
-
-    # SSL refresh automation scripts
-    ssl_refresh_script  = file("${path.module}/templates/refresh-ssl-certs.sh")
-    ssl_refresh_service = file("${path.module}/../systemd/ssl-refresh.service")
-    ssl_refresh_timer   = file("${path.module}/../systemd/ssl-refresh.timer")
-
-    # Domain configuration
-    domain_name = var.domain_name
-  })
-
-  # Replace instance when user data changes (ensures updates are applied)
-  user_data_replace_on_change = true
-
-  tags = merge(local.common_tags, {
-    Name              = "${var.project_name}-eval-server-${each.key}"
-    Purpose           = "AI evaluation with gVisor and Docker isolation"
-    DeploymentColor   = each.key
-    DeploymentVersion = var.deployment_version
-  })
-
-  # Note: Use deploy-green or deploy-blue aliases to target specific colors
-  # Both instances are always created but updates can be targeted
-
-  # Ensure SSL certificates exist before creating instance
-  # This prevents the instance from failing during userdata execution
-  depends_on = [
-    aws_ssm_parameter.ssl_certificate,
-    aws_ssm_parameter.ssl_private_key,
-    aws_ssm_parameter.ssl_issuer_pem
-  ]
-}
-
-# Outputs (moved most outputs to route53.tf for Elastic IPs)
-output "instance_ids" {
-  value       = { for k, v in aws_instance.eval_server : k => v.id }
-  description = "EC2 instance IDs by deployment color"
-}
-
-output "ssh_commands_elastic" {
-  value       = { for k, v in aws_eip.eval_server : k => "ssh ubuntu@${v.public_ip}" }
-  description = "SSH commands using Elastic IPs"
-}
-
-output "ssh_tunnel_commands_elastic" {
-  value       = { for k, v in aws_eip.eval_server : k => "ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@${v.public_ip}" }
-  description = "SSH tunnel commands using Elastic IPs"
-}
-
-output "platform_url_local" {
-  value       = "http://localhost:8080"
-  description = "URL to access the platform through SSH tunnel"
-}
-
-output "platform_url_public" {
-  value       = var.domain_name != "" ? "https://${var.domain_name}" : "Configure domain_name variable"
-  description = "Public URL for the platform (once DNS is configured)"
-}
+# Outputs - REMOVED - EC2 instances migrated to Kubernetes
+# output "instance_ids" {
+#   value       = { for k, v in aws_instance.eval_server : k => v.id }
+#   description = "EC2 instance IDs by deployment color"
+# }
+# 
+# output "ssh_commands_elastic" {
+#   value       = { for k, v in aws_eip.eval_server : k => "ssh ubuntu@${v.public_ip}" }
+#   description = "SSH commands using Elastic IPs"
+# }
+# 
+# output "ssh_tunnel_commands_elastic" {
+#   value       = { for k, v in aws_eip.eval_server : k => "ssh -L 8080:localhost:8080 -L 3000:localhost:3000 ubuntu@${v.public_ip}" }
+#   description = "SSH tunnel commands using Elastic IPs"
+# }
+# 
+# output "platform_url_local" {
+#   value       = "http://localhost:8080"
+#   description = "URL to access the platform through SSH tunnel"
+# }
+# 
+# output "platform_url_public" {
+#   value       = var.domain_name != "" ? "https://${var.domain_name}" : "Configure domain_name variable"
+#   description = "Public URL for the platform (once DNS is configured)"
+# }

@@ -198,6 +198,15 @@ variable "alert_email_suffix" {
   # Other options: "crucible-prod", "crucible-critical", "crucible-oom"
 }
 
+# Kubernetes Configuration
+variable "kubernetes_load_balancer_ip" {
+  description = "IP address or hostname of the Kubernetes ingress load balancer (for Route53 A records)"
+  type        = string
+  default     = ""
+  # Example: "a8335c4cb06884e689342a1109e3a3e3-e467caecc5e4a715.elb.us-west-2.amazonaws.com"
+  # Leave empty to use placeholder IP in Route53
+}
+
 variable "enable_alb" {
   description = "Whether to create an Application Load Balancer"
   type        = bool

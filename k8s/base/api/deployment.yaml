@@ -37,20 +37,20 @@ spec:
         # Health checks
         livenessProbe:
           httpGet:
-            path: /health
+            path: /healthz
             port: http
           initialDelaySeconds: 30
           periodSeconds: 10
-          timeoutSeconds: 5
+          timeoutSeconds: 3
           failureThreshold: 3
         
         readinessProbe:
           httpGet:
-            path: /health
+            path: /readyz
             port: http
           initialDelaySeconds: 5
           periodSeconds: 5
-          timeoutSeconds: 3
+          timeoutSeconds: 2
         
         # Resources
         resources:

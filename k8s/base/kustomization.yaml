@@ -48,6 +48,9 @@ resources:
   - fluent-bit/fluent-bit-daemonset.yaml
   - loki/loki-config.yaml
   - loki/loki-deployment.yaml
+  
+  # Ingress
+  - ingress/ingress.yaml
 
 # Common labels applied to all resources
 labels:

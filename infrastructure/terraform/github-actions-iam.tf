@@ -2,23 +2,8 @@
 # This creates separate roles for different GitHub Actions jobs
 # following the principle of least privilege
 
-# Data source to get current AWS account ID
-data "aws_caller_identity" "current" {}
-
-# GitHub OIDC Provider (if not already created)
-resource "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
-
-  client_id_list = ["sts.amazonaws.com"]
-
-  # GitHub's thumbprint
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-
-  tags = merge(local.common_tags, {
-    Name = "github-actions-oidc"
-    Purpose = "OIDC provider for GitHub Actions"
-  })
-}
+# Data source is already defined in main.tf
+# OIDC provider is already defined in github-oidc.tf
 
 # Terraform Plan Role (Read-Only)
 resource "aws_iam_role" "github_actions_terraform_plan" {

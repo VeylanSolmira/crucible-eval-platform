@@ -37,7 +37,7 @@ configMapGenerator:
 images:
 - name: crucible-platform/api-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/api
-  newTag: dev
+  newTag: ab03124
 - name: crucible-platform/storage-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-service
   newTag: dev

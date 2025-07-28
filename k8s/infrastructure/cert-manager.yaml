@@ -11,7 +11,7 @@ spec:
   acme:
     # Production Let's Encrypt server
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: your-email@example.com  # Replace with your email
+    email: veylan.solmira+crucible@gmail.com
     # Secret to store the ACME account private key
     privateKeySecretRef:
       name: letsencrypt-prod
@@ -30,7 +30,7 @@ spec:
   acme:
     # Staging Let's Encrypt server
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: your-email@example.com  # Replace with your email
+    email: veylan.solmira+crucible@gmail.com
     privateKeySecretRef:
       name: letsencrypt-staging
     solvers:
