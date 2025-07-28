@@ -63,7 +63,7 @@ jobs:
     name: OpenTofu Plan
     runs-on: ubuntu-latest
     needs: terraform-check
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan')
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan')
     
     permissions:
       id-token: write
@@ -139,8 +139,14 @@ jobs:
   terraform-apply:
     name: OpenTofu Apply
     runs-on: ubuntu-latest
-    needs: terraform-check
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    needs: 
+      - terraform-check
+      - terraform-plan
+    if: |
+      always() && 
+      needs.terraform-check.result == 'success' &&
+      (needs.terraform-plan.result == 'success' || needs.terraform-plan.result == 'skipped') &&
+      ((github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
     environment: production
     
     permissions:
