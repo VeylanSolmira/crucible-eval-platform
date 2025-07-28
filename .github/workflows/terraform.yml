@@ -105,7 +105,7 @@ jobs:
         tofu show -no-color tfplan > plan.txt
 
     - name: Upload Plan
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tfplan
         path: infrastructure/terraform/tfplan
@@ -170,7 +170,7 @@ jobs:
     - name: Download Plan (if from PR)
       if: github.event_name == 'push'
       continue-on-error: true
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: tfplan
         path: infrastructure/terraform/
@@ -196,7 +196,7 @@ jobs:
         tofu output -json > outputs.json
 
     - name: Upload Outputs
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: terraform-outputs
         path: infrastructure/terraform/outputs.json
