@@ -6,7 +6,7 @@
 variable "use_nat_instance" {
   description = "Use NAT instance instead of NAT Gateway (cost savings)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 # Get Amazon Linux 2 AMI optimized for NAT

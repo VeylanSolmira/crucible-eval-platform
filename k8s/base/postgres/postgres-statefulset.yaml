@@ -27,6 +27,7 @@ spec:
       labels:
         app: postgres
     spec:
+      priorityClassName: critical-priority
       containers:
       - name: postgres
         image: postgres:15-alpine

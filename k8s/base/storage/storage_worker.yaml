@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: storage-worker
 spec:
-  replicas: 2
+  replicas: 1  # Default to 1, scale up in production
   selector:
     matchLabels:
       app: storage-worker
@@ -12,6 +12,7 @@ spec:
       labels:
         app: storage-worker
     spec:
+      priorityClassName: high-priority
       containers:
       - name: storage-worker
         image: crucible-platform/storage-worker

@@ -1,0 +1,95 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches: 
+      - develop
+      - 'feature/**'
+
+env:
+  ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+  AWS_REGION: us-west-2
+  NAMESPACE: dev
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: GitHub-Deploy-Dev
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build and push images
+        run: |
+          # Build all services
+          for service in api storage dispatcher celery-worker storage-worker frontend; do
+            echo "Building $service..."
+            docker buildx build \
+              --platform linux/amd64 \
+              --push \
+              -t $ECR_REGISTRY/crucible-platform/$service:$GITHUB_SHA \
+              -t $ECR_REGISTRY/crucible-platform/$service:dev-latest \
+              -f $service/Dockerfile \
+              .
+          done
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name crucible-platform
+      
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in manifests
+          export IMAGE_TAG=$GITHUB_SHA
+          
+          # Apply manifests
+          kubectl apply -k k8s/overlays/dev -n $NAMESPACE
+          
+          # Update deployments with new images
+          kubectl set image deployment/api-service api-service=$ECR_REGISTRY/crucible-platform/api:$IMAGE_TAG -n $NAMESPACE
+          kubectl set image deployment/storage-service storage-service=$ECR_REGISTRY/crucible-platform/storage:$IMAGE_TAG -n $NAMESPACE
+          kubectl set image deployment/dispatcher dispatcher=$ECR_REGISTRY/crucible-platform/dispatcher:$IMAGE_TAG -n $NAMESPACE
+          kubectl set image deployment/celery-worker celery-worker=$ECR_REGISTRY/crucible-platform/celery-worker:$IMAGE_TAG -n $NAMESPACE
+          kubectl set image deployment/storage-worker storage-worker=$ECR_REGISTRY/crucible-platform/storage-worker:$IMAGE_TAG -n $NAMESPACE
+          
+          # Wait for rollout
+          kubectl rollout status deployment/api-service -n $NAMESPACE
+          kubectl rollout status deployment/storage-service -n $NAMESPACE
+          kubectl rollout status deployment/dispatcher -n $NAMESPACE
+      
+      - name: Run smoke tests
+        run: |
+          # Wait for services to be ready
+          kubectl wait --for=condition=available deployment/api-service -n $NAMESPACE --timeout=300s
+          
+          # Port forward for testing
+          kubectl port-forward service/api-service 8080:8080 -n $NAMESPACE &
+          sleep 5
+          
+          # Basic health check
+          curl -f http://localhost:8080/health || exit 1
+          
+          # Kill port forward
+          pkill -f "port-forward" || true
+      
+      - name: Output deployment info
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Namespace: $NAMESPACE"
+          echo "Commit: $GITHUB_SHA"
+          
+          kubectl get pods -n $NAMESPACE
+          kubectl get services -n $NAMESPACE

@@ -6,7 +6,7 @@ metadata:
     app: api-service
     component: api
 spec:
-  replicas: 2
+  replicas: 1  # Default to 1, scale up in production
   selector:
     matchLabels:
       app: api-service
@@ -16,6 +16,7 @@ spec:
         app: api-service
         version: v1
     spec:
+      priorityClassName: critical-priority
       # Security: Use non-root user
       securityContext:
         runAsNonRoot: true

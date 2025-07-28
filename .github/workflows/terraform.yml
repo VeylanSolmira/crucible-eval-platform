@@ -1,0 +1,244 @@
+name: Terraform Infrastructure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'infrastructure/terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'infrastructure/terraform/**'
+      - '.github/workflows/terraform.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      target:
+        description: 'Specific target resources (optional)'
+        required: false
+        type: string
+
+env:
+  AWS_REGION: us-west-2
+  TF_VERSION: '1.6.0'
+
+jobs:
+  terraform-check:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: latest
+
+    - name: OpenTofu Format Check
+      run: |
+        cd infrastructure/terraform
+        tofu fmt -check -recursive
+
+    - name: OpenTofu Init
+      run: |
+        cd infrastructure/terraform
+        tofu init -backend=false
+
+    - name: OpenTofu Validate
+      run: |
+        cd infrastructure/terraform
+        tofu validate
+
+  terraform-plan:
+    name: OpenTofu Plan
+    runs-on: ubuntu-latest
+    needs: terraform-check
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan')
+    
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: latest
+
+    - name: OpenTofu Init
+      run: |
+        cd infrastructure/terraform
+        tofu init
+
+    - name: OpenTofu Plan
+      id: plan
+      run: |
+        cd infrastructure/terraform
+        
+        if [ -n "${{ github.event.inputs.target }}" ]; then
+          tofu plan -out=tfplan -target="${{ github.event.inputs.target }}"
+        else
+          tofu plan -out=tfplan
+        fi
+        
+        # Generate human-readable plan
+        tofu show -no-color tfplan > plan.txt
+
+    - name: Upload Plan
+      uses: actions/upload-artifact@v3
+      with:
+        name: tfplan
+        path: infrastructure/terraform/tfplan
+
+    - name: Comment PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const plan = fs.readFileSync('infrastructure/terraform/plan.txt', 'utf8');
+          const output = `#### OpenTofu Plan 📖
+          
+          <details><summary>Show Plan</summary>
+          
+          \`\`\`terraform
+          ${plan}
+          \`\`\`
+          
+          </details>
+          
+          *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          });
+
+  terraform-apply:
+    name: OpenTofu Apply
+    runs-on: ubuntu-latest
+    needs: terraform-check
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    environment: production
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: latest
+
+    - name: OpenTofu Init
+      run: |
+        cd infrastructure/terraform
+        tofu init
+
+    - name: Download Plan (if from PR)
+      if: github.event_name == 'push'
+      continue-on-error: true
+      uses: actions/download-artifact@v3
+      with:
+        name: tfplan
+        path: infrastructure/terraform/
+
+    - name: OpenTofu Apply
+      run: |
+        cd infrastructure/terraform
+        
+        if [ -f "tfplan" ]; then
+          echo "Applying saved plan..."
+          tofu apply -auto-approve tfplan
+        elif [ -n "${{ github.event.inputs.target }}" ]; then
+          echo "Applying with target: ${{ github.event.inputs.target }}"
+          tofu apply -auto-approve -target="${{ github.event.inputs.target }}"
+        else
+          echo "Applying all changes..."
+          tofu apply -auto-approve
+        fi
+
+    - name: Save Outputs
+      run: |
+        cd infrastructure/terraform
+        tofu output -json > outputs.json
+
+    - name: Upload Outputs
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-outputs
+        path: infrastructure/terraform/outputs.json
+
+  terraform-destroy:
+    name: OpenTofu Destroy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    environment: production
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: latest
+
+    - name: OpenTofu Init
+      run: |
+        cd infrastructure/terraform
+        tofu init
+
+    - name: OpenTofu Destroy
+      run: |
+        cd infrastructure/terraform
+        
+        if [ -n "${{ github.event.inputs.target }}" ]; then
+          echo "Destroying target: ${{ github.event.inputs.target }}"
+          tofu destroy -auto-approve -target="${{ github.event.inputs.target }}"
+        else
+          echo "⚠️ Destroying ALL infrastructure!"
+          tofu destroy -auto-approve
+        fi

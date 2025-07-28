@@ -1,0 +1,267 @@
+name: Kubernetes Test Suite V2
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      test_suites:
+        description: 'Test suites to run (space-separated: unit integration e2e security performance)'
+        required: false
+        default: 'unit integration e2e security performance'
+      parallel:
+        description: 'Run tests in parallel'
+        required: false
+        default: 'true'
+        type: boolean
+      include_slow:
+        description: 'Include slow tests'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  # Use kind for PR tests, external cluster for main branch
+  USE_KIND: ${{ github.event_name == 'pull_request' }}
+  CLUSTER_NAME: crucible-test-${{ github.run_id }}
+  
+jobs:
+  setup-cluster:
+    name: Setup Test Environment
+    runs-on: ubuntu-latest
+    outputs:
+      cluster_type: ${{ steps.cluster-info.outputs.type }}
+      api_endpoint: ${{ steps.cluster-info.outputs.api_endpoint }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup cluster (kind for PRs)
+        if: env.USE_KIND == 'true'
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+            - role: control-plane
+              extraPortMappings:
+              - containerPort: 30080
+                hostPort: 8080
+                protocol: TCP
+              - containerPort: 30081
+                hostPort: 8081
+                protocol: TCP
+              - containerPort: 30082
+                hostPort: 8082
+                protocol: TCP
+            - role: worker
+            - role: worker
+      
+      - name: Setup cluster (EKS for main)
+        if: env.USE_KIND == 'false'
+        run: |
+          # Configure AWS
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-west-2
+          
+          # Update kubeconfig for existing test cluster
+          aws eks update-kubeconfig --name crucible-test-cluster --region us-west-2
+          
+          # Create isolated namespace
+          kubectl create namespace ${{ env.CLUSTER_NAME }}
+      
+      - name: Install Skaffold
+        run: |
+          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
+          chmod +x skaffold
+          sudo mv skaffold /usr/local/bin
+      
+      - name: Build and deploy services
+        run: |
+          # For kind, we need to build locally
+          if [ "$USE_KIND" = "true" ]; then
+            # Build images
+            skaffold build --file-output=build.json
+            
+            # Load images into kind
+            skaffold render --build-artifacts=build.json | kubectl apply -f -
+          else
+            # For EKS, use ECR
+            export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
+            skaffold run --namespace=${{ env.CLUSTER_NAME }}
+          fi
+      
+      - name: Wait for services
+        run: |
+          kubectl wait --for=condition=available --timeout=300s \
+            deployment/api-service \
+            deployment/storage-service \
+            deployment/dispatcher \
+            deployment/celery-worker \
+            -n ${CLUSTER_NAME:-crucible}
+      
+      - name: Output cluster info
+        id: cluster-info
+        run: |
+          if [ "$USE_KIND" = "true" ]; then
+            echo "type=kind" >> $GITHUB_OUTPUT
+            echo "api_endpoint=http://localhost:8080" >> $GITHUB_OUTPUT
+          else
+            echo "type=eks" >> $GITHUB_OUTPUT
+            # Get load balancer endpoint
+            API_ENDPOINT=$(kubectl get svc api-service -n $CLUSTER_NAME -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+            echo "api_endpoint=http://${API_ENDPOINT}" >> $GITHUB_OUTPUT
+          fi
+
+  run-tests:
+    name: Run Test Suite
+    needs: setup-cluster
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Configure test environment
+        run: |
+          # Export test configuration
+          if [ "${{ needs.setup-cluster.outputs.cluster_type }}" = "kind" ]; then
+            # For kind, use port forwarding
+            export API_URL="http://localhost:8080/api"
+            export STORAGE_SERVICE_URL="http://localhost:8082"
+            
+            # Setup port forwards in background
+            kubectl port-forward svc/api-service 8080:8080 -n ${CLUSTER_NAME:-crucible} &
+            kubectl port-forward svc/storage-service 8082:8082 -n ${CLUSTER_NAME:-crucible} &
+            sleep 5
+          else
+            # For EKS, use service endpoints
+            export API_URL="${{ needs.setup-cluster.outputs.api_endpoint }}/api"
+            export STORAGE_SERVICE_URL="http://storage-service.${{ env.CLUSTER_NAME }}.svc.cluster.local:8082"
+          fi
+          
+          # Set test environment variables
+          echo "API_URL=$API_URL" >> $GITHUB_ENV
+          echo "STORAGE_SERVICE_URL=$STORAGE_SERVICE_URL" >> $GITHUB_ENV
+          echo "IN_CLUSTER_TESTS=false" >> $GITHUB_ENV
+          echo "K8S_NAMESPACE=${CLUSTER_NAME:-crucible}" >> $GITHUB_ENV
+      
+      - name: Run test orchestrator
+        run: |
+          # Parse test suites
+          SUITES="${{ github.event.inputs.test_suites || 'unit integration e2e security performance' }}"
+          
+          # Build command
+          CMD="python tests/test_orchestrator.py $SUITES -v"
+          
+          # Add flags
+          if [ "${{ github.event.inputs.parallel }}" = "true" ]; then
+            CMD="$CMD --parallel"
+          fi
+          
+          if [ "${{ github.event.inputs.include_slow }}" = "true" ]; then
+            CMD="$CMD --include-slow"
+          fi
+          
+          # Execute tests
+          echo "Running: $CMD"
+          $CMD
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: |
+            test-results/
+            coverage/
+            .coverage
+            htmlcov/
+      
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  cleanup:
+    name: Cleanup
+    needs: [setup-cluster, run-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Cleanup kind cluster
+        if: env.USE_KIND == 'true'
+        run: |
+          kind delete cluster --name ${{ env.CLUSTER_NAME }} || true
+      
+      - name: Cleanup EKS namespace
+        if: env.USE_KIND == 'false'
+        run: |
+          # Configure AWS
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-west-2
+          
+          # Update kubeconfig
+          aws eks update-kubeconfig --name crucible-test-cluster --region us-west-2
+          
+          # Delete namespace
+          kubectl delete namespace ${{ env.CLUSTER_NAME }} --wait=false || true
+
+  # Optional: Run full test suite on staging for main branch
+  staging-validation:
+    name: Staging Validation
+    needs: run-tests
+    if: github.ref == 'refs/heads/main' && success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger staging tests
+        run: |
+          # This would trigger your full test suite on staging infrastructure
+          echo "Would trigger staging tests here"
+          
+          # Example webhook call:
+          # curl -X POST ${{ secrets.STAGING_WEBHOOK_URL }} \
+          #   -H "Authorization: Bearer ${{ secrets.STAGING_TOKEN }}" \
+          #   -H "Content-Type: application/json" \
+          #   -d '{
+          #     "sha": "${{ github.sha }}",
+          #     "ref": "${{ github.ref }}",
+          #     "test_suites": "unit integration e2e security performance",
+          #     "parallel": true,
+          #     "include_slow": true
+          #   }'
+      
+      - name: Update deployment status
+        if: success()
+        run: |
+          echo "Build ${{ github.sha }} is ready for integration"
+          # Could update a deployment tracking system here

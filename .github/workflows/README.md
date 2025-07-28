@@ -1,165 +1,143 @@
 # GitHub Actions Workflows
 
-This directory contains CI/CD workflows for building, testing, and deploying the METR evaluation platform.
+This directory contains CI/CD workflows for the METR evaluation platform.
 
-## Workflow Overview
+## Active Workflows
 
-### Core Workflows
+### 🏗️ **build-and-push.yml**
+**Purpose**: Build and push Docker images to Amazon ECR  
+**Triggers**: Manual dispatch or called by other workflows  
+**Key Features**:
+- Uses `docker-compose.build.yml` with buildx bake
+- Builds all images for linux/amd64 platform
+- Pushes to separate ECR repositories per service
+- Tags images with environment name (dev, staging, production)
 
-#### 🏗️ **build-and-push.yml**
-Builds all Docker images and pushes them to Amazon ECR.
-- Triggers: Called by deployment workflows
-- Outputs: Image tag (git SHA) for deployments
-- Services built: nginx, api, frontend, executor-service, executor-ml, celery-worker, storage-service, storage-worker
+**Usage**:
+```yaml
+# Manual trigger
+workflow_dispatch:
+  environment: dev  # or staging, production
+```
 
-#### 🚀 **deploy-k8s.yml**
-Full deployment pipeline to Kubernetes clusters.
-- Triggers: Manual (`workflow_dispatch`)
-- Options:
-  - `environment`: development, staging, or production
-  - `skip-build`: Skip building images (use existing)
-  - `image-tag`: Specific tag when skipping build
-- Flow: Build images → Apply K8s manifests
+### 📦 **eks-lifecycle.yml**
+**Purpose**: Manage EKS cluster lifecycle (pause/resume for cost savings)  
+**Triggers**: Manual or scheduled  
+**Actions**:
+- `pause`: Scale down node groups to 0
+- `resume`: Scale up node groups to configured size
 
-#### 📋 **apply-k8s-manifests.yml**
-Applies Kubernetes manifests without building images.
-- Triggers: Manual or called by deploy-k8s.yml
-- Use case: Quick config changes, testing manifests
-- Inputs:
-  - `image-tag`: Which ECR images to use
-  - `namespace`: K8s namespace (default: crucible)
+### 🔧 **generate-openapi-spec.yml**
+**Purpose**: Generate OpenAPI specifications for services  
+**Triggers**: Called by build workflows  
+**Output**: OpenAPI YAML/JSON files for API and storage service
 
-#### 🐳 **deploy-compose.yml**
-Deploys to EC2 instances using Docker Compose.
-- Triggers: Push to main or manual
-- Options:
-  - `deployment_color`: blue or green deployment
-- Flow: Build images → Deploy to tagged EC2 instances
+### 🏗️ **terraform.yml**
+**Purpose**: Manage infrastructure with Terraform/OpenTofu  
+**Triggers**: Manual dispatch  
+**Actions**:
+- `plan`: Show what would change
+- `apply`: Apply infrastructure changes
+- `destroy`: Tear down infrastructure (requires confirmation)
 
-### Utility Workflows
+### 🧪 **test-kubernetes-v2.yml**
+**Purpose**: Run comprehensive test suites  
+**Triggers**: Push to main/develop or manual  
+**Test Suites**:
+- `unit`: Unit tests
+- `integration`: Integration tests
+- `e2e`: End-to-end tests
+- `security`: Security scans
+- `performance`: Performance tests
 
-#### 🔧 **deploy-base.yml**
-Shared utilities for deployment workflows.
-- Not run directly (called by other workflows)
-- Handles: AWS auth, ECR registry lookup, image URL retrieval
+### 🔒 **privacy-check.yml**
+**Purpose**: Check for sensitive files in repository  
+**Triggers**: Push to main, PRs  
+**Checks**: Warns about interview prep materials, personal notes
 
-#### 📜 **generate-openapi-spec.yml**
-Generates OpenAPI specifications from Python services.
-- Triggers: Called by build workflows
-- Creates: API documentation for each service
+## Workflow Dependencies
 
-#### 🔒 **privacy-check.yml**
-Checks for sensitive files in the repository.
-- Triggers: Push to main, PRs
-- Purpose: Warns about interview prep materials, personal notes
+```
+build-and-push.yml
+  └── generate-openapi-spec.yml (generates API specs)
+```
 
-### Testing Workflows
+## Image Tagging Strategy
 
-#### 🧪 **test-frontend.yml**
-Runs frontend tests and linting.
-- Triggers: Push, PRs affecting frontend/
-- Tests: Jest, ESLint, TypeScript checks
+Images are tagged with environment names:
+- `api:dev` - Development environment
+- `api:staging` - Staging environment  
+- `api:production` - Production environment
 
-#### 🐍 **test-backend.yml**
-Runs backend Python tests.
-- Triggers: Push, PRs affecting Python code
-- Tests: pytest, mypy, ruff
-
-### Terraform Workflows
-
-#### 🏗️ **terraform-plan.yml**
-Plans infrastructure changes.
-- Triggers: PRs affecting infrastructure/
-- Shows: What would change without applying
-
-#### ✅ **terraform-apply.yml**
-Applies infrastructure changes.
-- Triggers: Manual only (safety)
-- Requires: Review of plan output first
+Each service has its own ECR repository:
+- `503132503803.dkr.ecr.us-west-2.amazonaws.com/api`
+- `503132503803.dkr.ecr.us-west-2.amazonaws.com/frontend`
+- `503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-service`
+- etc.
 
 ## Common Usage Patterns
 
-### Deploy New Code to Kubernetes
-```yaml
-# Run deploy-k8s.yml with:
-environment: production
-skip-build: false  # Build fresh images
+### Build and Push Images
+```bash
+# Trigger build-and-push workflow
+gh workflow run build-and-push.yml -f environment=dev
 ```
 
-### Quick K8s Config Change
-```yaml
-# Run apply-k8s-manifests.yml with:
-image-tag: latest  # Use existing images
-namespace: crucible
+### Manage EKS Cluster
+```bash
+# Pause cluster (save costs)
+gh workflow run eks-lifecycle.yml -f action=pause
+
+# Resume cluster
+gh workflow run eks-lifecycle.yml -f action=resume
 ```
 
-### Deploy to Docker Compose (Blue/Green)
-```yaml
-# Run deploy-compose.yml with:
-deployment_color: green  # or blue
-```
+### Run Tests
+```bash
+# Run all tests
+gh workflow run test-kubernetes-v2.yml -f test_suites="unit integration e2e"
 
-### Just Build Images
-```yaml
-# Run build-and-push.yml directly
-environment: development
+# Run specific suite
+gh workflow run test-kubernetes-v2.yml -f test_suites=unit
 ```
 
 ## Environment Variables
 
 Workflows use GitHub repository variables:
 - `AWS_ROLE_ARN`: IAM role for OIDC authentication
-- `AWS_REGION`: Target region (default: us-west-2)
-- `PROJECT_NAME`: Project identifier (default: crucible-platform)
-- `ECR_REPOSITORY`: ECR repo name
-- `DEFAULT_DEPLOYMENT_TARGET`: Default color for compose deployments
+- `AWS_REGION`: Target AWS region (default: us-west-2)
 
 ## Authentication
 
 All AWS operations use OIDC (OpenID Connect) for secure, temporary credentials. No long-lived AWS keys are stored in GitHub.
 
-## Image Tagging Strategy
+## Archived Workflows
 
-- **Build tag**: Git SHA (e.g., `frontend-abc123def`)
-- **Environment tags**: `frontend-production`, `frontend-development`
-- **Latest tag**: `frontend-latest` (always points to most recent build)
+The following workflows have been archived to the `archived/` directory:
+- `deploy-compose.yml` - Old Docker Compose deployment (replaced by Kubernetes)
+- `deploy-base.yml` - Merged into build-and-push
+- `test-kubernetes.yml` - Replaced by v2
+- `apply-k8s-manifests.yml` - Will be merged into a unified deploy workflow
+- `deploy-dev.yml` - Will be merged into a unified deploy workflow
+- `deploy-k8s.yml` - Will be merged into a unified deploy workflow
 
-## Deployment Targets
+## Next Steps
 
-### Kubernetes
-- Manifests in `k8s/` directory
-- Namespace: `crucible`
-- Image substitution: Replaces local image refs with ECR URLs
+1. Create unified `deploy.yml` workflow that:
+   - Calls build-and-push if needed
+   - Applies Kubernetes manifests
+   - Handles all environments (dev, staging, production)
 
-### Docker Compose
-- Blue/Green deployments on EC2
-- Systemd service: `crucible-compose.service`
-- Deployment via AWS Systems Manager (SSM)
+2. Update build-and-push to handle deployment as well (build-deploy pattern)
 
 ## Troubleshooting
 
-### Workflow Fails at AWS Auth
-- Check `AWS_ROLE_ARN` is set in repository variables
-- Verify OIDC provider exists in AWS account
+### Build Failures
+- Check OpenAPI spec generation succeeded
+- Verify docker-compose.build.yml syntax
+- Ensure all required files are present
 
-### K8s Deployment Can't Find Cluster
-- Ensure kubeconfig is stored in SSM Parameter Store:
-  ```bash
-  aws ssm put-parameter \
-    --name "/crucible-platform/k8s-kubeconfig" \
-    --value file://~/.kube/config \
-    --type SecureString
-  ```
-
-### Docker Compose Can't Find Instances
-- Check EC2 instances have correct tags:
-  - `Project`: crucible-platform
-  - `DeploymentColor`: blue or green
-
-## Best Practices
-
-1. **Always test in development first**
-2. **Use skip-build for config-only changes**
-3. **Review terraform plan before applying**
-4. **Monitor deployment status in Actions tab**
-5. **Check pod logs if K8s deployment fails**
+### ECR Push Failures
+- Verify AWS credentials and permissions
+- Check ECR repositories exist (created via Terraform)
+- Ensure image names match ECR repository names

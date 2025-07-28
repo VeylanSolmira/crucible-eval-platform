@@ -1,0 +1,61 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Set namespace for all resources
+namespace: dev
+
+# Reference the base configuration
+resources:
+- ../../base
+# ResourceQuota for evaluation jobs - prevents runaway resource usage
+- evaluation-resource-quota.yaml
+
+# Override settings for dev environment on EKS
+patches:
+# Resource limits appropriate for dev
+- path: local-resources-patch.yaml
+# Use IfNotPresent for ECR images
+- path: ecr-pull-policy-patch.yaml
+# Single replicas for dev
+- path: replicas-patch.yaml
+# Memory optimizations
+- path: memory-optimization-patch.yaml
+# Resource optimizations
+- path: resource-optimization-patches.yaml
+
+
+# Dev-specific config
+configMapGenerator:
+- name: app-config
+  behavior: merge
+  literals:
+  - ENVIRONMENT=dev
+  - LOG_LEVEL=DEBUG
+  - API_URL=http://api-service:8080
+
+# Use dev tags from ECR with new repository structure
+images:
+- name: crucible-platform/api-service
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/api
+  newTag: dev
+- name: crucible-platform/storage-service
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-service
+  newTag: dev
+- name: crucible-platform/storage-worker
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-worker
+  newTag: dev
+- name: crucible-platform/celery-worker
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/celery-worker
+  newTag: dev
+- name: crucible-platform/dispatcher-service
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/dispatcher
+  newTag: dev
+- name: crucible-platform/frontend
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/frontend
+  newTag: dev
+- name: crucible-platform/executor-ml
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/executor-ml
+  newTag: dev
+- name: crucible-platform/cleanup-controller
+  newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/cleanup-controller
+  newTag: dev

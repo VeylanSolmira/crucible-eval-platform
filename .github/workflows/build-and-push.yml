@@ -22,8 +22,7 @@ on:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
-  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'crucible-platform' }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'crucible-platform' }}
+  ECR_REGISTRY: 503132503803.dkr.ecr.us-west-2.amazonaws.com
 
 jobs:
   generate-specs:
@@ -45,10 +44,16 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     
-    - name: Set image metadata
+    - name: Set image tag
       id: meta
       run: |
-        echo "image-tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+        # Use environment name as tag (dev, staging, production)
+        # Default to 'dev' if not specified
+        TAG="${{ inputs.environment }}"
+        if [[ -z "$TAG" ]]; then
+          TAG="dev"
+        fi
+        echo "image-tag=$TAG" >> $GITHUB_OUTPUT
     
     - name: Download OpenAPI specs
       uses: actions/download-artifact@v4
@@ -68,100 +73,35 @@ jobs:
       with:
         mask-password: 'true'
     
-    - name: Build base image
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build and push base image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.meta.outputs.image-tag }}
+        TAG: ${{ steps.meta.outputs.image-tag }}
       run: |
-        docker build -t crucible-base -f shared/docker/base.Dockerfile .
-        echo "✅ Built base image"
+        echo "🔨 Building base image for AMD64..."
+        TAG=$TAG docker buildx bake \
+          -f docker-compose.build.yml \
+          --set '*.platform=linux/amd64' \
+          --push \
+          base
+        echo "✅ Built and pushed base image"
     
     - name: Build and push all service images
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.meta.outputs.image-tag }}
+        TAG: ${{ steps.meta.outputs.image-tag }}
       run: |
         echo "📋 Using OpenAPI specs from generate-openapi-spec workflow"
+        echo "🔨 Building all other images for AMD64..."
         
-        # Build and push each service
-        services=(
-          "nginx:nginx/Dockerfile:."
-          "api:api/Dockerfile:."
-          "frontend:frontend/Dockerfile:."
-          "executor-service:executor-service/Dockerfile:."
-          "executor-ml:docker/executor-ml/Dockerfile:."
-          "celery-worker:celery-worker/Dockerfile:."
-          "storage-service:storage-service/Dockerfile:."
-          "storage-worker:storage-worker/Dockerfile:."
-        )
+        # Build all services using docker buildx bake (builds in parallel)
+        TAG=$TAG docker buildx bake \
+          -f docker-compose.build.yml \
+          --set '*.platform=linux/amd64' \
+          --push
         
-        for service_info in "${services[@]}"; do
-          IFS=':' read -r service_name dockerfile_path build_context <<< "$service_info"
-          echo "🔨 Building $service_name using $dockerfile_path from context $build_context"
-          
-          # Build with base image arg if it's a Python service
-          if [[ "$service_name" != "nginx" && "$service_name" != "frontend" ]]; then
-            docker build --build-arg BASE_IMAGE=crucible-base -f $dockerfile_path -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $build_context
-          else
-            docker build -f $dockerfile_path -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $build_context
-          fi
-          
-          # Tag as latest and environment-specific
-          docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-latest
-          docker tag $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-${{ inputs.environment }}
-          
-          # Push all tags
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-$IMAGE_TAG
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-latest
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service_name-${{ inputs.environment }}
-          
-          echo "✅ Pushed $service_name image"
-        done
+        echo "✅ All images built and pushed with tag: $TAG"
     
-    - name: Update SSM parameters with new images
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.meta.outputs.image-tag }}
-      run: |
-        # Store image URLs for all services
-        services=(
-          "nginx"
-          "api"
-          "frontend"
-          "executor-service"
-          "executor-ml"
-          "celery-worker"
-          "storage-service"
-          "storage-worker"
-        )
-        
-        for service in "${services[@]}"; do
-          # Store with environment prefix
-          aws ssm put-parameter \
-            --name "/${{ env.PROJECT_NAME }}/${{ inputs.environment }}/$service-image" \
-            --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service-$IMAGE_TAG" \
-            --type String \
-            --overwrite
-          
-          # Also store without environment for backward compatibility
-          if [[ "${{ inputs.environment }}" == "production" ]]; then
-            aws ssm put-parameter \
-              --name "/${{ env.PROJECT_NAME }}/$service-image" \
-              --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$service-$IMAGE_TAG" \
-              --type String \
-              --overwrite
-          fi
-          
-          echo "📝 Stored $service image URL in SSM"
-        done
-        
-        # Keep legacy parameter names for backward compatibility
-        if [[ "${{ inputs.environment }}" == "production" ]]; then
-          aws ssm put-parameter \
-            --name "/${{ env.PROJECT_NAME }}/backend-image" \
-            --value "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:api-$IMAGE_TAG" \
-            --type String \
-            --overwrite
-        fi
-        
-        echo "✅ Updated all SSM parameters with new images"

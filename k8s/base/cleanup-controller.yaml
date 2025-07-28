@@ -32,7 +32,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cleanup-controller
-  namespace: crucible
   labels:
     app: cleanup-controller
 spec:
@@ -45,9 +44,10 @@ spec:
       labels:
         app: cleanup-controller
     spec:
+      priorityClassName: high-priority
       serviceAccountName: cleanup-controller
       containers:
-      - name: controller
+      - name: cleanup-controller
         image: crucible-platform/cleanup-controller:latest
         imagePullPolicy: Never  # For local development
         env:
@@ -74,5 +74,3 @@ spec:
             - "import sys; sys.exit(0)"
           initialDelaySeconds: 10
           periodSeconds: 30
-      # Low priority - can be evicted if needed
-      priorityClassName: low-priority

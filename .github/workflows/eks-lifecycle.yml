@@ -1,0 +1,154 @@
+name: EKS Cluster Lifecycle
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - create
+          - pause
+          - resume
+          - delete
+          - status
+
+env:
+  CLUSTER_NAME: crucible-platform
+  AWS_REGION: us-west-2
+
+jobs:
+  eks-lifecycle:
+    name: EKS ${{ github.event.inputs.action }}
+    runs-on: ubuntu-latest
+    environment: production
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Check Cluster Status
+      id: status
+      if: github.event.inputs.action != 'create'
+      run: |
+        if aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} 2>/dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          
+          # Get node group status
+          NODEGROUP=$(aws eks list-nodegroups --cluster-name ${{ env.CLUSTER_NAME }} --query 'nodegroups[0]' --output text)
+          if [ "$NODEGROUP" != "None" ] && [ -n "$NODEGROUP" ]; then
+            DESIRED=$(aws eks describe-nodegroup \
+              --cluster-name ${{ env.CLUSTER_NAME }} \
+              --nodegroup-name $NODEGROUP \
+              --query 'nodegroup.scalingConfig.desiredSize' \
+              --output text)
+            echo "nodegroup=$NODEGROUP" >> $GITHUB_OUTPUT
+            echo "desired_nodes=$DESIRED" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Cluster
+      if: github.event.inputs.action == 'create'
+      run: |
+        cd infrastructure/terraform
+        tofu init
+        tofu apply -auto-approve \
+          -target=aws_eks_cluster.main \
+          -target=aws_eks_node_group.main
+
+    - name: Pause Cluster
+      if: github.event.inputs.action == 'pause' && steps.status.outputs.exists == 'true'
+      run: |
+        echo "⏸️ Pausing cluster (scaling nodes to 0)..."
+        aws eks update-nodegroup-config \
+          --cluster-name ${{ env.CLUSTER_NAME }} \
+          --nodegroup-name ${{ steps.status.outputs.nodegroup }} \
+          --scaling-config minSize=0,maxSize=3,desiredSize=0
+        
+        echo "✅ Cluster paused. Saving ~$30/month on compute."
+
+    - name: Resume Cluster
+      if: github.event.inputs.action == 'resume' && steps.status.outputs.exists == 'true'
+      run: |
+        echo "▶️ Resuming cluster (scaling nodes to 2)..."
+        aws eks update-nodegroup-config \
+          --cluster-name ${{ env.CLUSTER_NAME }} \
+          --nodegroup-name ${{ steps.status.outputs.nodegroup }} \
+          --scaling-config minSize=1,maxSize=3,desiredSize=2
+        
+        echo "✅ Cluster resumed. Nodes will be ready in ~5 minutes."
+
+    - name: Delete Cluster
+      if: github.event.inputs.action == 'delete' && steps.status.outputs.exists == 'true'
+      run: |
+        echo "🗑️ Deleting cluster..."
+        
+        # Backup current state first
+        aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }}
+        mkdir -p k8s-backups
+        kubectl get all,cm,secrets -A -o yaml > k8s-backups/final-backup-$(date +%Y%m%d-%H%M%S).yaml || true
+        
+        # Delete via OpenTofu
+        cd infrastructure/terraform
+        tofu init
+        tofu destroy -auto-approve \
+          -target=aws_eks_node_group.main \
+          -target=aws_eks_cluster.main
+        
+        echo "✅ Cluster deleted. Saving $103/month!"
+
+    - name: Show Status
+      if: always()
+      run: |
+        echo "## Cluster Status Report"
+        
+        if [ "${{ steps.status.outputs.exists }}" == "true" ]; then
+          echo "✅ Cluster exists: ${{ env.CLUSTER_NAME }}"
+          
+          if [ -n "${{ steps.status.outputs.nodegroup }}" ]; then
+            echo "📊 Node group: ${{ steps.status.outputs.nodegroup }}"
+            echo "🖥️ Desired nodes: ${{ steps.status.outputs.desired_nodes }}"
+            
+            if [ "${{ steps.status.outputs.desired_nodes }}" == "0" ]; then
+              echo "💰 Status: PAUSED (paying $73/month for control plane only)"
+            else
+              echo "💰 Status: RUNNING (paying ~$103/month)"
+            fi
+          fi
+        else
+          echo "❌ Cluster does not exist"
+          echo "💰 Status: DELETED (paying $0/month)"
+        fi
+        
+        echo ""
+        echo "### Quick Actions:"
+        echo "- Create: Run this workflow with 'create'"
+        echo "- Pause: Run this workflow with 'pause' (saves $30/month)"
+        echo "- Resume: Run this workflow with 'resume'"
+        echo "- Delete: Run this workflow with 'delete' (saves $103/month)"
+
+    - name: Upload Backup
+      if: github.event.inputs.action == 'delete' && steps.status.outputs.exists == 'true'
+      uses: actions/upload-artifact@v3
+      with:
+        name: k8s-final-backup
+        path: k8s-backups/
+        retention-days: 30

@@ -1,4 +1,6 @@
-name: Deploy Docker Compose Stack
+# ARCHIVED - Migrated to Kubernetes
+# # ARCHIVED - Migrated to Kubernetes
+# name: Deploy Docker Compose Stack
 
 on:
   # push:

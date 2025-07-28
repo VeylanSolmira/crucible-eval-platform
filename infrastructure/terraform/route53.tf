@@ -75,16 +75,25 @@ resource "aws_route53_record" "crucible_a" {
   records = [aws_eip.eval_server[var.active_deployment_color].public_ip]
 }
 
-# A Records for blue/green in crucible zone (blue.crucible.veylan.dev, green.crucible.veylan.dev)
-resource "aws_route53_record" "crucible_subdomains" {
-  for_each = var.create_route53_zone && var.domain_name != "" ? toset(["blue", "green"]) : toset([])
+# A Records for dev/staging in crucible zone (dev.crucible.veylan.dev, staging.crucible.veylan.dev)
+# These will point to Kubernetes ingress/load balancer eventually
+resource "aws_route53_record" "environment_subdomains" {
+  for_each = var.create_route53_zone && var.domain_name != "" ? {
+    dev     = aws_eip.eval_server["blue"].public_ip   # Temporarily use blue EIP
+    staging = aws_eip.eval_server["green"].public_ip  # Temporarily use green EIP
+  } : {}
   
   zone_id = aws_route53_zone.crucible[0].zone_id
   name    = "${each.key}.${var.domain_name}"
   type    = "A"
   ttl     = 300
   
-  records = [aws_eip.eval_server[each.key].public_ip]
+  records = [each.value]
+  
+  lifecycle {
+    # We'll update these to point to K8s load balancer later
+    create_before_destroy = true
+  }
 }
 
 # Health check for active deployment (optional but recommended)

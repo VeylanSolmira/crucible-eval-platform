@@ -45,6 +45,7 @@ spec:
       labels:
         app: fluent-bit
     spec:
+      priorityClassName: medium-priority
       serviceAccountName: fluent-bit
       containers:
       - name: fluent-bit

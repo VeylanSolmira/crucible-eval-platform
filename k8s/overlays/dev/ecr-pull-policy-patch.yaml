@@ -1,0 +1,89 @@
+# Override imagePullPolicy for EKS with ECR
+# This patches all deployments to use IfNotPresent for ECR images
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: api-service
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: storage-service
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: storage-worker
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: celery-worker
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: frontend
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cleanup-controller
+spec:
+  template:
+    spec:
+      containers:
+      - name: cleanup-controller
+        imagePullPolicy: IfNotPresent

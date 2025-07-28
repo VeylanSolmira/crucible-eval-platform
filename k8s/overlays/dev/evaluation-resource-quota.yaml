@@ -1,0 +1,31 @@
+# ResourceQuota for evaluation jobs in local development
+# Prevents runaway resource consumption while allowing reasonable test parallelism
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: evaluation-quota
+spec:
+  hard:
+    # Job object limits - includes completed jobs until TTL cleanup
+    # Set high since completed jobs consume negligible resources
+    count/jobs.batch: "2000"            # Total Job objects (running + completed)
+    
+    # Pod limits - THIS is what actually constrains cluster resources
+    pods: "100"                         # Maximum 100 pods running concurrently
+    
+    # CPU limits - constrained by Docker Desktop allocation (8 cores)
+    # Most evaluations request 100m, limit 500m
+    # Reserve ~1-2 cores for system pods (API, storage, dispatcher, etc.)
+    requests.cpu: "4"                   # ~40 concurrent evaluations * 100m
+    limits.cpu: "8"                     # Allow bursting but scheduler uses requests
+    
+    # Memory limits - constrained by Docker Desktop allocation (4GB)
+    # Reserve ~1.5GB for system pods and Kubernetes overhead
+    requests.memory: "3.5Gi"            # ~20 concurrent evaluations * 128Mi
+    limits.memory: "7Gi"               # Allow bursting but scheduler uses requests
+    
+    # Storage limits - evaluations use emptyDir volumes
+    requests.ephemeral-storage: "20Gi"  # For emptyDir volumes
+    
+  # Note: The actual concurrency is limited by pods/cpu/memory, not job count
+  # Completed jobs waiting for TTL cleanup don't consume these resources

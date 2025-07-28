@@ -43,6 +43,7 @@ spec:
       labels:
         app: loki
     spec:
+      priorityClassName: medium-priority
       containers:
       - name: loki
         image: grafana/loki:2.9.0

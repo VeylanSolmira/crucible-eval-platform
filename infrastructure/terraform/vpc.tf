@@ -109,14 +109,14 @@ resource "aws_route_table" "private" {
   #   nat_gateway_id = aws_nat_gateway.main[count.index].id
   # }
   
-  # When using NAT instance instead (uncomment after creating NAT instance):
-  # dynamic "route" {
-  #   for_each = var.use_nat_instance ? [1] : []
-  #   content {
-  #     cidr_block           = "0.0.0.0/0"
-  #     network_interface_id = aws_instance.nat_instance[0].primary_network_interface_id
-  #   }
-  # }
+  # When using NAT instance instead:
+  dynamic "route" {
+    for_each = var.use_nat_instance ? [1] : []
+    content {
+      cidr_block           = "0.0.0.0/0"
+      network_interface_id = aws_instance.nat_instance[0].primary_network_interface_id
+    }
+  }
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-private-rt-${count.index + 1}"

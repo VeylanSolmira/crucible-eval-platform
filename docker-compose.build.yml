@@ -1,0 +1,93 @@
+# Build configuration for pushing to ECR
+# Usage:
+#   aws ecr get-login-password | docker login --username AWS --password-stdin 503132503803.dkr.ecr.us-west-2.amazonaws.com
+#   docker compose -f docker-compose.build.yml build
+#   docker compose -f docker-compose.build.yml push
+
+services:
+  # Base image - build this first as others depend on it
+  base:
+    build:
+      context: .
+      dockerfile: shared/docker/base.Dockerfile
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+    
+  api-service:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      args:
+        BASE_IMAGE: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/api:${TAG:-latest}
+    depends_on:
+      - base
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/frontend:${TAG:-latest}
+
+  storage-service:
+    build:
+      context: .
+      dockerfile: storage_service/Dockerfile
+      args:
+        BASE_IMAGE: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-service:${TAG:-latest}
+    depends_on:
+      - base
+
+  storage-worker:
+    build:
+      context: .
+      dockerfile: storage_worker/Dockerfile
+      args:
+        BASE_IMAGE: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-worker:${TAG:-latest}
+    depends_on:
+      - base
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: celery_worker/Dockerfile
+      args:
+        BASE_IMAGE: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/celery-worker:${TAG:-latest}
+    depends_on:
+      - base
+
+  dispatcher-service:
+    build:
+      context: .
+      dockerfile: dispatcher_service/Dockerfile
+      args:
+        BASE_IMAGE: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/dispatcher:${TAG:-latest}
+    depends_on:
+      - base
+
+  # Cleanup controller
+  cleanup-controller:
+    build:
+      context: .
+      dockerfile: cleanup_controller/Dockerfile
+      args:
+        BASE_IMAGE: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/cleanup-controller:${TAG:-latest}
+    depends_on:
+      - base
+
+  # Executor images in separate repos
+  executor-base:
+    build:
+      context: .
+      dockerfile: evaluation-environments/executor-base/Dockerfile
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/executor-base:${TAG:-latest}
+
+  executor-ml:
+    build:
+      context: .
+      dockerfile: evaluation-environments/executor-ml/Dockerfile
+    image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/executor-ml:${TAG:-latest}

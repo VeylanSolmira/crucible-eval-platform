@@ -17,7 +17,7 @@ kind: Deployment
 metadata:
   name: dispatcher
 spec:
-  replicas: 2  # HA with 2 replicas
+  replicas: 1  # Default to 1, scale up for HA in production
   selector:
     matchLabels:
       app: dispatcher
@@ -26,6 +26,7 @@ spec:
       labels:
         app: dispatcher
     spec:
+      priorityClassName: critical-priority
       serviceAccountName: job-dispatcher
       containers:
       - name: dispatcher
@@ -36,7 +37,9 @@ spec:
           name: http
         env:
         - name: KUBERNETES_NAMESPACE
-          value: "crucible"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: EXECUTOR_IMAGE
           value: "executor-ml"
         - name: REGISTRY_PREFIX

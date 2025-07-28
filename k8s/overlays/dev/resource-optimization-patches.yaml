@@ -1,0 +1,116 @@
+# Resource optimization patches for local development
+# Reduces CPU limits to fit within 4-core Docker Desktop allocation
+
+# Dispatcher - reduce to single replica
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  replicas: 1
+
+# Postgres - reduce from 1 core to 500m
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  template:
+    spec:
+      containers:
+      - name: postgres
+        resources:
+          limits:
+            cpu: 500m
+
+# Celery Worker - reduce from 1 core to 500m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: celery-worker
+        resources:
+          limits:
+            cpu: 500m
+
+# Celery Redis - reduce from 500m to 200m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-redis
+spec:
+  template:
+    spec:
+      containers:
+      - name: redis
+        resources:
+          limits:
+            cpu: 200m
+
+# Storage Service - reduce from 500m to 200m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: storage-service
+        resources:
+          limits:
+            cpu: 200m
+
+# Storage Worker - reduce from 500m to 200m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: storage-worker
+        resources:
+          limits:
+            cpu: 200m
+
+# API Service - reduce from 500m to 300m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: api-service
+        resources:
+          limits:
+            cpu: 300m
+
+# Redis - reduce from 500m to 200m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  template:
+    spec:
+      containers:
+      - name: redis
+        resources:
+          limits:
+            cpu: 200m

@@ -27,6 +27,7 @@ spec:
       labels:
         app: flower
     spec:
+      priorityClassName: medium-priority
       containers:
       - name: flower
         image: mher/flower:2.0

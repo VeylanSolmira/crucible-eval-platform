@@ -29,6 +29,7 @@ spec:
         app: redis
         component: celery
     spec:
+      priorityClassName: critical-priority
       containers:
       - name: redis
         image: redis:7-alpine

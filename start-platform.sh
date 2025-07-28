@@ -316,21 +316,26 @@ if [ "$SKIP_TESTS" = false ]; then
     # Wait a bit for services to stabilize
     sleep 5
     
+    # Run the comprehensive test suite using test_orchestrator
+    echo -e "${YELLOW}Executing: python tests/test_orchestrator.py unit integration e2e security performance -v --parallel --include-slow${NC}"
+    
     # Check if Python virtual environment exists
     if [ -d "venv" ]; then
         # Activate venv and run tests
         source venv/bin/activate
-        python tests/run_tests.py
+        python tests/test_orchestrator.py unit integration e2e security performance -v --parallel --include-slow
         TEST_RESULT=$?
         deactivate
     else
         # Try running with system Python
-        python3 tests/run_tests.py
+        python3 tests/test_orchestrator.py unit integration e2e security performance -v --parallel --include-slow
         TEST_RESULT=$?
     fi
     
     if [ $TEST_RESULT -ne 0 ]; then
         echo -e "${YELLOW}⚠ Tests did not pass. Platform may not be fully functional.${NC}"
+    else
+        echo -e "${GREEN}✓ All tests passed!${NC}"
     fi
 else
     echo -e "\n${YELLOW}Skipping tests (--skip-tests flag provided)${NC}"
