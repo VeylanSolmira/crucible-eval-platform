@@ -215,3 +215,9 @@ variable "common_tags" {
     Environment = "dev"
   }
 }
+
+variable "github_repository_name" {
+  description = "GitHub repository in format owner/repo for OIDC"
+  type        = string
+  default     = "VeylanSolmira/metr-eval-platform"
+}

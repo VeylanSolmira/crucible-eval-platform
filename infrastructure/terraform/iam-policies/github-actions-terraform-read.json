@@ -1,0 +1,47 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "eks:Describe*",
+        "eks:List*",
+        "iam:Get*",
+        "iam:List*",
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning",
+        "s3:ListBucketVersions",
+        "elasticloadbalancing:Describe*",
+        "autoscaling:Describe*",
+        "cloudwatch:Describe*",
+        "cloudwatch:Get*",
+        "cloudwatch:List*",
+        "logs:Describe*",
+        "logs:Get*",
+        "logs:List*",
+        "tag:Get*",
+        "kms:Describe*",
+        "kms:Get*",
+        "kms:List*",
+        "sts:GetCallerIdentity",
+        "organizations:DescribeOrganization",
+        "account:GetContactInformation"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::crucible-platform-terraform-state-503132503803",
+        "arn:aws:s3:::crucible-platform-terraform-state-503132503803/*"
+      ]
+    }
+  ]
+}
