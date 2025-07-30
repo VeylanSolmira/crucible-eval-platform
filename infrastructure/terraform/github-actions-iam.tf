@@ -29,7 +29,7 @@ resource "aws_iam_role" "github_actions_terraform_plan" {
   })
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-github-actions-terraform-plan"
+    Name    = "${var.project_name}-github-actions-terraform-plan"
     Purpose = "Read-only role for terraform plan"
   })
 }
@@ -70,7 +70,7 @@ resource "aws_iam_role" "github_actions_terraform_apply" {
   })
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-github-actions-terraform-apply"
+    Name    = "${var.project_name}-github-actions-terraform-apply"
     Purpose = "Write access role for terraform apply"
   })
 }
@@ -97,7 +97,7 @@ output "github_actions_terraform_apply_role_arn" {
 # Instructions for setting up GitHub repository variables
 output "github_actions_setup_instructions" {
   description = "Instructions for configuring GitHub Actions"
-  value = <<EOF
+  value       = <<EOF
 To use these roles in GitHub Actions:
 
 1. Go to your GitHub repository settings

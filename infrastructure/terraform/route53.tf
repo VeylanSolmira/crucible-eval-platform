@@ -64,7 +64,7 @@ resource "aws_route53_record" "ns_delegation" {
 # Data source to get the load balancer details
 data "aws_lb" "kubernetes_nlb" {
   count = var.create_route53_zone && var.domain_name != "" && var.kubernetes_load_balancer_ip != "" ? 1 : 0
-  
+
   # Extract the load balancer name from the DNS name
   name = split("-", split(".", var.kubernetes_load_balancer_ip)[0])[0]
 }
@@ -74,8 +74,8 @@ resource "aws_route53_record" "crucible_apex_alias" {
   # Only create if Route53 is enabled AND load balancer is configured
   count = var.create_route53_zone && var.domain_name != "" && var.kubernetes_load_balancer_ip != "" ? 1 : 0
 
-  zone_id = aws_route53_zone.crucible[0].zone_id  # Using crucible subdomain zone
-  name    = ""                                     # Empty name means apex of the zone
+  zone_id = aws_route53_zone.crucible[0].zone_id # Using crucible subdomain zone
+  name    = ""                                   # Empty name means apex of the zone
   type    = "A"
 
   alias {
