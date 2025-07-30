@@ -1,0 +1,13 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+terraform.tfstate.backup
+crash.log
+crash.*.log
+
+# Generated files
+backend-config.hcl
+
+# DO NOT IGNORE terraform.tfstate for this bootstrap module!
+# It needs to be committed since this module uses local state

@@ -431,7 +431,26 @@
 
 **Rationale**: The storage service is critical infrastructure that needs clear logging, proper documentation, and potential architectural improvements to handle different data types and lifecycle requirements effectively.
 
-### 10. Logging Infrastructure Standardization
+### 10. GitHub Actions to EKS Deployment Security
+
+#### 10.1 Implement Secure CI/CD Access
+- [ ] **Configure EKS aws-auth for GitHub Actions** ✅
+  - [x] Added GitHub Actions IAM role to aws-auth ConfigMap
+  - [x] Granted system:masters permissions (consider reducing for production)
+  - [ ] Create Terraform resource to manage aws-auth ConfigMap
+- [ ] **Document deployment strategies** ✅
+  - [x] Created comprehensive guide at `docs/deployment/github-actions-eks-access.md`
+  - [x] Analyzed 5 different approaches with pros/cons
+  - [x] Recommended SSM-based approach for short-term
+  - [x] Recommended ArgoCD for long-term
+- [ ] **Implement production-ready solution**
+  - [ ] Set up SSM-based deployment for immediate use
+  - [ ] Create restricted RBAC role instead of system:masters
+  - [ ] Plan ArgoCD migration for Q2
+
+**Rationale**: GitHub Actions needs secure access to deploy to EKS. IP allowlisting is impractical due to 5000+ dynamic ranges. Using IAM roles with aws-auth provides secure, manageable access without exposing the cluster to the internet.
+
+### 11. Logging Infrastructure Standardization
 
 #### 10.1 Add Proper Logging to All Python Services
 - [ ] Replace print statements with proper logging across all services
