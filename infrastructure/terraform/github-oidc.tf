@@ -3,7 +3,7 @@
 
 locals {
   # Terraform state bucket name
-  terraform_state_bucket = "${var.project_name}-terraform-state-${data.aws_caller_identity.current.account_id}"
+  terraform_state_bucket     = "${var.project_name}-terraform-state-${data.aws_caller_identity.current.account_id}"
   terraform_state_lock_table = "${var.project_name}-terraform-state-lock"
 }
 
