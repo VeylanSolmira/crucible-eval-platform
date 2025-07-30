@@ -1,6 +1,12 @@
 # GitHub Actions OIDC Provider for AWS
 # This allows GitHub Actions to authenticate to AWS without storing credentials
 
+locals {
+  # Terraform state bucket name
+  terraform_state_bucket = "${var.project_name}-terraform-state-${data.aws_caller_identity.current.account_id}"
+  terraform_state_lock_table = "${var.project_name}-terraform-state-lock"
+}
+
 # Create the OIDC provider
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
@@ -375,7 +381,7 @@ resource "aws_iam_role_policy" "github_actions" {
           "s3:ListAllMyBuckets"
         ]
         Resource = [
-          "arn:aws:s3:::crucible-platform-terraform-state-503132503803",
+          "arn:aws:s3:::${local.terraform_state_bucket}",
           "arn:aws:s3:::*"
         ]
       },
@@ -388,7 +394,17 @@ resource "aws_iam_role_policy" "github_actions" {
           "s3:DeleteObject"
         ]
         Resource = [
-          "arn:aws:s3:::crucible-platform-terraform-state-503132503803/*"
+          "arn:aws:s3:::${local.terraform_state_bucket}/*"
+        ]
+      },
+      {
+        # S3 ListBucket permission for Terraform state bucket
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${local.terraform_state_bucket}"
         ]
       },
       {
@@ -408,7 +424,7 @@ resource "aws_iam_role_policy" "github_actions" {
           "dynamodb:UpdateTimeToLive"
         ]
         Resource = [
-          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/crucible-platform-terraform-state-lock",
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${local.terraform_state_lock_table}",
           "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/*"
         ]
       },

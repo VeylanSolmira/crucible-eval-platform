@@ -1,9 +1,6 @@
 """
 Dispatcher Service - Stateless service that creates Kubernetes Jobs for code evaluation.
 Provides a simple HTTP interface for queue workers to request code execution.
-
-File sync test: Adding this comment to test Skaffold file syncing
-GitHub Actions deployment test: Testing automated deployment via workflow
 """
 
 import os
