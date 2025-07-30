@@ -20,11 +20,11 @@ resource "kubernetes_config_map" "aws_auth" {
       {
         rolearn  = aws_iam_role.github_actions.arn
         username = "github-actions"
-        groups   = ["system:masters"]  # Full admin access - adjust as needed
+        groups   = ["system:masters"] # Full admin access - adjust as needed
       },
       # Add more roles as needed
     ])
-    
+
     # mapUsers can be added if you need to grant specific IAM users access
     # mapUsers = yamlencode([
     #   {
@@ -43,8 +43,8 @@ output "eks_auth_info" {
   description = "Information about EKS authentication setup"
   value = {
     github_actions_role = aws_iam_role.github_actions.arn
-    node_role          = aws_iam_role.eks_nodes.arn
-    instructions       = <<-EOT
+    node_role           = aws_iam_role.eks_nodes.arn
+    instructions        = <<-EOT
       The aws-auth ConfigMap has been configured to allow:
       - EKS nodes to join the cluster
       - GitHub Actions to deploy to the cluster
