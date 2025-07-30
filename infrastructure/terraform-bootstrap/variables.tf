@@ -9,3 +9,9 @@ variable "project_name" {
   type        = string
   default     = "crucible-platform"
 }
+
+variable "aws_profile" {
+  description = "AWS profile to use"
+  type        = string
+  default     = ""
+}

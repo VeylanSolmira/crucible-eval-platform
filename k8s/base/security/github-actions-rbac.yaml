@@ -1,0 +1,217 @@
+# RBAC configuration for GitHub Actions deployments
+# Provides minimal permissions needed for CI/CD deployments
+# Uses namespace-specific roles instead of cluster-wide permissions
+
+---
+# ClusterRole for minimal read-only cluster-wide access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: github-actions-minimal
+  labels:
+    app.kubernetes.io/name: github-actions-rbac
+    app.kubernetes.io/component: security
+rules:
+  # View nodes (for kubectl get nodes)
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  
+  # View namespaces (to verify deployment targets)
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+
+---
+# ClusterRoleBinding for minimal access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: github-actions-minimal-binding
+  labels:
+    app.kubernetes.io/name: github-actions-rbac
+    app.kubernetes.io/component: security
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: github-actions-minimal
+subjects:
+  - kind: User
+    name: github-actions  # This matches the username in aws-auth ConfigMap
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# Role for dev namespace deployments
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: github-actions-deploy
+  namespace: dev
+  labels:
+    app.kubernetes.io/name: github-actions-rbac
+    app.kubernetes.io/component: security
+rules:
+  # Deployment management
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "update", "patch"]
+  
+  # View deployment rollout status
+  - apiGroups: ["apps"]
+    resources: ["deployments/status", "deployments/scale"]
+    verbs: ["get"]
+  
+  # Rollback capability
+  - apiGroups: ["apps"]
+    resources: ["deployments/rollback"]
+    verbs: ["create"]
+  
+  # View replica sets for rollout monitoring
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+  
+  # View pods for health checks
+  - apiGroups: [""]
+    resources: ["pods", "pods/status"]
+    verbs: ["get", "list"]
+  
+  # View pod logs for troubleshooting
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  
+  # Execute commands in pods (for health checks)
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  
+  # View services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+  
+  # ConfigMaps management
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "update", "patch"]
+  
+  # View events for troubleshooting
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list"]
+  
+  # HPA management (if using autoscaling)
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding for dev namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-actions-deploy-binding
+  namespace: dev
+  labels:
+    app.kubernetes.io/name: github-actions-rbac
+    app.kubernetes.io/component: security
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: github-actions-deploy
+subjects:
+  - kind: User
+    name: github-actions
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# Role for staging namespace (more restrictive)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: github-actions-deploy
+  namespace: staging
+  labels:
+    app.kubernetes.io/name: github-actions-rbac
+    app.kubernetes.io/component: security
+rules:
+  # Deployment management (no delete)
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "update", "patch"]
+  
+  # View deployment status
+  - apiGroups: ["apps"]
+    resources: ["deployments/status"]
+    verbs: ["get"]
+  
+  # View pods and logs
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/status"]
+    verbs: ["get", "list"]
+  
+  # View services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+  
+  # ConfigMaps (read + update specific ones)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  
+  # Update executor-images ConfigMap only
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["update", "patch"]
+    resourceNames: ["executor-images"]
+
+---
+# RoleBinding for staging namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-actions-deploy-binding
+  namespace: staging
+  labels:
+    app.kubernetes.io/name: github-actions-rbac
+    app.kubernetes.io/component: security
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: github-actions-deploy
+subjects:
+  - kind: User
+    name: github-actions
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# Optional: Namespace-specific roles for more granular control
+# Uncomment and modify as needed
+#
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: Role
+# metadata:
+#   name: github-actions-deploy-dev
+#   namespace: dev
+# rules:
+#   - apiGroups: ["apps"]
+#     resources: ["deployments"]
+#     verbs: ["get", "list", "update", "patch"]
+#   # Add other rules as needed
+#
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: RoleBinding
+# metadata:
+#   name: github-actions-deploy-dev-binding
+#   namespace: dev
+# roleRef:
+#   apiGroup: rbac.authorization.k8s.io
+#   kind: Role
+#   name: github-actions-deploy-dev
+# subjects:
+#   - kind: User
+#     name: github-actions
+#     apiGroup: rbac.authorization.k8s.io
