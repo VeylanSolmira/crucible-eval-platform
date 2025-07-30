@@ -1,0 +1,40 @@
+name: Build Executor ML
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'evaluation-environments/executor-ml/**'
+      - 'evaluation-environments/executor-base/**'
+      - 'evaluation-environments/shared/**'
+      - '.github/workflows/build-executor-ml.yml'
+      - '.github/workflows/build-executor-template.yml'
+  workflow_dispatch:
+    inputs:
+      additional_tags:
+        description: 'Additional tags (comma-separated, e.g., "v1.2,stable")'
+        required: false
+        type: string
+
+jobs:
+  build-base:
+    name: Build Base Image
+    uses: ./.github/workflows/build-executor-template.yml
+    with:
+      executor_name: executor-base
+      dockerfile_path: evaluation-environments/executor-base/Dockerfile
+      update_configmap: false  # Base image not used directly
+      additional_tags: ${{ github.event.inputs.additional_tags }}
+    secrets: inherit
+
+  build-ml:
+    name: Build ML Executor
+    needs: build-base
+    uses: ./.github/workflows/build-executor-template.yml
+    with:
+      executor_name: executor-ml
+      dockerfile_path: evaluation-environments/executor-ml/Dockerfile
+      base_image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/executor-base:${{ needs.build-base.outputs.image_tag }}
+      update_configmap: true
+      additional_tags: ${{ github.event.inputs.additional_tags }}
+    secrets: inherit
