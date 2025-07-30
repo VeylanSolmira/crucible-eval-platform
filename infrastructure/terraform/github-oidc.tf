@@ -75,10 +75,19 @@ resource "aws_iam_role_policy" "github_actions" {
         Effect = "Allow"
         Action = [
           "ssm:PutParameter",
-          "ssm:GetParameter"
+          "ssm:GetParameter",
+          "ssm:DeleteParameter",
+          "ssm:GetParameterHistory",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath",
+          "ssm:DescribeParameters",
+          "ssm:AddTagsToResource",
+          "ssm:RemoveTagsFromResource",
+          "ssm:ListTagsForResource"
         ]
         Resource = [
-          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/*"
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/*",
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/*"
         ]
       },
       {
@@ -250,12 +259,20 @@ resource "aws_iam_role_policy" "github_actions" {
           "iam:RemoveRoleFromInstanceProfile",
           "iam:PassRole",
           "iam:TagRole",
-          "iam:UntagRole"
+          "iam:UntagRole",
+          "iam:TagPolicy",
+          "iam:UntagPolicy",
+          "iam:CreateOpenIDConnectProvider",
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:UpdateOpenIDConnectProviderThumbprint",
+          "iam:TagOpenIDConnectProvider",
+          "iam:UntagOpenIDConnectProvider"
         ]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*",
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/*",
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/*"
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/*"
         ]
       },
       {
@@ -276,7 +293,29 @@ resource "aws_iam_role_policy" "github_actions" {
         Action = [
           "cloudwatch:GetMetricStatistics",
           "cloudwatch:ListMetrics",
-          "cloudwatch:PutMetricData"
+          "cloudwatch:PutMetricData",
+          "cloudwatch:PutDashboard",
+          "cloudwatch:DeleteDashboards",
+          "cloudwatch:GetDashboard",
+          "cloudwatch:ListDashboards"
+        ]
+        Resource = "*"
+      },
+      {
+        # CloudWatch Logs permissions
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:DeleteLogGroup",
+          "logs:CreateLogStream",
+          "logs:DeleteLogStream",
+          "logs:PutLogEvents",
+          "logs:PutRetentionPolicy",
+          "logs:DeleteRetentionPolicy",
+          "logs:TagLogGroup",
+          "logs:UntagLogGroup",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
         ]
         Resource = "*"
       },
@@ -359,6 +398,9 @@ resource "aws_iam_role_policy" "github_actions" {
           "sns:Subscribe",
           "sns:Unsubscribe",
           "sns:ListSubscriptions",
+          "sns:TagResource",
+          "sns:UntagResource",
+          "sns:ListTagsForResource",
           "cloudwatch:PutMetricAlarm",
           "cloudwatch:DeleteAlarms",
           "cloudwatch:DescribeAlarms",
