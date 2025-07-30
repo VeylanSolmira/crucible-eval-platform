@@ -315,14 +315,89 @@ resource "aws_iam_role_policy" "github_actions" {
         Resource = "*"
       },
       {
-        # S3 permissions for Terraform state
+        # S3 permissions for Terraform state and creating buckets
         Effect = "Allow"
         Action = [
           "s3:GetBucketLocation",
           "s3:GetBucketVersioning",
-          "s3:ListBucketVersions"
+          "s3:ListBucketVersions",
+          "s3:CreateBucket",
+          "s3:DeleteBucket",
+          "s3:PutBucketPolicy",
+          "s3:GetBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:PutBucketVersioning",
+          "s3:PutBucketTagging",
+          "s3:GetBucketTagging",
+          "s3:PutBucketPublicAccessBlock",
+          "s3:GetBucketPublicAccessBlock",
+          "s3:PutBucketAcl",
+          "s3:GetBucketAcl",
+          "s3:ListAllMyBuckets"
         ]
-        Resource = "arn:aws:s3:::crucible-platform-terraform-state-503132503803"
+        Resource = [
+          "arn:aws:s3:::crucible-platform-terraform-state-503132503803",
+          "arn:aws:s3:::*"
+        ]
+      },
+      {
+        # Additional services permissions
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:TagResource",
+          "secretsmanager:UntagResource",
+          "sns:CreateTopic",
+          "sns:DeleteTopic",
+          "sns:GetTopicAttributes",
+          "sns:SetTopicAttributes",
+          "sns:ListTopics",
+          "sns:Subscribe",
+          "sns:Unsubscribe",
+          "sns:ListSubscriptions",
+          "cloudwatch:PutMetricAlarm",
+          "cloudwatch:DeleteAlarms",
+          "cloudwatch:DescribeAlarms",
+          "route53:CreateHostedZone",
+          "route53:DeleteHostedZone",
+          "route53:ChangeResourceRecordSets",
+          "route53:CreateHealthCheck",
+          "route53:DeleteHealthCheck",
+          "route53:UpdateHealthCheck",
+          "acm:RequestCertificate",
+          "acm:DeleteCertificate",
+          "acm:DescribeCertificate",
+          "acm:ListCertificates",
+          "acm:AddTagsToCertificate",
+          "acm:RemoveTagsFromCertificate",
+          "acm:ListTagsForCertificate"
+        ]
+        Resource = "*"
+      },
+      {
+        # ECR repository creation permissions
+        Effect = "Allow"
+        Action = [
+          "ecr:CreateRepository",
+          "ecr:DeleteRepository",
+          "ecr:PutRepositoryPolicy",
+          "ecr:GetRepositoryPolicy",
+          "ecr:DeleteRepositoryPolicy",
+          "ecr:PutLifecyclePolicy",
+          "ecr:GetLifecyclePolicy",
+          "ecr:DeleteLifecyclePolicy",
+          "ecr:PutImageScanningConfiguration",
+          "ecr:GetImageScanningConfiguration",
+          "ecr:TagResource",
+          "ecr:UntagResource"
+        ]
+        Resource = [
+          "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/*"
+        ]
       },
       {
         # Organizations permissions (for account info)
