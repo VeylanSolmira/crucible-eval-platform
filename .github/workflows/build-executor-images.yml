@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'executor/**'
+      - 'evaluation-environments/**'
       - 'shared/requirements/**'
       - '.github/workflows/build-executor-images.yml'
   workflow_dispatch:
@@ -31,10 +31,10 @@ jobs:
       matrix:
         executor:
           - name: executor-base
-            dockerfile: executor/Dockerfile
+            dockerfile: evaluation-environments/executor-base/Dockerfile
             build_args: ""
           - name: executor-ml
-            dockerfile: executor/ml.Dockerfile
+            dockerfile: evaluation-environments/executor-ml/Dockerfile
             build_args: "--build-arg BASE_IMAGE=$ECR_REGISTRY/executor-base:$IMAGE_TAG"
             depends_on: executor-base
     
