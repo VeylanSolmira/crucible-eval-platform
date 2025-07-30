@@ -48,6 +48,10 @@ jobs:
       image_tag: ${{ steps.tags.outputs.primary }}
       image_digest: ${{ steps.push.outputs.digest }}
     
+    permissions:
+      id-token: write
+      contents: read
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -57,6 +61,9 @@ jobs:
     - name: Set up tags
       id: tags
       run: |
+        # Set build date
+        echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+        
         # Primary tag is git SHA
         PRIMARY_TAG="${GITHUB_SHA::8}"
         echo "primary=$PRIMARY_TAG" >> $GITHUB_OUTPUT
@@ -155,6 +162,10 @@ jobs:
     needs: build
     if: inputs.update_configmap
     runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
     
     steps:
     - name: Configure AWS credentials
