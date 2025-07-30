@@ -22,6 +22,9 @@ on:
 
 jobs:
   deploy:
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-service-template.yml
     with:
       service_name: storage-worker

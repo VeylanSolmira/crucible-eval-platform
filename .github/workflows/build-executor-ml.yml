@@ -18,6 +18,9 @@ on:
 
 jobs:
   build-base:
+    permissions:
+      id-token: write
+      contents: read
     name: Build Base Image
     uses: ./.github/workflows/build-executor-template.yml
     with:
@@ -28,6 +31,9 @@ jobs:
     secrets: inherit
 
   build-ml:
+    permissions:
+      id-token: write
+      contents: read
     name: Build ML Executor
     needs: build-base
     uses: ./.github/workflows/build-executor-template.yml

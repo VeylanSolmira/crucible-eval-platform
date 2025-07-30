@@ -380,6 +380,39 @@ resource "aws_iam_role_policy" "github_actions" {
         ]
       },
       {
+        # S3 permissions for Terraform state file operations
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          "arn:aws:s3:::crucible-platform-terraform-state-503132503803/*"
+        ]
+      },
+      {
+        # DynamoDB permissions for Terraform state locking
+        Effect = "Allow"
+        Action = [
+          "dynamodb:CreateTable",
+          "dynamodb:DeleteTable",
+          "dynamodb:DescribeTable",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:DescribeTimeToLive",
+          "dynamodb:UpdateTimeToLive"
+        ]
+        Resource = [
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/crucible-platform-terraform-state-lock",
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/*"
+        ]
+      },
+      {
         # Additional services permissions
         Effect = "Allow"
         Action = [

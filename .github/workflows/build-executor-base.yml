@@ -17,6 +17,9 @@ on:
 
 jobs:
   build:
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/build-executor-template.yml
     with:
       executor_name: executor-base

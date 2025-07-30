@@ -12,6 +12,9 @@ on:
 jobs:
   # Deploy all services that depend on shared code
   deploy-api:
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-service-template.yml
     with:
       service_name: api-service
@@ -25,6 +28,9 @@ jobs:
     secrets: inherit
 
   deploy-dispatcher:
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-service-template.yml
     with:
       service_name: dispatcher
@@ -38,6 +44,9 @@ jobs:
     secrets: inherit
 
   deploy-storage:
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-service-template.yml
     with:
       service_name: storage-service
@@ -51,6 +60,9 @@ jobs:
     secrets: inherit
 
   deploy-celery:
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-service-template.yml
     with:
       service_name: celery-worker
