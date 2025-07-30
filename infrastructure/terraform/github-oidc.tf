@@ -132,44 +132,85 @@ resource "aws_iam_role_policy" "github_actions" {
         ]
       },
       {
-        # EC2 permissions to find instances and for Terraform
+        # EC2 permissions for Terraform - read
         Effect = "Allow"
         Action = [
-          "ec2:DescribeInstances",
-          "ec2:DescribeImages",
-          "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeVpcs",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeKeyPairs",
-          "ec2:DescribeAccountAttributes",
+          "ec2:Describe*",
           "ssm:DescribeInstanceInformation"
         ]
         Resource = "*"
       },
       {
-        # EKS permissions for kubectl access and updates
+        # EC2 permissions for Terraform - write
         Effect = "Allow"
         Action = [
+          "ec2:CreateVpc",
+          "ec2:CreateSubnet",
+          "ec2:CreateInternetGateway",
+          "ec2:CreateRouteTable",
+          "ec2:CreateRoute",
+          "ec2:CreateSecurityGroup",
+          "ec2:CreateTags",
+          "ec2:ModifyVpcAttribute",
+          "ec2:ModifySubnetAttribute",
+          "ec2:AttachInternetGateway",
+          "ec2:AssociateRouteTable",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:DeleteSecurityGroup",
+          "ec2:ImportKeyPair",
+          "ec2:DeleteKeyPair",
+          "ec2:RunInstances",
+          "ec2:TerminateInstances",
+          "ec2:StopInstances",
+          "ec2:StartInstances",
+          "ec2:RebootInstances",
+          "ec2:ModifyInstanceAttribute",
+          "ec2:CreateSnapshot",
+          "ec2:DeleteSnapshot",
+          "ec2:CreateVolume",
+          "ec2:DeleteVolume",
+          "ec2:AttachVolume",
+          "ec2:DetachVolume"
+        ]
+        Resource = "*"
+      },
+      {
+        # EKS permissions for Terraform
+        Effect = "Allow"
+        Action = [
+          "eks:CreateCluster",
+          "eks:DeleteCluster",
           "eks:DescribeCluster",
-          "eks:AccessKubernetesApi",
           "eks:UpdateClusterConfig",
-          "eks:UpdateClusterVersion"
+          "eks:UpdateClusterVersion",
+          "eks:AccessKubernetesApi",
+          "eks:CreateNodegroup",
+          "eks:DeleteNodegroup",
+          "eks:DescribeNodegroup",
+          "eks:UpdateNodegroupConfig",
+          "eks:UpdateNodegroupVersion",
+          "eks:TagResource",
+          "eks:UntagResource"
         ]
         Resource = [
-          "arn:aws:eks:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:cluster/*"
+          "arn:aws:eks:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:cluster/*",
+          "arn:aws:eks:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:nodegroup/*/*/*"
         ]
       },
       {
         # EKS ListClusters requires * resource
         Effect = "Allow"
         Action = [
-          "eks:ListClusters"
+          "eks:ListClusters",
+          "eks:DescribeAddonVersions"
         ]
         Resource = "*"
       },
       {
-        # IAM permissions for reading role info (needed by Terraform)
+        # IAM permissions for Terraform - read
         Effect = "Allow"
         Action = [
           "iam:GetRole",
@@ -177,9 +218,45 @@ resource "aws_iam_role_policy" "github_actions" {
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
           "iam:GetOpenIDConnectProvider",
-          "iam:ListOpenIDConnectProviders"
+          "iam:ListOpenIDConnectProviders",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListPolicyVersions",
+          "iam:GetInstanceProfile",
+          "iam:ListInstanceProfiles"
         ]
         Resource = "*"
+      },
+      {
+        # IAM permissions for Terraform - write
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:UpdateRole",
+          "iam:DeleteRole",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:CreatePolicy",
+          "iam:UpdatePolicy",
+          "iam:DeletePolicy",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",
+          "iam:SetDefaultPolicyVersion",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:PassRole",
+          "iam:TagRole",
+          "iam:UntagRole"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/*"
+        ]
       },
       {
         # Route53 permissions for reading zones (needed by Terraform)

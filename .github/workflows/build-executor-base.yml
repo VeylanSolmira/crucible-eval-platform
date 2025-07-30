@@ -1,0 +1,26 @@
+name: Build Executor Base
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'evaluation-environments/executor-base/**'
+      - 'evaluation-environments/shared/**'
+      - '.github/workflows/build-executor-base.yml'
+      - '.github/workflows/build-executor-template.yml'
+  workflow_dispatch:
+    inputs:
+      additional_tags:
+        description: 'Additional tags (comma-separated, e.g., "v1.2,stable")'
+        required: false
+        type: string
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-executor-template.yml
+    with:
+      executor_name: executor-base
+      dockerfile_path: evaluation-environments/executor-base/Dockerfile
+      update_configmap: false  # Base image not used directly for evaluations
+      additional_tags: ${{ github.event.inputs.additional_tags }}
+    secrets: inherit
