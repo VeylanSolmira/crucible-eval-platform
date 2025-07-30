@@ -224,7 +224,7 @@ jobs:
     - name: Configure AWS credentials (Destroy - Write Access)
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ vars.AWS_TERRAFORM_DESTROY_ROLE_ARN || vars.AWS_TERRAFORM_APPLY_ROLE_ARN || vars.AWS_ROLE_ARN }}
+        role-to-assume: ${{ vars.AWS_TERRAFORM_DESTROY_ROLE_ARN || vars.AWS_TERRAFORM_APPLY_ROLE_ARN }}
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Setup OpenTofu

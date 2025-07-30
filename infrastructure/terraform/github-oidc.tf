@@ -88,7 +88,7 @@ resource "aws_iam_role_policy" "github_actions" {
         Resource = "*"
       },
       {
-        # ECR permissions for specific repository
+        # ECR permissions for all repositories
         Effect = "Allow"
         Action = [
           "ecr:BatchCheckLayerAvailability",
@@ -97,9 +97,15 @@ resource "aws_iam_role_policy" "github_actions" {
           "ecr:PutImage",
           "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload"
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeRepositories",
+          "ecr:DescribeImages",
+          "ecr:ListImages",
+          "ecr:StartImageScan"
         ]
-        Resource = aws_ecr_repository.crucible_platform.arn
+        Resource = [
+          "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/*"
+        ]
       },
       {
         # SSM SendCommand permissions with specific resources
@@ -126,11 +132,135 @@ resource "aws_iam_role_policy" "github_actions" {
         ]
       },
       {
-        # EC2 permissions to find instances
+        # EC2 permissions to find instances and for Terraform
         Effect = "Allow"
         Action = [
           "ec2:DescribeInstances",
+          "ec2:DescribeImages",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeKeyPairs",
+          "ec2:DescribeAccountAttributes",
           "ssm:DescribeInstanceInformation"
+        ]
+        Resource = "*"
+      },
+      {
+        # EKS permissions for kubectl access and updates
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "eks:AccessKubernetesApi",
+          "eks:UpdateClusterConfig",
+          "eks:UpdateClusterVersion"
+        ]
+        Resource = [
+          "arn:aws:eks:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:cluster/*"
+        ]
+      },
+      {
+        # EKS ListClusters requires * resource
+        Effect = "Allow"
+        Action = [
+          "eks:ListClusters"
+        ]
+        Resource = "*"
+      },
+      {
+        # IAM permissions for reading role info (needed by Terraform)
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:GetOpenIDConnectProvider",
+          "iam:ListOpenIDConnectProviders"
+        ]
+        Resource = "*"
+      },
+      {
+        # Route53 permissions for reading zones (needed by Terraform)
+        Effect = "Allow"
+        Action = [
+          "route53:GetHostedZone",
+          "route53:ListHostedZones",
+          "route53:ListResourceRecordSets",
+          "route53:GetHealthCheck",
+          "route53:ListHealthChecks"
+        ]
+        Resource = "*"
+      },
+      {
+        # CloudWatch permissions for monitoring
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:GetMetricStatistics",
+          "cloudwatch:ListMetrics",
+          "cloudwatch:PutMetricData"
+        ]
+        Resource = "*"
+      },
+      {
+        # Autoscaling permissions (for reading node groups)
+        Effect = "Allow"
+        Action = [
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeTags"
+        ]
+        Resource = "*"
+      },
+      {
+        # ElasticLoadBalancing permissions (for ALBs)
+        Effect = "Allow"
+        Action = [
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "elasticloadbalancing:DescribeListeners",
+          "elasticloadbalancing:DescribeRules"
+        ]
+        Resource = "*"
+      },
+      {
+        # KMS permissions for encryption keys
+        Effect = "Allow"
+        Action = [
+          "kms:DescribeKey",
+          "kms:GetKeyPolicy",
+          "kms:GetKeyRotationStatus",
+          "kms:ListAliases",
+          "kms:ListKeys"
+        ]
+        Resource = "*"
+      },
+      {
+        # S3 permissions for Terraform state
+        Effect = "Allow"
+        Action = [
+          "s3:GetBucketLocation",
+          "s3:GetBucketVersioning",
+          "s3:ListBucketVersions"
+        ]
+        Resource = "arn:aws:s3:::crucible-platform-terraform-state-503132503803"
+      },
+      {
+        # Organizations permissions (for account info)
+        Effect = "Allow"
+        Action = [
+          "organizations:DescribeOrganization",
+          "account:GetContactInformation"
+        ]
+        Resource = "*"
+      },
+      {
+        # STS permissions for identity info
+        Effect = "Allow"
+        Action = [
+          "sts:GetCallerIdentity"
         ]
         Resource = "*"
       },
