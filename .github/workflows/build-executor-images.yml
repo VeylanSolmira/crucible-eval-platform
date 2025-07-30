@@ -1,0 +1,208 @@
+name: Build Executor Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'executor/**'
+      - 'shared/requirements/**'
+      - '.github/workflows/build-executor-images.yml'
+  workflow_dispatch:
+    inputs:
+      tag_suffix:
+        description: 'Additional tag suffix (e.g., "v2", "hotfix")'
+        required: false
+        type: string
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REGISTRY: 503132503803.dkr.ecr.us-west-2.amazonaws.com
+
+jobs:
+  build-executors:
+    name: Build and Push Executor Images
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        executor:
+          - name: executor-base
+            dockerfile: executor/Dockerfile
+            build_args: ""
+          - name: executor-ml
+            dockerfile: executor/ml.Dockerfile
+            build_args: "--build-arg BASE_IMAGE=$ECR_REGISTRY/executor-base:$IMAGE_TAG"
+            depends_on: executor-base
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up environment variables
+      run: |
+        # Create base tag from git SHA
+        BASE_TAG="${GITHUB_SHA::8}"
+        
+        # Add suffix if provided
+        if [[ -n "${{ github.event.inputs.tag_suffix }}" ]]; then
+          BASE_TAG="${BASE_TAG}-${{ github.event.inputs.tag_suffix }}"
+        fi
+        
+        echo "IMAGE_TAG=$BASE_TAG" >> $GITHUB_ENV
+        echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+        
+        # For matrix builds
+        echo "EXECUTOR_NAME=${{ matrix.executor.name }}" >> $GITHUB_ENV
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Check if base image exists (for dependent images)
+      if: matrix.executor.depends_on
+      run: |
+        # Wait for base image if this executor depends on it
+        echo "⏳ Waiting for base image to be available..."
+        for i in {1..30}; do
+          if aws ecr describe-images --repository-name ${{ matrix.executor.depends_on }} --image-ids imageTag=$IMAGE_TAG >/dev/null 2>&1; then
+            echo "✅ Base image found"
+            break
+          fi
+          echo "Waiting for base image... ($i/30)"
+          sleep 10
+        done
+    
+    - name: Build executor image
+      run: |
+        echo "🔨 Building ${{ matrix.executor.name }}..."
+        
+        # Parse build args
+        BUILD_ARGS=""
+        if [[ -n "${{ matrix.executor.build_args }}" ]]; then
+          # Replace $ECR_REGISTRY and $IMAGE_TAG with actual values
+          BUILD_ARGS=$(echo "${{ matrix.executor.build_args }}" | \
+            sed "s|\$ECR_REGISTRY|$ECR_REGISTRY|g" | \
+            sed "s|\$IMAGE_TAG|$IMAGE_TAG|g")
+        fi
+        
+        docker build \
+          -f ${{ matrix.executor.dockerfile }} \
+          -t $ECR_REGISTRY/${{ matrix.executor.name }}:$IMAGE_TAG \
+          -t $ECR_REGISTRY/${{ matrix.executor.name }}:latest \
+          -t $ECR_REGISTRY/${{ matrix.executor.name }}:stable \
+          --label "org.opencontainers.image.created=$BUILD_DATE" \
+          --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+          --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+          $BUILD_ARGS \
+          .
+    
+    - name: Scan image for vulnerabilities
+      continue-on-error: true
+      run: |
+        echo "🔍 Scanning image for vulnerabilities..."
+        # Using ECR scanning
+        aws ecr put-image-scanning-configuration \
+          --repository-name ${{ matrix.executor.name }} \
+          --image-scanning-configuration scanOnPush=true \
+          2>/dev/null || true
+    
+    - name: Push executor image
+      run: |
+        echo "📤 Pushing ${{ matrix.executor.name }} images..."
+        docker push $ECR_REGISTRY/${{ matrix.executor.name }}:$IMAGE_TAG
+        docker push $ECR_REGISTRY/${{ matrix.executor.name }}:latest
+        docker push $ECR_REGISTRY/${{ matrix.executor.name }}:stable
+    
+    - name: Create image manifest
+      run: |
+        # Create a manifest file with image details
+        cat > /tmp/manifest-${{ matrix.executor.name }}.json << EOF
+        {
+          "name": "${{ matrix.executor.name }}",
+          "tag": "$IMAGE_TAG",
+          "digest": "$(docker inspect --format='{{index .RepoDigests 0}}' $ECR_REGISTRY/${{ matrix.executor.name }}:$IMAGE_TAG | cut -d@ -f2)",
+          "created": "$BUILD_DATE",
+          "git_sha": "$GITHUB_SHA",
+          "git_ref": "$GITHUB_REF",
+          "builder": "$GITHUB_ACTOR"
+        }
+        EOF
+        
+        echo "📋 Image manifest:"
+        cat /tmp/manifest-${{ matrix.executor.name }}.json
+    
+    - name: Upload manifest
+      uses: actions/upload-artifact@v4
+      with:
+        name: manifest-${{ matrix.executor.name }}
+        path: /tmp/manifest-${{ matrix.executor.name }}.json
+        retention-days: 30
+
+  update-configmap:
+    name: Update Executor ConfigMap
+    needs: build-executors
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download manifests
+      uses: actions/download-artifact@v4
+      with:
+        pattern: manifest-*
+        merge-multiple: true
+        path: /tmp/manifests
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Update ConfigMaps
+      run: |
+        # Update kubeconfig
+        aws eks update-kubeconfig --region $AWS_REGION --name crucible-platform
+        
+        # Read all manifests and update ConfigMaps
+        for manifest in /tmp/manifests/manifest-*.json; do
+          EXECUTOR_NAME=$(jq -r .name $manifest)
+          IMAGE_TAG=$(jq -r .tag $manifest)
+          FULL_IMAGE="$ECR_REGISTRY/$EXECUTOR_NAME:$IMAGE_TAG"
+          
+          echo "📝 Updating ConfigMap for $EXECUTOR_NAME -> $FULL_IMAGE"
+          
+          # Update dev environment
+          kubectl patch configmap executor-images -n dev \
+            --type merge \
+            -p '{"data":{"'$EXECUTOR_NAME'":"'$FULL_IMAGE'"}}'
+          
+          # Optionally update other environments
+          # kubectl patch configmap executor-images -n staging ...
+        done
+    
+    - name: Summary
+      run: |
+        echo "## 🎯 Executor Images Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Images Built" >> $GITHUB_STEP_SUMMARY
+        echo "| Executor | Tag | Digest |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-----|--------|" >> $GITHUB_STEP_SUMMARY
+        
+        for manifest in /tmp/manifests/manifest-*.json; do
+          NAME=$(jq -r .name $manifest)
+          TAG=$(jq -r .tag $manifest)
+          DIGEST=$(jq -r .digest $manifest | cut -c1-12)
+          echo "| $NAME | \`$TAG\` | \`$DIGEST...\` |" >> $GITHUB_STEP_SUMMARY
+        done
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ConfigMap Updates" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Dev environment ConfigMap updated" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Note**: These images are used by the dispatcher when creating evaluation jobs." >> $GITHUB_STEP_SUMMARY

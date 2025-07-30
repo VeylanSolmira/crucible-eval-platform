@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gvisor-installer
+  labels:
+    app: gvisor-installer
+spec:
+  selector:
+    matchLabels:
+      app: gvisor-installer
+  template:
+    metadata:
+      labels:
+        app: gvisor-installer
+    spec:
+      # Run on all nodes
+      tolerations:
+      - operator: Exists
+      hostPID: true
+      hostNetwork: true
+      # ServiceAccount with necessary permissions
+      serviceAccountName: gvisor-installer
+      # Init container that installs gVisor and exits
+      initContainers:
+      - name: gvisor-installer
+        image: ubuntu:22.04
+        command: ["/bin/bash", "/scripts/install-gvisor.sh"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+          mountPropagation: Bidirectional
+        - name: installer-script
+          mountPath: /scripts
+        - name: containerd-config
+          mountPath: /config
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      # Minimal pause container that uses almost no resources
+      containers:
+      - name: pause
+        image: gcr.io/google_containers/pause:3.2
+        resources:
+          requests:
+            cpu: "10m"
+            memory: "10Mi"
+          limits:
+            cpu: "10m"
+            memory: "10Mi"
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+          type: Directory
+      - name: installer-script
+        configMap:
+          name: gvisor-installer-script
+          defaultMode: 0755
+      - name: containerd-config
+        configMap:
+          name: containerd-config-with-gvisor
+      # Don't restart completed pods
+      restartPolicy: Always
+      # Schedule to nodes immediately
+      priorityClassName: system-node-critical
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gvisor-installer
+  labels:
+    app: gvisor-installer
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gvisor-installer
+  labels:
+    app: gvisor-installer
+rules:
+# Minimal permissions - mostly just needs to run privileged
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gvisor-installer
+  labels:
+    app: gvisor-installer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gvisor-installer
+subjects:
+- kind: ServiceAccount
+  name: gvisor-installer
+  namespace: kube-system

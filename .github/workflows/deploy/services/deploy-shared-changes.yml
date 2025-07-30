@@ -1,0 +1,65 @@
+name: Deploy Services After Shared Changes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'shared/**'
+      - '!shared/**/*.md'
+      - '!shared/**/*.txt'
+      - '!shared/requirements/**'  # Executor requirements handled separately
+
+jobs:
+  # Deploy all services that depend on shared code
+  deploy-api:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: api-service
+      service_dir: api
+      deployment_name: api-service
+      ecr_repo: api
+      health_check_port: '8080'
+      health_check_path: '/healthz'
+      needs_openapi: true
+      environment: dev
+    secrets: inherit
+
+  deploy-dispatcher:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: dispatcher
+      service_dir: dispatcher_service
+      deployment_name: dispatcher
+      ecr_repo: dispatcher
+      health_check_port: '8090'
+      health_check_path: '/health'
+      needs_openapi: false
+      environment: dev
+    secrets: inherit
+
+  deploy-storage:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: storage-service
+      service_dir: storage_service
+      deployment_name: storage-service
+      ecr_repo: storage-service
+      health_check_port: '8085'
+      health_check_path: '/health'
+      needs_openapi: true
+      environment: dev
+    secrets: inherit
+
+  deploy-celery:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: celery-worker
+      service_dir: celery_worker
+      deployment_name: celery-worker
+      ecr_repo: celery-worker
+      container_name: celery-worker
+      health_check_port: '8000'
+      health_check_path: '/health'
+      needs_openapi: false
+      environment: dev
+    secrets: inherit

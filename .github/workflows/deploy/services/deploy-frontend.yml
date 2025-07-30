@@ -1,0 +1,36 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/deploy-service-template.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+        default: 'dev'
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: frontend
+      service_dir: frontend
+      deployment_name: frontend-deployment
+      ecr_repo: frontend
+      container_name: frontend
+      dockerfile_path: frontend/docker/Dockerfile
+      health_check_port: '3000'
+      health_check_path: '/'
+      needs_openapi: false
+      environment: ${{ github.event.inputs.environment || 'dev' }}
+    secrets: inherit

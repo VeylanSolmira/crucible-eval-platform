@@ -848,3 +848,201 @@
 **Reference**: See [OpenAPI Generation Optimization](../../development/openapi-generation-optimization.md) for detailed analysis and implementation options.
 
 **Rationale**: Currently, any change to the API service triggers a complete frontend rebuild because OpenAPI spec files are regenerated with new timestamps, even when the API contract hasn't changed. This causes unnecessary build time, Docker layer invalidation, and CI/CD pipeline delays. Implementing content-based comparison will significantly improve developer experience and reduce build times.
+
+### 18. Remove Inter-Service Health Checks (HIGH PRIORITY)
+
+#### 18.1 Audit All Services for Health Check Anti-patterns
+- [ ] **API Service** - COMPLETED ✅
+  - [x] Removed background health check loop
+  - [x] Removed service_health tracking dictionary
+  - [x] Updated endpoints to handle failures gracefully
+  - [x] Let Kubernetes manage health via probes
+- [ ] **Storage Service**
+  - [ ] Check for health checks of Redis/Postgres
+  - [ ] Remove any background health monitoring
+  - [ ] Update endpoints to handle database failures gracefully
+- [ ] **Storage Worker**
+  - [ ] Check for health checks of storage service
+  - [ ] Remove pre-flight health checks
+  - [ ] Handle storage service failures at call time
+- [ ] **Dispatcher Service**
+  - [ ] Check for health checks of Kubernetes API
+  - [ ] Remove any service availability checks
+  - [ ] Handle API failures gracefully with retries
+- [ ] **Celery Worker**
+  - [ ] Check for health checks of Redis/storage
+  - [ ] Remove broker health monitoring
+  - [ ] Let Celery handle connection failures
+- [ ] **Frontend**
+  - [ ] Should not proactively check backend health
+  - [ ] Handle API failures gracefully in UI
+
+#### 18.2 Implement Proper Failure Handling Patterns
+- [ ] Replace pre-checking with try/catch patterns
+  ```python
+  # BAD - Pre-checking health
+  if not service_health["storage"]:
+      raise HTTPException(503, "Storage unavailable")
+  
+  # GOOD - Try the call and handle failure
+  try:
+      response = await storage_client.post(...)
+  except httpx.HTTPError as e:
+      logger.error(f"Storage call failed: {e}")
+      # Retry with backoff, circuit break, or return 503
+      raise HTTPException(503, f"Storage error: {str(e)}")
+  ```
+- [ ] Add proper retry logic where appropriate
+  - [ ] Use exponential backoff for transient failures
+  - [ ] Set reasonable timeout values
+  - [ ] Distinguish between retryable and non-retryable errors
+- [ ] Implement circuit breakers for repeated failures
+  - [ ] Prevent cascading failures
+  - [ ] Allow services to recover gracefully
+  - [ ] Return cached or degraded responses when possible
+
+#### 18.3 Update Health Check Endpoints
+- [ ] Ensure each service only reports its OWN health
+  - [ ] `/healthz` - Simple liveness check (can the process respond?)
+  - [ ] `/readyz` - Readiness check (can the service handle requests?)
+  - [ ] `/health` - Detailed health for monitoring (not for K8s probes)
+- [ ] Remove all external dependency checks from health endpoints
+- [ ] Keep health checks fast and lightweight (<1 second)
+
+#### 18.4 Documentation and Monitoring
+- [ ] Document the new health check philosophy
+  - [ ] Each service is responsible only for itself
+  - [ ] Kubernetes manages service dependencies
+  - [ ] Failures are handled at call sites
+- [ ] Update monitoring to track actual failures
+  - [ ] Monitor real request failures, not pre-emptive checks
+  - [ ] Track retry success rates
+  - [ ] Alert on sustained failures, not transient issues
+
+**Background**: The current architecture has services checking the health of their dependencies in background loops. This creates several problems:
+1. **False negatives**: Transient network issues mark services as "unhealthy" even when they're fine
+2. **Circular dependencies**: Services checking each other can create deadlocks
+3. **Additional failure modes**: The health checks themselves become a source of failures
+4. **Fighting Kubernetes**: This pattern works against K8s's built-in health management
+
+**Benefits of Removal**:
+- Services become self-healing automatically
+- No more false positives from network hiccups  
+- Simpler code without background tasks and shared state
+- Better alignment with cloud-native patterns
+- Improved system resilience
+
+**Example**: The API service had a background health check that would timeout in EKS after ~10 seconds, marking storage as unhealthy and causing the entire API to return 503 errors even though storage was actually working fine. Removing this check immediately fixed the issue.
+
+### 19. Service Level Objectives (SLOs) and Monitoring
+
+#### 19.1 Define Core Service SLOs
+- [ ] **API Service SLOs**
+  - [ ] Availability: 99.5% uptime (allows ~3.6 hours downtime/month)
+  - [ ] Latency: 95% of requests < 500ms, 99% < 1s
+  - [ ] Error rate: < 1% 5xx errors
+  - [ ] Health check response time: < 100ms
+- [ ] **Evaluation Execution SLOs**
+  - [ ] Success rate: > 95% for valid submissions
+  - [ ] Time to start: 95% within 30s of submission
+  - [ ] Completion time: 95% within expected timeout + 10%
+  - [ ] Result retrieval: 99% retrievable within 5s of completion
+- [ ] **Storage Service SLOs**
+  - [ ] Availability: 99.9% for reads, 99.5% for writes
+  - [ ] Latency: 95% of reads < 100ms, writes < 200ms
+  - [ ] Data durability: 99.999% (five 9s)
+  - [ ] Large file handling: Support up to 100MB outputs
+
+#### 19.2 Implement SLO Monitoring
+- [ ] Create Prometheus recording rules for SLIs
+  - [ ] Request rate, error rate, duration metrics
+  - [ ] Availability calculations over sliding windows
+  - [ ] Queue depth and processing time percentiles
+- [ ] Build Grafana dashboards for SLO tracking
+  - [ ] Real-time SLO status dashboard
+  - [ ] Historical SLO compliance trends
+  - [ ] Error budget burn rate visualization
+  - [ ] Service dependency mapping
+- [ ] Configure AlertManager for SLO violations
+  - [ ] Alert when error budget consumption accelerates
+  - [ ] Differentiate between warning and critical thresholds
+  - [ ] Route alerts based on severity and service
+
+#### 19.3 Error Budget and Policy
+- [ ] Define error budget policies
+  - [ ] What happens when error budget is exhausted
+  - [ ] How to prioritize reliability work vs features
+  - [ ] Incident response procedures
+- [ ] Create SLO review process
+  - [ ] Monthly SLO compliance review
+  - [ ] Quarterly SLO target adjustment
+  - [ ] Post-incident SLO impact analysis
+
+#### 19.4 Documentation and Communication
+- [ ] Document SLOs in service README files
+- [ ] Create user-facing status page showing SLO compliance
+- [ ] Define internal vs external SLOs
+- [ ] Establish SLO reporting cadence
+
+**Rationale**: SLOs provide objective measures of service reliability and help balance feature development with operational excellence. They enable data-driven decisions about when to focus on reliability vs new features and provide clear expectations for users.
+
+---
+
+### 20. gVisor Security Hardening
+
+#### 20.1 Strict Enforcement
+- [x] **Remove permissive environment variables**
+  - [x] Remove GVISOR_AVAILABLE and REQUIRE_GVISOR
+  - [x] Make gVisor mandatory except for local macOS development
+  - [x] Fail fast if gVisor unavailable (except local)
+
+#### 20.2 Simplified Deployment
+- [x] **Remove node labeling complexity**
+  - [x] Remove nodeSelector from RuntimeClass
+  - [x] DaemonSet installs on all nodes
+  - [x] No manual labeling required
+
+#### 20.3 ConfigMap-based Configuration
+- [x] **Replace brittle awk approach**
+  - [x] Create containerd config ConfigMap
+  - [x] Simple file copy instead of text manipulation
+  - [x] More maintainable and reliable
+
+**Rationale**: High-security platforms require mandatory isolation. Making gVisor required by default (with only local dev exception) ensures production security while maintaining developer productivity.
+
+---
+
+### 21. Deployment Automation (GitHub Actions CD)
+
+#### 21.1 Quick Improvements (Immediate)
+- [ ] **Create single-service deploy script**
+  - [ ] Build specific service with git SHA tag
+  - [ ] Update kustomization.yaml for that service
+  - [ ] Apply changes to cluster
+  - [ ] Document usage in README
+
+#### 21.2 GitHub Actions CD Pipeline
+- [ ] **Create deployment workflow**
+  - [ ] Trigger on merge to main
+  - [ ] Path-based triggers for each service
+  - [ ] Build and push to ECR
+  - [ ] Update image in deployment
+  - [ ] Apply to dev environment
+
+#### 21.3 Deployment Safety
+- [ ] **Add deployment checks**
+  - [ ] Wait for rollout completion
+  - [ ] Basic smoke tests
+  - [ ] Rollback on failure
+  - [ ] Slack/email notifications
+
+#### 21.4 Multi-environment Support
+- [ ] **Environment-specific workflows**
+  - [ ] Dev auto-deploy on merge
+  - [ ] Staging with approval gate
+  - [ ] Production manual trigger
+  - [ ] Environment-specific secrets
+
+**Rationale**: Automating deployments reduces errors and speeds up iteration. GitHub Actions provides good automation without additional infrastructure overhead, making it ideal for our current single-node setup.
+
+**Documentation**: See [Deployment Strategies Guide](../../deployment/deployment-strategies.md) for detailed analysis of options from manual to full GitOps.

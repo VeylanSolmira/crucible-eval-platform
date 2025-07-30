@@ -11,3 +11,5 @@ spec:
         env:
         - name: REGISTRY_PREFIX  
           value: "503132503803.dkr.ecr.us-west-2.amazonaws.com"
+        - name: ENVIRONMENT
+          value: "local"

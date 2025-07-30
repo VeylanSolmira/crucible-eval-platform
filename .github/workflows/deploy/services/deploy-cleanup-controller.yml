@@ -1,0 +1,35 @@
+name: Deploy Cleanup Controller
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cleanup_controller/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-cleanup-controller.yml'
+      - '.github/workflows/deploy-service-template.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+        default: 'dev'
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: cleanup-controller
+      service_dir: cleanup_controller
+      deployment_name: cleanup-controller
+      ecr_repo: cleanup-controller
+      health_check_port: '8000'
+      health_check_path: '/health'
+      needs_openapi: false
+      environment: ${{ github.event.inputs.environment || 'dev' }}
+    secrets: inherit

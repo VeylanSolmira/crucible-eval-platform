@@ -109,7 +109,7 @@ resource "aws_route53_health_check" "crucible" {
   fqdn              = var.domain_name
   port              = 443
   type              = "HTTPS"
-  resource_path     = "/api/status"
+  resource_path     = "/readyz"
   failure_threshold = "3"
   request_interval  = "30"
 

@@ -1,0 +1,35 @@
+name: Deploy API Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-api.yml'
+      - '.github/workflows/deploy-service-template.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+        default: 'dev'
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: api-service
+      service_dir: api
+      deployment_name: api-service
+      ecr_repo: api
+      health_check_port: '8080'
+      health_check_path: '/healthz'
+      needs_openapi: true
+      environment: ${{ github.event.inputs.environment || 'dev' }}
+    secrets: inherit

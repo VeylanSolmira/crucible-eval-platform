@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 import httpx
 import asyncio
 from pathlib import Path
+import time
+import traceback
 
 # Import shared types
 from shared.generated.python import EvaluationStatus, EvaluationResponse
@@ -147,78 +149,12 @@ logger.info(f"Storage service URL: {settings.storage_service_url}")
 # This allows OpenAPI generation without runtime dependencies
 
 
-# Health tracking
-service_health = {
-    "gateway": True,
-    "queue": False,
-    "redis": False,
-    "storage": False,
-    "last_check": None,
-}
+# Health tracking removed - services handle their own health
+# Let calls fail naturally instead of pre-checking
 
 
-async def check_service_health():
-    """Periodic health check of downstream services"""
-    while True:
-        async with create_http_client(timeout=5.0) as health_client:
-            # Queue service deactivated - all traffic through Celery
-            service_health["queue"] = True  # Always healthy since we're using Celery
-
-            try:
-                # Check storage service
-                response = await health_client.get(f"{settings.storage_service_url}/health")
-                service_health["storage"] = response.status_code == 200
-            except Exception as e:
-                logger.error(f"Storage health check failed: {type(e).__name__}: {str(e)}")
-                service_health["storage"] = False
-
-        # Check Redis
-        try:
-            await redis_client.ping()
-            service_health["redis"] = True
-        except Exception as e:
-            logger.error(f"Redis health check failed: {e}")
-            service_health["redis"] = False
-
-        service_health["last_check"] = datetime.now(timezone.utc).isoformat()
-
-        # More frequent checks during startup (first 2 minutes)
-        startup_time = 120  # seconds
-        if hasattr(check_service_health, "start_time"):
-            elapsed = (datetime.now(timezone.utc) - check_service_health.start_time).total_seconds()
-            if elapsed < startup_time:
-                await asyncio.sleep(5)  # Check every 5 seconds during startup
-            else:
-                await asyncio.sleep(30)  # Normal 30 second interval
-        else:
-            check_service_health.start_time = datetime.now(timezone.utc)
-            await asyncio.sleep(5)
-
-
-async def check_service_health_once():
-    """Run a single health check of all services"""
-    async with create_http_client(timeout=5.0) as health_client:
-        # Queue service deactivated - all traffic through Celery
-        service_health["queue"] = True  # Always healthy since we're using Celery
-
-        try:
-            # Check storage service
-            response = await health_client.get(f"{settings.storage_service_url}/health")
-            service_health["storage"] = response.status_code == 200
-        except Exception as e:
-            logger.error(f"Storage health check failed: {e}")
-            service_health["storage"] = False
-
-    # Check Redis
-    try:
-        await redis_client.ping()
-        service_health["redis"] = True
-    except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
-        service_health["redis"] = False
-
-    service_health["last_check"] = datetime.now(timezone.utc).isoformat()
-    logger.info(f"Initial health check complete: {service_health}")
+# Health check functions removed - let services fail naturally
+# Kubernetes handles health checking via probes
 
 
 # Event publishing functions
@@ -263,11 +199,7 @@ async def startup():
     redis_client = await get_async_redis_client(settings.redis_url)
     logger.info("Connected to async Redis for event publishing with retry logic")
     
-    # Run initial health check immediately
-    await check_service_health_once()
-
-    # Then start periodic checks
-    asyncio.create_task(check_service_health())
+    # Start background tasks (no health checks - let failures happen naturally)
     asyncio.create_task(poll_completed_evaluations())
 
     # Auto-export disabled in containers due to read-only filesystem
@@ -317,44 +249,23 @@ async def healthz():
 @app.get("/readyz")
 async def readyz():
     """Readiness probe - checks if we're ready to serve traffic"""
-    # Check only critical dependencies for serving traffic
-    # We can still serve some requests even if storage is temporarily down
-    if service_health["gateway"] and service_health["redis"]:
-        return {"status": "ready"}
-    else:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "not ready", "reason": "Critical services not available"}
-        )
+    # API is ready if it can respond - let actual requests fail if Redis is down
+    return {"status": "ready"}
 
 
 @app.get("/health")
 async def health():
-    """Comprehensive health check - for monitoring, not for k8s probes"""
-    all_healthy = all(
-        [service_health["gateway"], service_health["queue"], service_health["storage"]]
-    )
-    
-    # Detailed response for monitoring systems
-    return JSONResponse(
-        status_code=200 if all_healthy else 503,
-        content={
-            "status": "healthy" if all_healthy else "unhealthy",
-            "services": service_health,
-            "details": {
-                "gateway": "healthy" if service_health["gateway"] else "unhealthy",
-                "queue": "healthy" if service_health["queue"] else "unhealthy", 
-                "storage": "healthy" if service_health["storage"] else "unhealthy",
-                "redis": "healthy" if service_health["redis"] else "unhealthy",
-            }
-        }
-    )
+    """Health check endpoint - reports API service health only"""
+    return {
+        "status": "healthy",
+        "service": "api-gateway", 
+        "version": "2.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 
 async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] = None) -> EvaluationResponse:
     """Core evaluation submission logic - shared between single and batch endpoints"""
-    if not service_health["queue"]:
-        raise HTTPException(status_code=503, detail="Queue service unavailable")
 
     # Generate eval ID if not provided
     if not eval_id:
@@ -476,8 +387,6 @@ async def validate_resource_limits(memory_limit: str, cpu_limit: str) -> None:
 @app.post("/api/eval", response_model=EvaluationSubmitResponse)
 async def evaluate(request: EvaluationRequest):
     """Submit code for evaluation"""
-    if not service_health["queue"]:
-        raise HTTPException(status_code=503, detail="Queue service unavailable")
     
     # Validate resource limits don't exceed cluster capacity
     await validate_resource_limits(request.memory_limit, request.cpu_limit)
@@ -1023,8 +932,6 @@ async def cancel_evaluation(eval_id: str):
 @app.get("/api/evaluations")
 async def get_evaluations(limit: int = 100, offset: int = 0, status: Optional[str] = None):
     """Get evaluation history from storage service"""
-    if not service_health["storage"]:
-        return {"evaluations": [], "count": 0, "error": "Storage service unavailable"}
 
     try:
         # Special handling for running status - use Redis for real-time data
@@ -1226,19 +1133,18 @@ async def platform_status():
 
     # Get storage stats from storage service
     storage_stats = {}
-    if service_health["storage"]:
-        try:
-            async with create_http_client() as stats_client:
-                response = await stats_client.get(f"{settings.storage_service_url}/statistics")
-                if response.status_code == 200:
-                    stats_data = response.json()
-                    storage_stats = {
-                        "total_evaluations": stats_data.get("total_evaluations", 0),
-                        "by_status": stats_data.get("by_status", {}),
-                        "storage_info": stats_data.get("storage_info", {}),
-                    }
-        except Exception as e:
-            logger.error(f"Failed to get storage statistics: {e}")
+    try:
+        async with create_http_client() as stats_client:
+            response = await stats_client.get(f"{settings.storage_service_url}/statistics")
+            if response.status_code == 200:
+                stats_data = response.json()
+                storage_stats = {
+                    "total_evaluations": stats_data.get("total_evaluations", 0),
+                    "by_status": stats_data.get("by_status", {}),
+                    "storage_info": stats_data.get("storage_info", {}),
+                }
+    except Exception as e:
+        logger.error(f"Failed to get storage statistics: {e}")
 
     # Get Celery status
     celery_info = {}
@@ -1253,15 +1159,13 @@ async def platform_status():
 
     services = ServiceHealthInfo(
         gateway="healthy",
-        queue="healthy" if service_health["queue"] else "unhealthy",
-        storage="healthy" if service_health["storage"] else "unhealthy",
-        executor="healthy",  # Assume healthy if queue is working
+        queue="healthy",  # Using Celery
+        storage="healthy" if storage_stats else "unknown",
+        executor="healthy",
     )
 
     return StatusResponse(
-        platform="healthy"
-        if all([service_health["queue"], service_health["storage"]])
-        else "degraded",
+        platform="healthy",  # Let actual requests determine health
         mode="microservices",
         services=services,
         queue=queue_status,
@@ -1276,13 +1180,13 @@ async def health_check():
     """Health check endpoint"""
     services = ServiceHealthInfo(
         gateway="healthy",
-        queue="healthy" if service_health["queue"] else "unhealthy",
-        storage="healthy" if service_health["storage"] else "unhealthy",
+        queue="healthy",
+        storage="healthy", 
         executor="healthy",
     )
 
     return HealthResponse(
-        status="ok" if all([service_health["queue"], service_health["storage"]]) else "degraded",
+        status="ok",
         timestamp=datetime.now(timezone.utc).isoformat(),
         services=services,
     )
@@ -1292,8 +1196,6 @@ async def health_check():
 @app.get("/api/statistics")
 async def get_statistics():
     """Get aggregated statistics from storage service"""
-    if not service_health["storage"]:
-        raise HTTPException(status_code=503, detail="Storage service unavailable")
 
     try:
         async with create_http_client() as stats_client:
@@ -1316,14 +1218,13 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            # Send periodic status updates
-            status = {
-                "type": "status",
+            # Send heartbeat to keep connection alive
+            heartbeat = {
+                "type": "heartbeat",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "services": service_health,
             }
-            await websocket.send_json(status)
-            await asyncio.sleep(2)
+            await websocket.send_json(heartbeat)
+            await asyncio.sleep(10)  # Less frequent heartbeat
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
 

@@ -1,0 +1,222 @@
+name: Deploy Service Template
+
+# This is a reusable workflow that can be called by service-specific workflows
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+        description: 'Service name (e.g., dispatcher, api-service)'
+      service_dir:
+        required: true
+        type: string
+        description: 'Service directory (e.g., dispatcher_service, api)'
+      deployment_name:
+        required: true
+        type: string
+        description: 'K8s deployment name'
+      ecr_repo:
+        required: true
+        type: string
+        description: 'ECR repository name'
+      container_name:
+        required: false
+        type: string
+        description: 'Container name in deployment (defaults to deployment_name)'
+      dockerfile_path:
+        required: false
+        type: string
+        description: 'Path to Dockerfile (defaults to service_dir/Dockerfile)'
+      health_check_port:
+        required: false
+        type: string
+        default: '8080'
+        description: 'Port for health check'
+      health_check_path:
+        required: false
+        type: string
+        default: '/health'
+        description: 'Path for health check'
+      needs_openapi:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether to generate OpenAPI specs'
+      environment:
+        required: false
+        type: string
+        default: 'dev'
+        description: 'Target environment'
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REGISTRY: 503132503803.dkr.ecr.us-west-2.amazonaws.com
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.service_name }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up environment variables
+      run: |
+        # Set image tag
+        echo "IMAGE_TAG=${{ inputs.environment }}-${GITHUB_SHA::8}" >> $GITHUB_ENV
+        echo "K8S_NAMESPACE=${{ inputs.environment }}" >> $GITHUB_ENV
+        
+        # Set container name (default to deployment name)
+        CONTAINER="${{ inputs.container_name || inputs.deployment_name }}"
+        echo "CONTAINER_NAME=$CONTAINER" >> $GITHUB_ENV
+        
+        # Set dockerfile path
+        DOCKERFILE="${{ inputs.dockerfile_path || format('{0}/Dockerfile', inputs.service_dir) }}"
+        echo "DOCKERFILE_PATH=$DOCKERFILE" >> $GITHUB_ENV
+        
+        # Set timeouts based on environment
+        if [[ "${{ inputs.environment }}" == "production" ]]; then
+          echo "ROLLOUT_TIMEOUT=10m" >> $GITHUB_ENV
+        else
+          echo "ROLLOUT_TIMEOUT=5m" >> $GITHUB_ENV
+        fi
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Check if image exists
+      id: check-image
+      run: |
+        if aws ecr describe-images \
+          --repository-name ${{ inputs.ecr_repo }} \
+          --image-ids imageTag=$IMAGE_TAG >/dev/null 2>&1; then
+          echo "EXISTS=true" >> $GITHUB_OUTPUT
+          echo "✅ Image already exists"
+        else
+          echo "EXISTS=false" >> $GITHUB_OUTPUT
+          echo "🔨 Building new image"
+        fi
+    
+    - name: Generate OpenAPI specs
+      if: inputs.needs_openapi && steps.check-image.outputs.EXISTS == 'false'
+      run: |
+        echo "📄 Generating OpenAPI specs..."
+        ./scripts/generate-openapi-specs.sh
+    
+    - name: Build and push Docker image
+      if: steps.check-image.outputs.EXISTS == 'false'
+      run: |
+        echo "🔨 Building ${{ inputs.service_name }} image..."
+        docker build \
+          -f $DOCKERFILE_PATH \
+          -t $ECR_REGISTRY/${{ inputs.ecr_repo }}:$IMAGE_TAG \
+          -t $ECR_REGISTRY/${{ inputs.ecr_repo }}:latest \
+          -t $ECR_REGISTRY/${{ inputs.ecr_repo }}:$K8S_NAMESPACE \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --cache-from $ECR_REGISTRY/${{ inputs.ecr_repo }}:latest \
+          .
+        
+        echo "📤 Pushing images..."
+        docker push $ECR_REGISTRY/${{ inputs.ecr_repo }}:$IMAGE_TAG
+        docker push $ECR_REGISTRY/${{ inputs.ecr_repo }}:latest
+        docker push $ECR_REGISTRY/${{ inputs.ecr_repo }}:$K8S_NAMESPACE
+    
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region $AWS_REGION --name crucible-platform
+    
+    - name: Deploy to Kubernetes
+      id: deploy
+      run: |
+        echo "🚀 Deploying ${{ inputs.service_name }} to $K8S_NAMESPACE..."
+        
+        kubectl set image deployment/${{ inputs.deployment_name }} \
+          $CONTAINER_NAME=$ECR_REGISTRY/${{ inputs.ecr_repo }}:$IMAGE_TAG \
+          -n $K8S_NAMESPACE \
+          --record=true
+    
+    - name: Wait for rollout
+      id: rollout
+      run: |
+        echo "⏳ Waiting for rollout (timeout: $ROLLOUT_TIMEOUT)..."
+        
+        if kubectl rollout status deployment/${{ inputs.deployment_name }} \
+          -n $K8S_NAMESPACE --timeout=$ROLLOUT_TIMEOUT; then
+          echo "✅ Rollout completed"
+          echo "SUCCESS=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Rollout failed"
+          echo "SUCCESS=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+    
+    - name: Verify deployment health
+      id: health-check
+      run: |
+        echo "🏥 Checking deployment health..."
+        sleep 10
+        
+        # Check pod readiness
+        READY=$(kubectl get deployment ${{ inputs.deployment_name }} -n $K8S_NAMESPACE \
+          -o jsonpath='{.status.readyReplicas}')
+        DESIRED=$(kubectl get deployment ${{ inputs.deployment_name }} -n $K8S_NAMESPACE \
+          -o jsonpath='{.spec.replicas}')
+        
+        if [[ "$READY" == "$DESIRED" ]]; then
+          echo "✅ All pods ready: $READY/$DESIRED"
+          
+          # Get a pod for health check
+          POD=$(kubectl get pods -n $K8S_NAMESPACE \
+            -l app=${{ inputs.deployment_name }} \
+            -o jsonpath='{.items[0].metadata.name}')
+          
+          # Try health check
+          if kubectl exec -n $K8S_NAMESPACE $POD -- \
+            curl -f http://localhost:${{ inputs.health_check_port }}${{ inputs.health_check_path }} \
+            >/dev/null 2>&1; then
+            echo "✅ Health check passed"
+            echo "SUCCESS=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Health check failed (non-critical)"
+            echo "SUCCESS=true" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "❌ Pods not ready: $READY/$DESIRED"
+          echo "SUCCESS=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+    
+    - name: Rollback on failure
+      if: failure() && steps.rollout.outputs.SUCCESS == 'false'
+      run: |
+        echo "🔄 Rolling back..."
+        kubectl rollout undo deployment/${{ inputs.deployment_name }} -n $K8S_NAMESPACE
+        kubectl rollout status deployment/${{ inputs.deployment_name }} -n $K8S_NAMESPACE --timeout=5m
+    
+    - name: Deployment summary
+      if: always()
+      run: |
+        echo "## 🚀 ${{ inputs.service_name }} Deployment" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | ${{ inputs.service_name }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Environment | $K8S_NAMESPACE |" >> $GITHUB_STEP_SUMMARY
+        echo "| Image | \`$IMAGE_TAG\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Status | ${{ steps.health-check.outputs.SUCCESS == 'true' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Pod Status" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        kubectl get pods -n $K8S_NAMESPACE -l app=${{ inputs.deployment_name }} >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY

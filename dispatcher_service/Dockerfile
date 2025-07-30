@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Build argument that can be passed from .env file or build script
+ARG ECR_REGISTRY=""
+
 WORKDIR /app
 
 # Install dependencies
@@ -18,6 +21,10 @@ RUN useradd -m -u 1000 dispatcher && \
     chown -R dispatcher:dispatcher /app
 
 USER dispatcher
+
+# Convert build arg to runtime env (defaults to empty string if not provided)
+# Python code expects REGISTRY_PREFIX, so we map ECR_REGISTRY to it
+ENV REGISTRY_PREFIX=${ECR_REGISTRY}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

@@ -1,0 +1,10 @@
+# RuntimeClass for gVisor
+# This tells Kubernetes how to use the runsc runtime
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+handler: runsc
+scheduling:
+  nodeSelector:
+    runtime.gvisor: "available"

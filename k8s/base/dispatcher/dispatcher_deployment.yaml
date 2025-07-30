@@ -112,10 +112,10 @@ rules:
   resources: ["namespaces"]
   verbs: ["get"]
 # Read ConfigMaps for executor images
-# - apiGroups: [""]
-#   resources: ["configmaps"]
-#   resourceNames: ["executor-images"]
-#   verbs: ["get"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["executor-images"]
+  verbs: ["get"]
 ---
 # Bind role to service account
 apiVersion: rbac.authorization.k8s.io/v1

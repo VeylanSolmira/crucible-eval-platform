@@ -1,0 +1,13 @@
+# Set ECR registry prefix for dev environment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        env:
+        - name: REGISTRY_PREFIX
+          value: "503132503803.dkr.ecr.us-west-2.amazonaws.com"

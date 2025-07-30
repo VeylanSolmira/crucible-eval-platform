@@ -64,6 +64,7 @@ services:
       dockerfile: dispatcher_service/Dockerfile
       args:
         BASE_IMAGE: 503132503803.dkr.ecr.us-west-2.amazonaws.com/base:${TAG:-latest}
+        ECR_REGISTRY: ${ECR_REGISTRY:-503132503803.dkr.ecr.us-west-2.amazonaws.com}
     image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/dispatcher:${TAG:-latest}
     depends_on:
       - base

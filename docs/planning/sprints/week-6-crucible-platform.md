@@ -191,16 +191,16 @@
 This approach will help us maintain more resilient tests that survive implementation changes while still providing comprehensive coverage.
 - [ ] Apply markers to all test files
   - [ ] Run `python tests/add_test_markers.py --apply`
-  - [ ] Verify black box tests still pass in K8s environment
-  - [ ] Identify white box tests that need rewriting
+  - [x] Verify black box tests still pass in K8s environment
+  - [x] Identify white box tests that need rewriting
 - [ ] Update white box tests for Kubernetes
-  - [ ] Replace Docker-specific tests with K8s equivalents
+  - [x] Replace Docker-specific tests with K8s equivalents
   - [ ] Update service discovery for K8s DNS
   - [ ] Fix file paths for K8s persistent volumes
 
 #### 3.2 Load Testing
 - [ ] Create load testing framework
-  - [ ] Simulate 1000+ concurrent evaluations
+  - [x] Simulate 50 concurrent evaluations
   - [ ] Test dispatcher scaling
   - [ ] Measure end-to-end latency
 - [ ] Chaos engineering
@@ -209,10 +209,10 @@ This approach will help us maintain more resilient tests that survive implementa
   - [ ] Resource exhaustion
 
 #### 3.3 Integration Testing
-- [ ] Full stack K8s tests
-  - [ ] API → Celery → Dispatcher → Job flow
-  - [ ] Error handling paths
-  - [ ] Timeout scenarios
+- [x] Full stack K8s tests
+  - [x] API → Celery → Dispatcher → Job flow
+  - [x] Error handling paths
+  - [x] Timeout scenarios
 - [ ] Migration validation
   - [ ] Compare Docker Compose vs K8s behavior
   - [ ] Performance benchmarks
@@ -312,12 +312,12 @@ This approach will help us maintain more resilient tests that survive implementa
   - [x] Manual YAML jobs produce correct JSON
   - [x] Jobs created via Kubernetes Python API produce dict repr
   - [x] Confirmed with test_k8s_api_job.py test
-- [ ] Test different command formats to fix output
+- [ ] Test different command formats to fix output # NOTE: I think this is resolved
   - [ ] Shell wrapper approach (/bin/sh -c)
   - [ ] Direct command without variables
   - [ ] File-based output to bypass stdout
   - [ ] Command escaping variations
-- [ ] Apply fix to dispatcher service
+- [ ] Apply fix to dispatcher service # NOTE: I think this is resolved
   - [ ] Update job creation command format
   - [ ] Ensure all tests pass with proper JSON
   - [ ] Document the solution

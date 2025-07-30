@@ -37,7 +37,7 @@ resources:
   - security/network-policies-basic.yaml  # Essential evaluation pod isolation
   
   # Security
-  - gvisor-runtimeclass.yaml
+  - gvisor/
   - priority-classes.yaml
   
   # Resource management

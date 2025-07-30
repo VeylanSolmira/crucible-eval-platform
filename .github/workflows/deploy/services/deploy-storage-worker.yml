@@ -1,0 +1,35 @@
+name: Deploy Storage Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'storage_worker/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-storage-worker.yml'
+      - '.github/workflows/deploy-service-template.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+        default: 'dev'
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: storage-worker
+      service_dir: storage_worker
+      deployment_name: storage-worker
+      ecr_repo: storage-worker
+      health_check_port: '8000'
+      health_check_path: '/health'
+      needs_openapi: false
+      environment: ${{ github.event.inputs.environment || 'dev' }}
+    secrets: inherit

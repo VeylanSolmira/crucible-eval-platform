@@ -1,0 +1,15 @@
+# Temporary patch to disable gVisor requirement while waiting for gVisor node
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        env:
+        - name: GVISOR_AVAILABLE
+          value: "false"
+        - name: REQUIRE_GVISOR
+          value: "false"

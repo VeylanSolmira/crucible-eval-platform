@@ -165,6 +165,90 @@ resource "aws_eks_node_group" "main" {
   ]
 }
 
+# Note: gVisor runtime is now installed via DaemonSet on all nodes
+# See k8s/base/gvisor/ for the DaemonSet configuration
+# Custom AMI approach documented in docs/deployment/gvisor-eks-analysis.md
+
+# COMMENTED OUT: gVisor node group for testing systemd approach
+# Keeping for reference while we test the DaemonSet approach
+/*
+# Launch template for standard EKS nodes (gVisor will be installed via DaemonSet)
+resource "aws_launch_template" "gvisor" {
+  name_prefix = "${var.project_name}-gvisor-"
+  
+  # Note: Using standard EKS AMI - gVisor will be installed via DaemonSet
+  # Custom AMI approach documented in docs/deployment/gvisor-eks-analysis.md
+  
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    
+    ebs {
+      volume_size = 30
+      volume_type = "gp3"
+      delete_on_termination = true
+    }
+  }
+  
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(local.common_tags, {
+      Name    = "${var.project_name}-gvisor-node"
+      Purpose = "EKS node with gVisor runtime"
+    })
+  }
+}
+
+# Node Group with gVisor support using AL2
+resource "aws_eks_node_group" "gvisor" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${var.project_name}-gvisor"
+  node_role_arn   = aws_iam_role.eks_nodes.arn
+
+  # Use private subnets for nodes
+  subnet_ids = [for s in aws_subnet.private : s.id]
+
+  # Single large instance
+  scaling_config {
+    desired_size = 1
+    max_size     = 2
+    min_size     = 1
+  }
+
+  instance_types = ["t3.large"]
+  
+  # Use standard EKS AMI - gVisor will be installed via DaemonSet
+  ami_type = "AL2_x86_64"
+
+  # Use launch template for gVisor installation
+  launch_template {
+    id      = aws_launch_template.gvisor.id
+    version = "$Latest"
+  }
+  
+  # Add labels to nodes
+  labels = {
+    "runtime.gvisor" = "available"
+  }
+
+  tags = merge(local.common_tags, {
+    Name    = "${var.project_name}-gvisor-nodes"
+    Purpose = "EKS worker nodes with gVisor runtime"
+    Runtime = "gvisor"
+  })
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_worker_node_policy,
+    aws_iam_role_policy_attachment.eks_cni_policy,
+    aws_iam_role_policy_attachment.eks_container_registry_policy,
+    aws_launch_template.gvisor,
+  ]
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+*/
+
 # OIDC Provider for IRSA (IAM Roles for Service Accounts)
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer

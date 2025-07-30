@@ -1,0 +1,35 @@
+name: Deploy Dispatcher
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dispatcher_service/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-dispatcher.yml'
+      - '.github/workflows/deploy-service-template.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+        default: 'dev'
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-service-template.yml
+    with:
+      service_name: dispatcher
+      service_dir: dispatcher_service
+      deployment_name: dispatcher
+      ecr_repo: dispatcher
+      health_check_port: '8090'
+      health_check_path: '/health'
+      needs_openapi: false
+      environment: ${{ github.event.inputs.environment || 'dev' }}
+    secrets: inherit

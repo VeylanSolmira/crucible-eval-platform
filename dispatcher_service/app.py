@@ -43,10 +43,7 @@ JOB_CLEANUP_TTL = int(os.getenv("JOB_CLEANUP_TTL", "300"))  # 5 minutes
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 
 # Security configuration
-REQUIRE_GVISOR = os.getenv("REQUIRE_GVISOR", "false").lower() == "true"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-# Explicit gVisor availability for development environments
-GVISOR_AVAILABLE = os.getenv("GVISOR_AVAILABLE", "true").lower() == "true"
 
 # Feature flags
 ENABLE_EVENT_MONITORING = os.getenv("ENABLE_EVENT_MONITORING", "true").lower() == "true"
@@ -461,16 +458,13 @@ def check_gvisor_availability():
     if gvisor_runtime_available is not None:
         return gvisor_runtime_available
     
-    # In development, use the explicit environment variable
-    if ENVIRONMENT == "development":
-        gvisor_runtime_available = GVISOR_AVAILABLE
-        if GVISOR_AVAILABLE:
-            logger.info("gVisor enabled via GVISOR_AVAILABLE environment variable")
-        else:
-            logger.info("gVisor disabled via GVISOR_AVAILABLE environment variable")
+    # Only allow bypassing gVisor check for local development on macOS
+    if ENVIRONMENT == "local" and HOST_OS == "darwin":
+        gvisor_runtime_available = False
+        logger.info("gVisor disabled for local development on macOS")
         return gvisor_runtime_available
     
-    # In production, always check if RuntimeClass actually exists
+    # For all other environments (including dev on EKS), check if RuntimeClass exists
     try:
         # Check if gvisor RuntimeClass exists
         node_v1.read_runtime_class("gvisor")
@@ -480,10 +474,9 @@ def check_gvisor_availability():
     except ApiException as e:
         if e.status == 404:
             gvisor_runtime_available = False
-            # In production, this is a critical error
             logger.error(
-                "gVisor RuntimeClass not found in production! "
-                "Production deployments MUST have gVisor installed."
+                f"gVisor RuntimeClass not found in {ENVIRONMENT} environment! "
+                "All non-local deployments MUST have gVisor installed for security."
             )
             return False
         else:
@@ -502,7 +495,6 @@ async def root():
         "version": "1.0.0",
         "gvisor_available": gvisor_runtime_available,
         "environment": ENVIRONMENT,
-        "require_gvisor": REQUIRE_GVISOR,
         "description": "Creates and manages Kubernetes Jobs for code evaluation",
         "endpoints": {
             "execute": "/execute",
@@ -672,26 +664,19 @@ async def execute(request: ExecuteRequest):
     # Check gVisor availability and requirements
     use_gvisor = check_gvisor_availability()
     
-    # In production, gVisor is mandatory for security
-    if ENVIRONMENT == "production" and not use_gvisor:
+    # gVisor is mandatory except for local macOS development
+    if not use_gvisor and not (ENVIRONMENT == "local" and HOST_OS == "darwin"):
         raise HTTPException(
             status_code=503,
-            detail="gVisor runtime is required in production but not available. "
+            detail=f"gVisor runtime is required but not available in {ENVIRONMENT} environment. "
                    "Cannot execute evaluations without proper isolation."
         )
     
-    # If explicitly required via env var, enforce it
-    if REQUIRE_GVISOR and not use_gvisor:
-        raise HTTPException(
-            status_code=503,
-            detail="gVisor runtime is required (REQUIRE_GVISOR=true) but not available."
-        )
-    
-    # Log warning in development without gVisor
-    if ENVIRONMENT == "development" and not use_gvisor:
-        logger.warning(
-            "Running without gVisor in development. "
-            "Network isolation relies on NetworkPolicies only."
+    # Log info for local macOS development
+    if ENVIRONMENT == "local" and HOST_OS == "darwin" and not use_gvisor:
+        logger.info(
+            "Running without gVisor on local macOS. "
+            "This is only acceptable for local development."
         )
     
     # Generate job name using shared utility
@@ -795,8 +780,8 @@ async def execute(request: ExecuteRequest):
                     ),
                     # Reduce grace period so timeouts are enforced quickly
                     termination_grace_period_seconds=1,
-                    # Pull secret for ECR images
-                    image_pull_secrets=[client.V1LocalObjectReference(name="ecr-secret")] if REGISTRY_PREFIX else None,
+                    # EKS nodes have ECR permissions via IAM role, no pull secret needed
+                    image_pull_secrets=None,
                     # Security context for pod
                     security_context=client.V1PodSecurityContext(
                         run_as_non_root=True,

@@ -72,6 +72,10 @@ rules:
 - apiGroups: [""]
   resources: ["events"]
   verbs: ["create", "patch", "update"]
+# Read resource quotas for capacity checking
+- apiGroups: [""]
+  resources: ["resourcequotas"]
+  verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

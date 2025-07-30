@@ -1,0 +1,15 @@
+# Set default image tag for dev environment
+# TODO: This should be dynamically set based on deployment version
+# For now using fixed "dev" tag to match other services
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatcher
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        env:
+        - name: DEFAULT_IMAGE_TAG
+          value: "dev"

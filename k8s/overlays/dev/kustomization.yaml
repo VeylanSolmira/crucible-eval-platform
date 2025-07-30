@@ -22,6 +22,17 @@ patches:
 - path: memory-optimization-patch.yaml
 # Resource optimizations
 - path: resource-optimization-patches.yaml
+# gVisor is now installed, so we've removed the gvisor-disabled-patch.yaml
+# Set ECR registry prefix
+- path: registry-prefix-patch.yaml
+  target:
+    kind: Deployment
+    name: dispatcher
+# Set default tag for executor images
+- path: default-tag-patch.yaml
+  target:
+    kind: Deployment
+    name: dispatcher
 
 
 # Dev-specific config
@@ -37,7 +48,7 @@ configMapGenerator:
 images:
 - name: crucible-platform/api-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/api
-  newTag: ab03124
+  newTag: readyz-fix
 - name: crucible-platform/storage-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-service
   newTag: dev
@@ -49,7 +60,7 @@ images:
   newTag: dev
 - name: crucible-platform/dispatcher-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/dispatcher
-  newTag: dev
+  newTag: dispatcher-service
 - name: crucible-platform/frontend
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/frontend
   newTag: dev

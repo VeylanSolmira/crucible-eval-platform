@@ -1,0 +1,195 @@
+name: Build Executor Template
+
+# Reusable workflow for building executor (evaluation environment) images
+on:
+  workflow_call:
+    inputs:
+      executor_name:
+        required: true
+        type: string
+        description: 'Executor name (e.g., executor-ml, executor-python)'
+      dockerfile_path:
+        required: true
+        type: string
+        description: 'Path to Dockerfile'
+      base_image:
+        required: false
+        type: string
+        description: 'Base image for multi-stage builds'
+      build_context:
+        required: false
+        type: string
+        default: '.'
+        description: 'Docker build context'
+      additional_tags:
+        required: false
+        type: string
+        description: 'Additional tags (comma-separated)'
+      update_configmap:
+        required: false
+        type: boolean
+        default: true
+        description: 'Update executor ConfigMap after build'
+      scan_image:
+        required: false
+        type: boolean
+        default: true
+        description: 'Run security scan on built image'
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REGISTRY: 503132503803.dkr.ecr.us-west-2.amazonaws.com
+
+jobs:
+  build:
+    name: Build ${{ inputs.executor_name }}
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.tags.outputs.primary }}
+      image_digest: ${{ steps.push.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up tags
+      id: tags
+      run: |
+        # Primary tag is git SHA
+        PRIMARY_TAG="${GITHUB_SHA::8}"
+        echo "primary=$PRIMARY_TAG" >> $GITHUB_OUTPUT
+        
+        # Build tag list
+        TAGS="$ECR_REGISTRY/${{ inputs.executor_name }}:$PRIMARY_TAG"
+        TAGS="$TAGS,$ECR_REGISTRY/${{ inputs.executor_name }}:latest"
+        
+        # Add branch name tag
+        if [[ "$GITHUB_REF" == refs/heads/* ]]; then
+          BRANCH_TAG=$(echo ${GITHUB_REF#refs/heads/} | sed 's/[^a-zA-Z0-9]/-/g')
+          TAGS="$TAGS,$ECR_REGISTRY/${{ inputs.executor_name }}:$BRANCH_TAG"
+        fi
+        
+        # Add custom tags
+        if [[ -n "${{ inputs.additional_tags }}" ]]; then
+          IFS=',' read -ra CUSTOM_TAGS <<< "${{ inputs.additional_tags }}"
+          for tag in "${CUSTOM_TAGS[@]}"; do
+            TAGS="$TAGS,$ECR_REGISTRY/${{ inputs.executor_name }}:$tag"
+          done
+        fi
+        
+        echo "tags=$TAGS" >> $GITHUB_OUTPUT
+        echo "📌 Tags to build: $TAGS"
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: network=host
+    
+    - name: Build and push image
+      id: push
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.build_context }}
+        file: ${{ inputs.dockerfile_path }}
+        push: true
+        tags: ${{ steps.tags.outputs.tags }}
+        cache-from: type=registry,ref=$ECR_REGISTRY/${{ inputs.executor_name }}:buildcache
+        cache-to: type=registry,ref=$ECR_REGISTRY/${{ inputs.executor_name }}:buildcache,mode=max
+        build-args: |
+          BASE_IMAGE=${{ inputs.base_image }}
+          BUILD_DATE=${{ env.BUILD_DATE }}
+          VCS_REF=${{ github.sha }}
+        labels: |
+          org.opencontainers.image.created=${{ env.BUILD_DATE }}
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+    
+    - name: Security scan
+      if: inputs.scan_image
+      continue-on-error: true
+      run: |
+        echo "🔍 Initiating ECR security scan..."
+        aws ecr start-image-scan \
+          --repository-name ${{ inputs.executor_name }} \
+          --image-id imageTag=${{ steps.tags.outputs.primary }} \
+          || echo "⚠️  Scan initiation failed (non-critical)"
+    
+    - name: Create manifest artifact
+      run: |
+        cat > /tmp/manifest.json << EOF
+        {
+          "executor": "${{ inputs.executor_name }}",
+          "tag": "${{ steps.tags.outputs.primary }}",
+          "digest": "${{ steps.push.outputs.digest }}",
+          "tags": "${{ steps.tags.outputs.tags }}",
+          "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+          "git_sha": "${{ github.sha }}",
+          "git_ref": "${{ github.ref }}",
+          "builder": "${{ github.actor }}"
+        }
+        EOF
+        
+        echo "📋 Build manifest:"
+        jq . /tmp/manifest.json
+    
+    - name: Upload manifest
+      uses: actions/upload-artifact@v4
+      with:
+        name: manifest-${{ inputs.executor_name }}
+        path: /tmp/manifest.json
+        retention-days: 7
+
+  update-config:
+    name: Update ConfigMap
+    needs: build
+    if: inputs.update_configmap
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Update executor ConfigMap
+      env:
+        EXECUTOR_NAME: ${{ inputs.executor_name }}
+        IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+      run: |
+        # Update kubeconfig
+        aws eks update-kubeconfig --region $AWS_REGION --name crucible-platform
+        
+        # Update ConfigMap in each environment
+        for ENV in dev staging; do
+          if kubectl get configmap executor-images -n $ENV >/dev/null 2>&1; then
+            echo "📝 Updating $ENV ConfigMap: $EXECUTOR_NAME -> $ECR_REGISTRY/$EXECUTOR_NAME:$IMAGE_TAG"
+            
+            kubectl patch configmap executor-images -n $ENV \
+              --type merge \
+              -p '{"data":{"'$EXECUTOR_NAME'":"'$ECR_REGISTRY/$EXECUTOR_NAME:$IMAGE_TAG'"}}'
+          fi
+        done
+    
+    - name: Summary
+      run: |
+        echo "## ✅ Executor Build Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Executor**: ${{ inputs.executor_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Tag**: \`${{ needs.build.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Digest**: \`${{ needs.build.outputs.image_digest }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ inputs.update_configmap }}" == "true" ]]; then
+          echo "✅ ConfigMaps updated in dev/staging" >> $GITHUB_STEP_SUMMARY
+        fi
