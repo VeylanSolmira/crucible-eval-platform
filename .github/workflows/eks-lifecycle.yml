@@ -147,7 +147,7 @@ jobs:
 
     - name: Upload Backup
       if: github.event.inputs.action == 'delete' && steps.status.outputs.exists == 'true'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: k8s-final-backup
         path: k8s-backups/
