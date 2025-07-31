@@ -22,6 +22,18 @@ resource "kubernetes_config_map" "aws_auth" {
         username = "github-actions"
         groups   = ["system:masters"] # Full admin access - adjust as needed
       },
+      # GitHub Actions Terraform Plan role - read-only access
+      {
+        rolearn  = aws_iam_role.github_actions_terraform_plan.arn
+        username = "github-actions-terraform-plan"
+        groups   = ["system:masters"] # Needs admin for terraform to manage k8s resources
+      },
+      # GitHub Actions Terraform Apply role - full access
+      {
+        rolearn  = aws_iam_role.github_actions_terraform_apply.arn
+        username = "github-actions-terraform-apply"
+        groups   = ["system:masters"] # Full admin access for apply
+      },
       # Add more roles as needed
     ])
 
