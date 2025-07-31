@@ -116,6 +116,17 @@
       "Resource": [
         "arn:aws:dynamodb:*:*:table/crucible-platform-terraform-state-lock"
       ]
+    },
+    {
+      "Sid": "DynamoDBStateLockAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:DeleteItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/crucible-platform-terraform-state-lock"
+      ]
     }
   ]
 }
