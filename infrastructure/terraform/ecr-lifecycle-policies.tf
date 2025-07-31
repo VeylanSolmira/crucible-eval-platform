@@ -37,10 +37,10 @@ resource "aws_ecr_lifecycle_policy" "test_runner_cleanup" {
         rulePriority = 30
         description  = "Keep the latest tag always"
         selection = {
-          tagStatus   = "tagged"
+          tagStatus     = "tagged"
           tagPrefixList = ["test-runner-latest"]
-          countType   = "imageCountMoreThan"
-          countNumber = 1
+          countType     = "imageCountMoreThan"
+          countNumber   = 1
         }
         action = {
           type = "expire"

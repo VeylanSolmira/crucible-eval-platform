@@ -4,7 +4,7 @@
 
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -135,7 +135,7 @@ resource "local_file" "backend_config" {
 # Instructions for using the backend
 output "usage_instructions" {
   description = "Instructions for using the terraform backend"
-  value = <<-EOT
+  value       = <<-EOT
     
     Terraform Backend Setup Complete!
     

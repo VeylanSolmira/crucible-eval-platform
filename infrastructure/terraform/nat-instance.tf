@@ -122,7 +122,7 @@ resource "aws_eip" "nat_instance" {
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-nat-instance-eip"
   })
-  
+
   lifecycle {
     create_before_destroy = true
   }
@@ -133,7 +133,7 @@ resource "aws_eip_association" "nat_instance" {
   count         = var.use_nat_instance ? 1 : 0
   instance_id   = aws_instance.nat_instance[0].id
   allocation_id = aws_eip.nat_instance[0].id
-  
+
   lifecycle {
     create_before_destroy = true
   }

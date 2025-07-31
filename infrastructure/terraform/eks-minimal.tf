@@ -151,7 +151,7 @@ resource "aws_eks_node_group" "main" {
   # TODO: Migrate to AL2023_x86_64 or BOTTLEROCKET_x86_64 before deadline
   # Current date: July 31, 2025 - Less than 4 months remaining!
   # See: https://docs.aws.amazon.com/eks/latest/userguide/eks-ami-deprecation-faqs.html
-  ami_type = "AL2_x86_64"  # DEPRECATED - Update required!
+  ami_type = "AL2_x86_64" # DEPRECATED - Update required!
 
   # Disk size
   disk_size = 20 # GB, minimum for Kubernetes

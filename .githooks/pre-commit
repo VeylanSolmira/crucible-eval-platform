@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Pre-commit hook to automatically format Terraform files
+
+echo "🔍 Checking for Terraform files..."
+
+# Check if any terraform files are staged
+if git diff --cached --name-only | grep -E '\.(tf|tfvars)$' > /dev/null; then
+    echo "📝 Terraform files detected, running formatter..."
+    
+    # Find all terraform directories (including terraform-bootstrap, etc.)
+    TERRAFORM_DIRS=""
+    
+    # Check common terraform directory locations
+    for dir in infrastructure/terraform infrastructure/terraform-bootstrap terraform; do
+        if [ -d "$dir" ] && [ -n "$(find "$dir" -name "*.tf" -o -name "*.tfvars" 2>/dev/null | head -1)" ]; then
+            TERRAFORM_DIRS="$TERRAFORM_DIRS $dir"
+        fi
+    done
+    
+    # Also find any other terraform* directories
+    for dir in $(find . -maxdepth 3 -type d -name "terraform*" 2>/dev/null | grep -v ".terraform"); do
+        if [ -n "$(find "$dir" -name "*.tf" -o -name "*.tfvars" 2>/dev/null | head -1)" ]; then
+            TERRAFORM_DIRS="$TERRAFORM_DIRS $dir"
+        fi
+    done
+    
+    # Remove duplicates and trim
+    TERRAFORM_DIRS=$(echo $TERRAFORM_DIRS | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
+    
+    if [ -z "$TERRAFORM_DIRS" ]; then
+        echo "⚠️  Could not find any terraform directories, skipping format"
+        exit 0
+    fi
+    
+    # Check if tofu is available, otherwise use terraform
+    if command -v tofu >/dev/null 2>&1; then
+        TERRAFORM_CMD="tofu"
+    elif command -v terraform >/dev/null 2>&1; then
+        TERRAFORM_CMD="terraform"
+    else
+        echo "⚠️  Neither tofu nor terraform found in PATH, skipping format"
+        exit 0
+    fi
+    
+    # Format files in each terraform directory
+    FORMATTED_ANY=false
+    for DIR in $TERRAFORM_DIRS; do
+        echo "🎨 Running $TERRAFORM_CMD fmt in $DIR..."
+        cd "$DIR" || continue
+        
+        # Format the files
+        if $TERRAFORM_CMD fmt -recursive . 2>/dev/null; then
+            FORMATTED_ANY=true
+        fi
+        
+        cd - > /dev/null
+    done
+    
+    # Check if any files were modified
+    MODIFIED_FILES=$(git diff --name-only | grep -E '\.(tf|tfvars)$')
+    
+    if [ -n "$MODIFIED_FILES" ]; then
+        echo "✨ The following Terraform files were formatted:"
+        echo "$MODIFIED_FILES"
+        
+        # Add the formatted files back to staging
+        echo "$MODIFIED_FILES" | xargs git add
+        
+        echo ""
+        echo "✅ Terraform files have been formatted and re-staged"
+        echo "📌 Please review the changes before committing"
+    else
+        echo "✅ All Terraform files are already properly formatted"
+    fi
+else
+    echo "✅ No Terraform files in this commit"
+fi
+
+# Continue with the commit
+exit 0
