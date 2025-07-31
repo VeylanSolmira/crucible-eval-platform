@@ -116,7 +116,10 @@ resource "aws_iam_role_policy" "github_actions" {
           "ecr:DescribeRepositories",
           "ecr:DescribeImages",
           "ecr:ListImages",
-          "ecr:StartImageScan"
+          "ecr:StartImageScan",
+          "ecr:ListTagsForResource",
+          "ecr:TagResource",
+          "ecr:UntagResource"
         ]
         Resource = [
           "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/*"
@@ -459,6 +462,14 @@ resource "aws_iam_role_policy" "github_actions" {
           "route53:CreateHealthCheck",
           "route53:DeleteHealthCheck",
           "route53:UpdateHealthCheck",
+          "eks:DescribeAddon",
+          "eks:CreateAddon",
+          "eks:UpdateAddon",
+          "eks:DeleteAddon",
+          "logs:ListTagsForResource",
+          "logs:TagResource",
+          "logs:UntagResource",
+          "sns:GetSubscriptionAttributes",
           "acm:RequestCertificate",
           "acm:DeleteCertificate",
           "acm:DescribeCertificate",
@@ -484,7 +495,8 @@ resource "aws_iam_role_policy" "github_actions" {
           "ecr:PutImageScanningConfiguration",
           "ecr:GetImageScanningConfiguration",
           "ecr:TagResource",
-          "ecr:UntagResource"
+          "ecr:UntagResource",
+          "ecr:ListTagsForResource"
         ]
         Resource = [
           "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/*"
