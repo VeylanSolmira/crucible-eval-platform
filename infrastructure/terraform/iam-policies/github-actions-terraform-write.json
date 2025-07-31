@@ -11,15 +11,85 @@
         "s3:DeleteObject"
       ],
       "Resource": [
-        "arn:aws:s3:::crucible-platform-terraform-state-503132503803",
-        "arn:aws:s3:::crucible-platform-terraform-state-503132503803/*"
+        "arn:aws:s3:::crucible-platform-terraform-state-*",
+        "arn:aws:s3:::crucible-platform-terraform-state-*/*"
       ]
     },
     {
-      "Sid": "EC2Management",
+      "Sid": "DynamoDBStateLocking",
       "Effect": "Allow",
       "Action": [
-        "ec2:*"
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/crucible-platform-terraform-state-lock"
+      ]
+    },
+    {
+      "Sid": "ReadOnlyAccess",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "eks:Describe*",
+        "eks:List*",
+        "iam:Get*",
+        "iam:List*",
+        "elasticloadbalancing:Describe*",
+        "autoscaling:Describe*",
+        "cloudwatch:Describe*",
+        "cloudwatch:Get*",
+        "cloudwatch:List*",
+        "cloudwatch:ListTagsForResource",
+        "logs:Describe*",
+        "logs:Get*",
+        "logs:List*",
+        "logs:ListTagsForResource",
+        "logs:DescribeMetricFilters",
+        "tag:Get*",
+        "kms:Describe*",
+        "kms:Get*",
+        "kms:List*",
+        "sts:GetCallerIdentity",
+        "organizations:DescribeOrganization",
+        "account:GetContactInformation",
+        "route53:Get*",
+        "route53:List*",
+        "route53:ListTagsForResource",
+        "ecr:Describe*",
+        "ecr:Get*",
+        "ecr:List*",
+        "ecr:ListTagsForResource",
+        "sns:Get*",
+        "sns:List*",
+        "sns:GetSubscriptionAttributes",
+        "secretsmanager:Describe*",
+        "secretsmanager:Get*",
+        "secretsmanager:List*",
+        "secretsmanager:GetResourcePolicy",
+        "ssm:Describe*",
+        "ssm:Get*",
+        "ssm:List*",
+        "dynamodb:Describe*",
+        "dynamodb:Get*",
+        "dynamodb:List*",
+        "dynamodb:DescribeContinuousBackups",
+        "acm:Describe*",
+        "acm:Get*",
+        "acm:List*",
+        "s3:GetBucket*",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetReplicationConfiguration",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetAnalyticsConfiguration",
+        "s3:GetMetricsConfiguration",
+        "s3:GetInventoryConfiguration",
+        "s3:GetObjectLockConfiguration",
+        "s3:ListAllMyBuckets",
+        "s3:ListBucket"
       ],
       "Resource": "*"
     },
@@ -32,6 +102,7 @@
         "ec2:ModifyVpcAttribute",
         "ec2:CreateSubnet",
         "ec2:DeleteSubnet",
+        "ec2:ModifySubnetAttribute",
         "ec2:CreateRouteTable",
         "ec2:DeleteRouteTable",
         "ec2:CreateRoute",
@@ -42,13 +113,55 @@
         "ec2:DetachInternetGateway",
         "ec2:CreateNatGateway",
         "ec2:DeleteNatGateway",
-        "ec2:AllocateAddress",
-        "ec2:ReleaseAddress",
+        "ec2:CreateVpcEndpoint",
+        "ec2:DeleteVpcEndpoints",
+        "ec2:ModifyVpcEndpoint",
         "ec2:AssociateRouteTable",
         "ec2:DisassociateRouteTable",
-        "ec2:ModifySubnetAttribute"
+        "ec2:CreateTags",
+        "ec2:DeleteTags"
       ],
-      "Resource": "*"
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "${aws:RequestedRegion}"
+        }
+      }
+    },
+    {
+      "Sid": "EC2Management",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:TerminateInstances",
+        "ec2:StartInstances",
+        "ec2:StopInstances",
+        "ec2:RebootInstances",
+        "ec2:CreateSecurityGroup",
+        "ec2:DeleteSecurityGroup",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:UpdateSecurityGroupRuleDescriptionsIngress",
+        "ec2:UpdateSecurityGroupRuleDescriptionsEgress",
+        "ec2:CreateKeyPair",
+        "ec2:DeleteKeyPair",
+        "ec2:ImportKeyPair",
+        "ec2:AllocateAddress",
+        "ec2:ReleaseAddress",
+        "ec2:AssociateAddress",
+        "ec2:DisassociateAddress",
+        "ec2:ModifyInstanceAttribute",
+        "ec2:MonitorInstances",
+        "ec2:UnmonitorInstances"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "${aws:RequestedRegion}"
+        }
+      }
     },
     {
       "Sid": "EKSManagement",
@@ -65,19 +178,22 @@
         "eks:CreateAddon",
         "eks:DeleteAddon",
         "eks:UpdateAddon",
-        "eks:DescribeCluster",
-        "eks:DescribeNodegroup",
-        "eks:DescribeAddon",
-        "eks:ListClusters",
-        "eks:ListNodegroups",
-        "eks:ListAddons",
         "eks:TagResource",
-        "eks:UntagResource"
+        "eks:UntagResource",
+        "eks:CreateAccessEntry",
+        "eks:DeleteAccessEntry",
+        "eks:UpdateAccessEntry",
+        "eks:AssociateAccessPolicy",
+        "eks:DisassociateAccessPolicy"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:eks:*:*:cluster/crucible-platform*",
+        "arn:aws:eks:*:*:nodegroup/crucible-platform*/*/*",
+        "arn:aws:eks:*:*:addon/crucible-platform*/*/*"
+      ]
     },
     {
-      "Sid": "IAMManagement",
+      "Sid": "IAMRoleManagement",
       "Effect": "Allow",
       "Action": [
         "iam:CreateRole",
@@ -86,34 +202,229 @@
         "iam:DetachRolePolicy",
         "iam:PutRolePolicy",
         "iam:DeleteRolePolicy",
-        "iam:CreatePolicy",
-        "iam:DeletePolicy",
-        "iam:CreatePolicyVersion",
-        "iam:DeletePolicyVersion",
-        "iam:GetRole",
-        "iam:GetRolePolicy",
-        "iam:GetPolicy",
-        "iam:GetPolicyVersion",
-        "iam:ListRoles",
-        "iam:ListRolePolicies",
-        "iam:ListAttachedRolePolicies",
-        "iam:ListPolicies",
-        "iam:ListPolicyVersions",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
         "iam:PassRole",
         "iam:CreateServiceLinkedRole",
         "iam:DeleteServiceLinkedRole",
         "iam:GetServiceLinkedRoleDeletionStatus",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:TagInstanceProfile",
+        "iam:UntagInstanceProfile"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/crucible-platform-*",
+        "arn:aws:iam::*:role/aws-service-role/*",
+        "arn:aws:iam::*:instance-profile/crucible-*"
+      ]
+    },
+    {
+      "Sid": "IAMPolicyManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:policy/crucible-platform-*"
+      ]
+    },
+    {
+      "Sid": "IAMOIDCManagement",
+      "Effect": "Allow",
+      "Action": [
         "iam:CreateOpenIDConnectProvider",
         "iam:DeleteOpenIDConnectProvider",
-        "iam:GetOpenIDConnectProvider",
-        "iam:TagRole",
-        "iam:UntagRole",
-        "iam:TagPolicy",
-        "iam:UntagPolicy",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:RemoveClientIDFromOpenIDConnectProvider",
         "iam:TagOpenIDConnectProvider",
         "iam:UntagOpenIDConnectProvider"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "S3BucketManagement",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketEncryption",
+        "s3:PutBucketLifecycleConfiguration",
+        "s3:DeleteBucketLifecycleConfiguration",
+        "s3:PutBucketTagging",
+        "s3:PutBucketAcl",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::crucible-platform-*",
+        "arn:aws:s3:::crucible-platform-*/*",
+        "arn:aws:s3:::dev-crucible-*",
+        "arn:aws:s3:::dev-crucible-*/*"
+      ]
+    },
+    {
+      "Sid": "ECRManagement",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:DeleteRepository",
+        "ecr:PutLifecyclePolicy",
+        "ecr:DeleteLifecyclePolicy",
+        "ecr:SetRepositoryPolicy",
+        "ecr:DeleteRepositoryPolicy",
+        "ecr:PutImageTagMutability",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:TagResource",
+        "ecr:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:ecr:*:*:repository/crucible-platform*",
+        "arn:aws:ecr:*:*:repository/api",
+        "arn:aws:ecr:*:*:repository/frontend",
+        "arn:aws:ecr:*:*:repository/dispatcher",
+        "arn:aws:ecr:*:*:repository/celery-worker",
+        "arn:aws:ecr:*:*:repository/storage-service",
+        "arn:aws:ecr:*:*:repository/storage-worker",
+        "arn:aws:ecr:*:*:repository/cleanup-controller",
+        "arn:aws:ecr:*:*:repository/base",
+        "arn:aws:ecr:*:*:repository/executor-*"
+      ]
+    },
+    {
+      "Sid": "SSMManagement",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:PutParameter",
+        "ssm:DeleteParameter",
+        "ssm:AddTagsToResource",
+        "ssm:RemoveTagsFromResource"
+      ],
+      "Resource": [
+        "arn:aws:ssm:*:*:parameter/crucible-platform/*"
+      ]
+    },
+    {
+      "Sid": "SecretsManagerManagement",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:TagResource",
+        "secretsmanager:UntagResource",
+        "secretsmanager:PutResourcePolicy",
+        "secretsmanager:DeleteResourcePolicy"
+      ],
+      "Resource": [
+        "arn:aws:secretsmanager:*:*:secret:crucible-platform/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchManagement",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:TagLogGroup",
+        "logs:UntagLogGroup",
+        "logs:PutMetricFilter",
+        "logs:DeleteMetricFilter",
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:EnableAlarmActions",
+        "cloudwatch:DisableAlarmActions",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource",
+        "cloudwatch:PutDashboard",
+        "cloudwatch:DeleteDashboards"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SNSManagement",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:DeleteTopic",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:TagResource",
+        "sns:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:sns:*:*:crucible-platform-*"
+      ]
+    },
+    {
+      "Sid": "Route53Management",
+      "Effect": "Allow",
+      "Action": [
+        "route53:CreateHostedZone",
+        "route53:DeleteHostedZone",
+        "route53:ChangeResourceRecordSets",
+        "route53:CreateHealthCheck",
+        "route53:DeleteHealthCheck",
+        "route53:UpdateHealthCheck",
+        "route53:ChangeTagsForResource",
+        "route53:GetChange"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ACMManagement",
+      "Effect": "Allow",
+      "Action": [
+        "acm:RequestCertificate",
+        "acm:DeleteCertificate",
+        "acm:AddTagsToCertificate",
+        "acm:RemoveTagsFromCertificate"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DynamoDBManagement",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/crucible-platform-*"
+      ]
+    },
+    {
+      "Sid": "KubernetesManagement",
+      "Effect": "Allow",
+      "Action": [
+        "eks:AccessKubernetesApi"
+      ],
+      "Resource": [
+        "arn:aws:eks:*:*:cluster/crucible-platform*"
+      ]
     },
     {
       "Sid": "AutoScalingManagement",
@@ -122,14 +433,17 @@
         "autoscaling:CreateAutoScalingGroup",
         "autoscaling:UpdateAutoScalingGroup",
         "autoscaling:DeleteAutoScalingGroup",
-        "autoscaling:CreateLaunchConfiguration",
-        "autoscaling:DeleteLaunchConfiguration",
-        "autoscaling:DescribeAutoScalingGroups",
-        "autoscaling:DescribeLaunchConfigurations",
         "autoscaling:SetDesiredCapacity",
-        "autoscaling:TerminateInstanceInAutoScalingGroup"
+        "autoscaling:TerminateInstanceInAutoScalingGroup",
+        "autoscaling:CreateOrUpdateTags",
+        "autoscaling:DeleteTags"
       ],
-      "Resource": "*"
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "autoscaling:ResourceTag/eks:cluster-name": "crucible-platform*"
+        }
+      }
     },
     {
       "Sid": "ElasticLoadBalancingManagement",
@@ -141,79 +455,21 @@
         "elasticloadbalancing:DeleteTargetGroup",
         "elasticloadbalancing:CreateListener",
         "elasticloadbalancing:DeleteListener",
-        "elasticloadbalancing:RegisterTargets",
-        "elasticloadbalancing:DeregisterTargets",
         "elasticloadbalancing:ModifyLoadBalancerAttributes",
         "elasticloadbalancing:ModifyTargetGroup",
         "elasticloadbalancing:ModifyTargetGroupAttributes",
+        "elasticloadbalancing:RegisterTargets",
+        "elasticloadbalancing:DeregisterTargets",
         "elasticloadbalancing:AddTags",
         "elasticloadbalancing:RemoveTags"
       ],
       "Resource": "*"
     },
     {
-      "Sid": "Route53Management",
+      "Sid": "ECRAuthTokenAccess",
       "Effect": "Allow",
       "Action": [
-        "route53:CreateHostedZone",
-        "route53:DeleteHostedZone",
-        "route53:GetHostedZone",
-        "route53:ListHostedZones",
-        "route53:ChangeResourceRecordSets",
-        "route53:ListResourceRecordSets",
-        "route53:GetChange"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "CloudWatchLogsManagement",
-      "Effect": "Allow",
-      "Action": [
-        "logs:CreateLogGroup",
-        "logs:DeleteLogGroup",
-        "logs:PutRetentionPolicy",
-        "logs:TagLogGroup",
-        "logs:UntagLogGroup"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "ECRManagement",
-      "Effect": "Allow",
-      "Action": [
-        "ecr:CreateRepository",
-        "ecr:DeleteRepository",
-        "ecr:PutLifecyclePolicy",
-        "ecr:DeleteLifecyclePolicy",
-        "ecr:SetRepositoryPolicy",
-        "ecr:DeleteRepositoryPolicy"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "KMSManagement",
-      "Effect": "Allow",
-      "Action": [
-        "kms:CreateKey",
-        "kms:CreateAlias",
-        "kms:DeleteAlias",
-        "kms:ScheduleKeyDeletion",
-        "kms:CancelKeyDeletion",
-        "kms:EnableKey",
-        "kms:DisableKey",
-        "kms:PutKeyPolicy",
-        "kms:TagResource",
-        "kms:UntagResource"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "GeneralPermissions",
-      "Effect": "Allow",
-      "Action": [
-        "sts:GetCallerIdentity",
-        "organizations:DescribeOrganization",
-        "account:GetContactInformation"
+        "ecr:GetAuthorizationToken"
       ],
       "Resource": "*"
     }

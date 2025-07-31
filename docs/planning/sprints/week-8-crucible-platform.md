@@ -331,7 +331,37 @@
   - [ ] Update documentation for running scripts
   - [ ] Test all affected components after cleanup
 
-### 8. Monitoring Service & Event Architecture
+### 8. EKS AL2 to AL2023 Migration [URGENT - Deadline: Nov 26, 2025]
+
+#### 8.1 Migration Planning
+- [ ] Review [EKS AL2 to AL2023 Migration Guide](../../infrastructure/eks-al2-to-al2023-migration.md)
+- [ ] Test AL2023 AMI in development environment
+  - [ ] Create parallel node group with AL2023_x86_64
+  - [ ] Test all workloads on new nodes
+  - [ ] Verify gVisor DaemonSet compatibility
+  - [ ] Check for any custom script issues
+
+#### 8.2 Migration Execution
+- [ ] Development environment migration (Early August 2025)
+  - [ ] Update terraform ami_type to AL2023_x86_64
+  - [ ] Apply blue-green node group migration
+  - [ ] Monitor for issues for 1 week
+- [ ] Staging environment migration (Late August 2025)
+  - [ ] Repeat process for staging
+  - [ ] Run full test suite
+  - [ ] Performance comparison
+- [ ] Production migration (September 2025)
+  - [ ] Schedule maintenance window
+  - [ ] Execute migration with rollback plan ready
+  - [ ] Post-migration validation
+
+#### 8.3 Post-Migration Tasks
+- [ ] Update all documentation references
+- [ ] Performance benchmarking comparison
+- [ ] Security audit of new nodes
+- [ ] Remove AL2 deprecation warnings from code
+
+### 9. Monitoring Service & Event Architecture
 
 #### 8.1 Create Dedicated Monitoring Service
 - [ ] Extract job monitoring from dispatcher into dedicated service
@@ -1065,3 +1095,124 @@
 **Rationale**: Automating deployments reduces errors and speeds up iteration. GitHub Actions provides good automation without additional infrastructure overhead, making it ideal for our current single-node setup.
 
 **Documentation**: See [Deployment Strategies Guide](../../deployment/deployment-strategies.md) for detailed analysis of options from manual to full GitOps.
+
+---
+
+### 22. Zero-Downtime NAT Instance Implementation
+
+**Priority:** High  
+**Effort:** 3-4 days  
+**Documentation:** [NAT Instance Architecture Decision](../../architectural-decisions/nat-instance-vs-nat-gateway.md)
+
+#### Overview
+Enhance the current NAT instance implementation to achieve zero downtime during updates by implementing a dual-instance solution with health checks and automatic failover.
+
+#### Justification
+While our current implementation with `create_before_destroy` lifecycle provides reasonable uptime (30-second interruption), a zero-downtime solution would demonstrate advanced AWS networking skills and high-availability design patterns valuable for AI safety evaluation infrastructure.
+
+#### Current State
+- Single NAT instance with Elastic IP
+- ~30 second downtime during instance replacement
+- Manual intervention required for failures
+- Cost: ~$3.80/month
+
+#### Target State
+- Dual NAT instances (primary/standby)
+- Automatic health checks every 30 seconds
+- Zero-downtime failover
+- Automated rolling updates
+- Cost: ~$7.60/month (still 83% cheaper than NAT Gateway)
+
+#### Implementation Steps
+
+**Phase 1: Infrastructure Setup**
+- [ ] Create standby NAT instance in different AZ
+- [ ] Set up secondary Elastic IP
+- [ ] Configure route table update mechanism
+- [ ] Document failover procedures
+
+**Phase 2: Health Check System**
+- [ ] Create Lambda function for health checks
+- [ ] Implement TCP/HTTP health probes
+- [ ] Add CloudWatch metrics for tracking
+- [ ] Set up SNS notifications for failures
+
+**Phase 3: Failover Logic**
+- [ ] Implement route table update logic
+- [ ] Add connection draining logic
+- [ ] Test failover scenarios
+- [ ] Document recovery procedures
+
+**Phase 4: Rolling Update System**
+- [ ] Create update orchestration logic
+- [ ] Implement pre-update health verification
+- [ ] Add rollback capabilities
+- [ ] Create operational playbook for updates
+
+#### Success Metrics
+- Failover time < 5 seconds
+- Zero dropped connections
+- 99.9% uptime over 30 days
+- Successful automated updates
+
+**Rationale**: This enhancement demonstrates high-availability design skills, cost-conscious engineering, AWS Lambda and automation expertise, understanding of network architecture, and production-ready thinking.
+
+---
+
+### 23. GitHub Actions Test Suite Improvements
+
+**Priority:** Medium  
+**Effort:** 2-4 hours  
+**Impact:** Faster CI/CD, better developer experience
+
+#### Overview
+Optimize the test-suite.yml workflow for performance and reliability, especially for the 872MB test-runner image.
+
+#### Tasks
+
+**23.1 Add Job Timeout**
+- [ ] Add `timeout-minutes: 30` to prevent hanging jobs
+- [ ] Prevents runaway jobs from consuming Actions minutes
+- [ ] 30 minutes should be sufficient for most test suites
+
+**23.2 Implement Concurrency Control**
+- [ ] Add concurrency group to cancel old runs on new pushes
+```yaml
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+```
+- [ ] Saves CI resources when pushing multiple commits
+- [ ] Ensures only latest code is tested
+
+**23.3 Add Docker Layer Caching**
+- [ ] Set up Docker Buildx for layer caching
+```yaml
+- name: Set up Docker Buildx
+  uses: docker/setup-buildx-action@v3
+```
+- [ ] Can significantly speed up image builds
+- [ ] Especially helpful for the 872MB test-runner image
+
+**23.4 Add Test Result Reporting**
+- [ ] Integrate test reporter action for better visibility
+- [ ] Options:
+  - dorny/test-reporter@v1 for JUnit XML reports
+  - EnricoMi/publish-unit-test-result-action@v2
+- [ ] Provides inline PR comments with test failures
+
+**23.5 Parallel Test Suite Execution**
+- [ ] Consider splitting test suites into parallel jobs
+- [ ] Example structure:
+  - job: unit-tests
+  - job: integration-tests  
+  - job: security-tests
+- [ ] Faster feedback, especially for large test suites
+
+**23.6 Optimize Image Size**
+- [ ] Investigate reducing the 872MB test-runner image
+- [ ] Multi-stage builds to exclude build dependencies
+- [ ] Use slim base images where possible
+- [ ] Remove unnecessary test fixtures from image
+
+**Rationale**: These optimizations will improve CI/CD performance, reduce build times, and provide better feedback to developers. The 872MB image size is a particular bottleneck for upload speeds.

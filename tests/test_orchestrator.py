@@ -32,16 +32,75 @@ load_dotenv()
 class TestOrchestrator:
     """Orchestrates the entire test pipeline."""
     
+    def _detect_cluster_type(self) -> str:
+        """Detect if we're using a local or remote cluster based on kubeconfig context."""
+        try:
+            # Get current context
+            result = subprocess.run(
+                ["kubectl", "config", "current-context"],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                print("⚠️  Could not detect cluster type, assuming local")
+                return "local"
+                
+            context = result.stdout.strip().lower()
+            
+            # Check for local cluster indicators
+            local_indicators = ["kind-", "minikube", "docker-desktop", "rancher-desktop", "k3d-", "microk8s"]
+            if any(indicator in context for indicator in local_indicators):
+                print(f"🏠 Detected local cluster: {result.stdout.strip()}")
+                return "local"
+            
+            # Check for remote cluster indicators
+            remote_indicators = ["eks", "gke", "aks", "arn:aws", "digitalocean", "linode", "vultr"]
+            if any(indicator in context for indicator in remote_indicators):
+                print(f"☁️  Detected remote cluster: {result.stdout.strip()}")
+                return "remote"
+            
+            # If we can't determine, check the cluster endpoint
+            endpoint_result = subprocess.run(
+                ["kubectl", "cluster-info", "--request-timeout=2s"],
+                capture_output=True,
+                text=True
+            )
+            
+            if endpoint_result.returncode == 0:
+                # If it's localhost or 127.0.0.1, it's likely local
+                if "localhost" in endpoint_result.stdout or "127.0.0.1" in endpoint_result.stdout:
+                    print(f"🏠 Detected local cluster (localhost endpoint)")
+                    return "local"
+                else:
+                    print(f"☁️  Detected remote cluster (external endpoint)")
+                    return "remote"
+            
+            # Default to local if we can't determine
+            print("⚠️  Could not determine cluster type, assuming local")
+            return "local"
+            
+        except Exception as e:
+            print(f"⚠️  Error detecting cluster type: {e}, assuming local")
+            return "local"
+    
     def __init__(self):
         self.timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.namespace = os.environ.get("K8S_NAMESPACE", "crucible")
         
-        # Check if we're in production mode
-        self.production_mode = os.environ.get("PRODUCTION_MODE", "false").lower() == "true"
+        # Detect cluster type from kubeconfig
+        self.cluster_type = self._detect_cluster_type()
+        
+        # Check if we're in production mode or using a remote cluster
+        force_production = os.environ.get("PRODUCTION_MODE", "false").lower() == "true"
+        self.production_mode = force_production or self.cluster_type == "remote"
         
         if self.production_mode:
             # Production mode: use registry
-            print("🏭 Running in PRODUCTION mode - using container registry")
+            if self.cluster_type == "remote" and not force_production:
+                print("🌐 Remote cluster detected - enabling registry mode")
+            else:
+                print("🏭 Running in PRODUCTION mode - using container registry")
             
             # Docker Hub configuration
             self.docker_hub_user = os.environ.get("DOCKER_HUB_USER")
@@ -49,25 +108,42 @@ class TestOrchestrator:
             # Registry precedence: ECR > Docker Hub > Error
             if os.environ.get("ECR_REGISTRY"):
                 self.registry = os.environ.get("ECR_REGISTRY")
-                print(f"🔍 Debug - Found ECR_REGISTRY in environment: {self.registry}")
-                # Use the existing crucible-platform repository
-                self.test_image = f"{self.registry}/crucible-platform:test-runner-latest"
+                print(f"📦 Using ECR registry: {self.registry}")
+                # Use unique tags for CI/CD
+                unique_tag = os.environ.get("GITHUB_SHA", self.timestamp)[:8] if os.environ.get("GITHUB_SHA") else self.timestamp
+                self.test_image = f"{self.registry}/crucible-platform:test-runner-{unique_tag}"
+                self.test_image_latest = f"{self.registry}/crucible-platform:test-runner-latest"
             elif self.docker_hub_user:
                 self.registry = "docker.io"  # Docker Hub
                 self.test_image = f"{self.docker_hub_user}/crucible-test-runner:latest"
+                print(f"📦 Using Docker Hub: {self.docker_hub_user}")
             else:
-                raise ValueError(
-                    "No registry configured. Please set either ECR_REGISTRY or DOCKER_HUB_USER in your .env file"
-                )
-            self.image_pull_policy = "Always"
+                if self.cluster_type == "remote":
+                    raise ValueError(
+                        "\n❌ Remote cluster detected but no registry configured!\n"
+                        "   Please set either ECR_REGISTRY or DOCKER_HUB_USER in your .env file\n"
+                        "   Or run with PRODUCTION_MODE=false to force local mode"
+                    )
+                else:
+                    raise ValueError(
+                        "No registry configured. Please set either ECR_REGISTRY or DOCKER_HUB_USER in your .env file"
+                    )
+            # Smart defaults: IfNotPresent for remote clusters, allow override
+            default_policy = "IfNotPresent" if self.cluster_type == "remote" else "Always"
+            self.image_pull_policy = os.environ.get("IMAGE_PULL_POLICY", default_policy)
         else:
             # Local mode: no registry needed
             print("🏠 Running in LOCAL mode - using local images only")
             self.registry = ""
             self.test_image = "crucible-platform/test-runner:latest"
-            self.image_pull_policy = "Never"
+            # For local clusters, default to Never (image must be loaded)
+            # For remote clusters in local mode, this will fail - which is intentional
+            self.image_pull_policy = os.environ.get("IMAGE_PULL_POLICY", "Never")
             
         self.coordinator_job_name = f"test-coordinator-{self.timestamp}"
+        
+        # Log configuration
+        print(f"📋 Image Pull Policy: {self.image_pull_policy}")
         
     def run_smoke_tests(self) -> bool:
         """Step 1: Run smoke tests to verify cluster is ready."""
@@ -100,10 +176,21 @@ class TestOrchestrator:
         
         if self.production_mode:
             # Production mode: build and push to registry
-            timestamp_tag = f"{self.registry}/crucible-platform:test-runner-{self.timestamp}"
-            print(f"\n🔨 Building image: {timestamp_tag}")
+            print(f"\n🔨 Building image: {self.test_image}")
+            
+            # Build with both unique and latest tags if we have both
+            build_tags = ["-t", self.test_image]
+            if hasattr(self, 'test_image_latest'):
+                build_tags.extend(["-t", self.test_image_latest])
+            
+            # Build for amd64 platform when using ECR (for EKS nodes)
+            build_cmd = ["docker", "build", "-f", "tests/Dockerfile"]
+            if "ecr" in self.registry.lower():
+                build_cmd.extend(["--platform", "linux/amd64"])
+                print("🏗️  Building for linux/amd64 platform (EKS compatibility)")
+            
             build_result = subprocess.run(
-                ["docker", "build", "-f", "tests/Dockerfile", "-t", timestamp_tag, "-t", self.test_image, "."],
+                build_cmd + build_tags + ["."],
                 capture_output=False
             )
             
@@ -111,26 +198,55 @@ class TestOrchestrator:
                 print("❌ Failed to build test image")
                 return False
                 
-            # Push both tags to registry
-            print(f"\n📤 Pushing images to registry ({self.registry})...")
-            
-            # Push timestamp tag
-            push_result = subprocess.run(
-                ["docker", "push", timestamp_tag],
-                capture_output=False
-            )
-            if push_result.returncode != 0:
-                print("❌ Failed to push timestamp-tagged image")
-                return False
+            # Login to ECR if using ECR registry
+            if "ecr" in self.registry.lower():
+                print(f"\n🔐 Logging in to ECR...")
+                region = self.registry.split('.')[3]  # Extract region from ECR URL
+                login_cmd = f"aws ecr get-login-password --region {region} | docker login --username AWS --password-stdin {self.registry}"
+                login_result = subprocess.run(login_cmd, shell=True, capture_output=True, text=True)
                 
-            # Push latest tag
+                if login_result.returncode != 0:
+                    print(f"❌ Failed to login to ECR: {login_result.stderr}")
+                    return False
+                print("✅ Successfully logged in to ECR")
+                
+            # Push images to registry
+            print(f"\n📤 Pushing images to registry ({self.registry})...")
+            print("⏳ This may take several minutes depending on your upload speed...")
+            
+            # Get image size
+            size_result = subprocess.run(
+                ["docker", "images", "--format", "{{.Size}}", self.test_image],
+                capture_output=True,
+                text=True
+            )
+            if size_result.returncode == 0 and size_result.stdout.strip():
+                print(f"📊 Image size: {size_result.stdout.strip()}")
+            
+            # Push unique tag
+            print(f"\n📤 [1/2] Pushing {self.test_image}")
+            print("   Watch progress in the output below...")
             push_result = subprocess.run(
                 ["docker", "push", self.test_image],
                 capture_output=False
             )
             if push_result.returncode != 0:
-                print("❌ Failed to push latest-tagged image")
+                print("❌ Failed to push unique-tagged image")
                 return False
+            print(f"✅ Successfully pushed {self.test_image}")
+                
+            # Push latest tag if we have it
+            if hasattr(self, 'test_image_latest'):
+                print(f"\n📤 [2/2] Pushing {self.test_image_latest}")
+                print("   This should be faster (same layers)...")
+                push_result = subprocess.run(
+                    ["docker", "push", self.test_image_latest],
+                    capture_output=False
+                )
+                if push_result.returncode != 0:
+                    print("❌ Failed to push latest-tagged image")
+                    return False
+                print(f"✅ Successfully pushed {self.test_image_latest}")
         else:
             # Local mode: build and load into cluster
             print(f"\n🔨 Building local image: {self.test_image}")
@@ -144,27 +260,34 @@ class TestOrchestrator:
                 return False
                 
             # Load image into cluster (works for kind, minikube, etc.)
-            print(f"\n📥 Loading image into cluster...")
-            
-            # Try kind first
-            load_result = subprocess.run(
-                ["kind", "load", "docker-image", self.test_image, "--name", "crucible"],
-                capture_output=True,
-                text=True
-            )
-            
-            if load_result.returncode != 0:
-                # Try minikube
+            if self.cluster_type == "local":
+                print(f"\n📥 Loading image into local cluster...")
+                
+                # Try kind first
                 load_result = subprocess.run(
-                    ["minikube", "image", "load", self.test_image],
+                    ["kind", "load", "docker-image", self.test_image, "--name", "crucible"],
                     capture_output=True,
                     text=True
                 )
                 
                 if load_result.returncode != 0:
-                    print("⚠️  Could not load image into cluster automatically")
-                    print("   Please ensure image is available to your cluster")
-                    print(f"   Image: {self.test_image}")
+                    # Try minikube
+                    load_result = subprocess.run(
+                        ["minikube", "image", "load", self.test_image],
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if load_result.returncode != 0:
+                        print("⚠️  Could not load image into cluster automatically")
+                        print("   Please ensure image is available to your cluster")
+                        print(f"   Image: {self.test_image}")
+            else:
+                print("\n⚠️  WARNING: Running in local mode against a remote cluster!")
+                print("   The test image exists only on your local machine.")
+                print("   This will likely fail unless you manually push the image to a registry.")
+                print(f"   Image: {self.test_image}")
+                print("\n   Consider using PRODUCTION_MODE=true or setting ECR_REGISTRY")
             
         print("✅ Test image ready")
         return True
@@ -225,7 +348,7 @@ class TestOrchestrator:
                 "template": {
                     "spec": {
                         "serviceAccountName": "test-coordinator",
-                        "priorityClassName": "test-coordinator-priority",
+                        "priorityClassName": "test-priority",
                         "containers": [{
                             "name": "coordinator",
                             "image": self.test_image,
@@ -249,7 +372,8 @@ class TestOrchestrator:
                                 }
                             }
                         }],
-                        "imagePullSecrets": [{"name": "ecr-secret"}] if "ecr" in self.registry else [],
+                        # ECR doesn't need imagePullSecrets when using IAM roles
+                        "imagePullSecrets": [],
                         "restartPolicy": "Never"
                     }
                 }
@@ -354,6 +478,41 @@ class TestOrchestrator:
         print("✅ Coordinator job submitted")
         return True
     
+    def collect_test_results(self):
+        """Collect test results from coordinator pod."""
+        print("\n📦 Collecting test results...")
+        
+        # Create results directory
+        results_dir = f"test-results-{self.timestamp}"
+        os.makedirs(results_dir, exist_ok=True)
+        
+        # Get pod name
+        result = subprocess.run(
+            ["kubectl", "get", "pods", "-n", self.namespace,
+             "-l", f"job-name={self.coordinator_job_name}", "-o", "jsonpath={.items[0].metadata.name}"],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            pod_name = result.stdout.strip()
+            
+            # Try to copy test results
+            subprocess.run(
+                ["kubectl", "cp", f"{self.namespace}/{pod_name}:/app/test-results/.", results_dir],
+                capture_output=True
+            )
+            
+            # Save logs
+            log_file = os.path.join(results_dir, "coordinator.log")
+            with open(log_file, "w") as f:
+                subprocess.run(
+                    ["kubectl", "logs", f"job/{self.coordinator_job_name}", "-n", self.namespace],
+                    stdout=f
+                )
+            
+            print(f"✅ Test results saved to {results_dir}/")
+            
     def monitor_coordinator(self) -> int:
         """Step 4: Monitor the coordinator job and stream logs."""
         print("\n" + "="*80)
@@ -361,8 +520,14 @@ class TestOrchestrator:
         print("="*80)
         
         # Wait for pod to start
-        print("\n⏳ Waiting for coordinator to start...")
-        for i in range(30):
+        print("\n⏳ Waiting for coordinator pod to start...")
+        print("   Checking pod status every 2 seconds...")
+        
+        start_time = time.time()
+        last_phase = None
+        last_reason = None
+        
+        for i in range(300):  # 10 minutes timeout for large image pulls
             result = subprocess.run(
                 ["kubectl", "get", "pods", "-n", self.namespace,
                  "-l", f"job-name={self.coordinator_job_name}", "-o", "json"],
@@ -372,13 +537,55 @@ class TestOrchestrator:
             
             if result.returncode == 0:
                 pods = json.loads(result.stdout)
-                if pods["items"] and pods["items"][0]["status"]["phase"] != "Pending":
-                    break
+                if pods["items"]:
+                    pod = pods["items"][0]
+                    phase = pod["status"]["phase"]
+                    
+                    # Get container status for more detail
+                    container_statuses = pod["status"].get("containerStatuses", [])
+                    if container_statuses:
+                        container = container_statuses[0]
+                        if "waiting" in container["state"]:
+                            reason = container["state"]["waiting"].get("reason", "Unknown")
+                            if reason != last_reason:
+                                elapsed = int(time.time() - start_time)
+                                print(f"\n   [{elapsed}s] Container waiting: {reason}")
+                                
+                                # Provide helpful hints for common issues
+                                if reason == "ErrImagePull" or reason == "ImagePullBackOff":
+                                    print("   💡 Image pull failing - check ECR permissions or image existence")
+                                elif reason == "ContainerCreating":
+                                    print("   💡 Container is being created - this is normal")
+                                
+                                last_reason = reason
+                    
+                    # Check if phase changed
+                    if phase != last_phase:
+                        elapsed = int(time.time() - start_time)
+                        print(f"\n   [{elapsed}s] Pod phase: {phase}")
+                        last_phase = phase
+                    
+                    # Break if pod is running
+                    if phase != "Pending":
+                        print(f"\n✅ Pod started after {int(time.time() - start_time)} seconds")
+                        break
+                else:
+                    # No pods yet
+                    if i == 0:
+                        print("   Waiting for pod to be created...")
             
             time.sleep(2)
             print(".", end="", flush=True)
         else:
-            print("\n❌ Coordinator pod did not start within 60 seconds")
+            elapsed = int(time.time() - start_time)
+            print(f"\n❌ Coordinator pod did not start within {elapsed} seconds")
+            
+            # Get more diagnostic info
+            print("\n🔍 Diagnostic information:")
+            subprocess.run(
+                ["kubectl", "describe", "job", self.coordinator_job_name, "-n", self.namespace],
+                capture_output=False
+            )
             return 1
         
         print("\n\n📋 Coordinator Logs:")
@@ -399,6 +606,9 @@ class TestOrchestrator:
             capture_output=True,
             text=True
         )
+        
+        # Save test results if available
+        self.collect_test_results()
         
         # Get final job status
         result = subprocess.run(

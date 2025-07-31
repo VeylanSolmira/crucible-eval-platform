@@ -114,15 +114,29 @@ resource "aws_instance" "nat_instance" {
   }
 }
 
-# Elastic IP for NAT instance
+# Elastic IP for NAT instance (persistent across replacements)
 resource "aws_eip" "nat_instance" {
-  count    = var.use_nat_instance ? 1 : 0
-  instance = aws_instance.nat_instance[0].id
-  domain   = "vpc"
+  count  = var.use_nat_instance ? 1 : 0
+  domain = "vpc"
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-nat-instance-eip"
   })
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Separate EIP association for better control during replacements
+resource "aws_eip_association" "nat_instance" {
+  count         = var.use_nat_instance ? 1 : 0
+  instance_id   = aws_instance.nat_instance[0].id
+  allocation_id = aws_eip.nat_instance[0].id
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # Update private route tables to use NAT instance

@@ -38,7 +38,11 @@ tests/
 
 ### Kubernetes Test Orchestrator
 
-For running tests inside the Kubernetes cluster (recommended for integration tests):
+The test orchestrator automatically detects your cluster type and configures itself accordingly:
+
+**Automatic Cluster Detection:**
+- **Local clusters** (kind, minikube, docker-desktop): Builds images locally, loads into cluster
+- **Remote clusters** (EKS, GKE, AKS): Builds images, pushes to registry (ECR/Docker Hub)
 
 ```bash
 # Run all tests in cluster
@@ -74,6 +78,31 @@ The test orchestrator:
 5. Streams logs and aggregates results
 
 This is especially useful for integration tests that need to access cluster services like Redis, PostgreSQL, etc.
+
+### Configuration
+
+The test orchestrator can be configured via environment variables:
+
+```bash
+# Force production mode (always push to registry)
+PRODUCTION_MODE=true python tests/test_orchestrator.py
+
+# Use specific namespace
+K8S_NAMESPACE=staging python tests/test_orchestrator.py
+
+# Override image pull policy (default: auto-detected)
+IMAGE_PULL_POLICY=Always python tests/test_orchestrator.py
+
+# Use specific registry
+ECR_REGISTRY=123456.dkr.ecr.us-west-2.amazonaws.com python tests/test_orchestrator.py
+```
+
+**Environment Variables:**
+- `K8S_NAMESPACE`: Target namespace (default: crucible)
+- `PRODUCTION_MODE`: Force registry usage (default: auto-detected)
+- `IMAGE_PULL_POLICY`: Override pull policy (default: Never for local, IfNotPresent for remote)
+- `ECR_REGISTRY`: ECR registry URL (required for remote clusters)
+- `DOCKER_HUB_USER`: Docker Hub username (alternative to ECR)
 
 ### Local Testing
 

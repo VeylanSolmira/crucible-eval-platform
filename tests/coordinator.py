@@ -193,7 +193,7 @@ class TestCoordinator:
                 "template": {
                     "spec": {
                         "serviceAccountName": "test-runner",
-                        "priorityClassName": "test-runner-priority",
+                        "priorityClassName": "test-priority",
                         "containers": [{
                             "name": "test-runner",
                             "image": self.test_image,

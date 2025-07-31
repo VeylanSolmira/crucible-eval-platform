@@ -6,8 +6,6 @@ resources:
 - ../../base
 # Add ClusterRole for node access in local dev
 - dispatcher-clusterrole.yaml
-# Test runner permissions - only in local dev
-- test-runner-rbac.yaml
 # Test priority classes to prevent preemption
 - test-priority-classes.yaml
 # ResourceQuota for evaluation jobs - prevents runaway resource usage

@@ -90,6 +90,7 @@ helm/values-*.yaml
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 .terraform/
 .terraform.lock.hcl
 terraform.tfvars

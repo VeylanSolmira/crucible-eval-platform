@@ -39,6 +39,7 @@ resources:
   # Security
   - gvisor/
   - priority-classes.yaml
+  - test-runner-rbac.yaml
   
   # Resource management
   - cleanup-controller.yaml

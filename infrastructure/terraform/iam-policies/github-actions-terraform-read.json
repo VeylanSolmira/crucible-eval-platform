@@ -2,6 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "ReadOnlyAccess",
       "Effect": "Allow",
       "Action": [
         "ec2:Describe*",
@@ -9,38 +10,111 @@
         "eks:List*",
         "iam:Get*",
         "iam:List*",
-        "s3:ListBucket",
-        "s3:GetObject",
-        "s3:GetBucketLocation",
-        "s3:GetBucketVersioning",
-        "s3:ListBucketVersions",
         "elasticloadbalancing:Describe*",
         "autoscaling:Describe*",
         "cloudwatch:Describe*",
         "cloudwatch:Get*",
         "cloudwatch:List*",
+        "cloudwatch:ListTagsForResource",
         "logs:Describe*",
         "logs:Get*",
         "logs:List*",
+        "logs:ListTagsForResource",
+        "logs:DescribeMetricFilters",
         "tag:Get*",
         "kms:Describe*",
         "kms:Get*",
         "kms:List*",
         "sts:GetCallerIdentity",
         "organizations:DescribeOrganization",
-        "account:GetContactInformation"
+        "account:GetContactInformation",
+        "route53:Get*",
+        "route53:List*",
+        "route53:ListTagsForResource",
+        "ecr:Describe*",
+        "ecr:Get*",
+        "ecr:List*",
+        "ecr:ListTagsForResource",
+        "sns:Get*",
+        "sns:List*",
+        "sns:GetSubscriptionAttributes",
+        "secretsmanager:Describe*",
+        "secretsmanager:Get*",
+        "secretsmanager:List*",
+        "secretsmanager:GetResourcePolicy",
+        "ssm:Describe*",
+        "ssm:Get*",
+        "ssm:List*",
+        "dynamodb:Describe*",
+        "dynamodb:Get*",
+        "dynamodb:List*",
+        "dynamodb:DescribeContinuousBackups",
+        "acm:Describe*",
+        "acm:Get*",
+        "acm:List*"
       ],
       "Resource": "*"
     },
     {
+      "Sid": "S3BucketReadAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning",
+        "s3:ListBucketVersions",
+        "s3:GetBucketTagging",
+        "s3:GetBucketLogging",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketAcl",
+        "s3:GetBucketCORS",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetBucketLifecycleConfiguration",
+        "s3:GetBucketNotification",
+        "s3:GetBucketRequestPayment",
+        "s3:GetBucketWebsite",
+        "s3:GetReplicationConfiguration",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetInventoryConfiguration",
+        "s3:GetAnalyticsConfiguration",
+        "s3:GetMetricsConfiguration",
+        "s3:ListAllMyBuckets"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3ObjectReadAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TerraformStateReadAccess",
       "Effect": "Allow",
       "Action": [
         "s3:ListBucket",
         "s3:GetObject"
       ],
       "Resource": [
-        "arn:aws:s3:::crucible-platform-terraform-state-503132503803",
-        "arn:aws:s3:::crucible-platform-terraform-state-503132503803/*"
+        "arn:aws:s3:::crucible-platform-terraform-state-*",
+        "arn:aws:s3:::crucible-platform-terraform-state-*/*"
+      ]
+    },
+    {
+      "Sid": "DynamoDBStateReadAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/crucible-platform-terraform-state-lock"
       ]
     }
   ]
