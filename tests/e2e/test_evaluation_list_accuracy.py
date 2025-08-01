@@ -23,7 +23,8 @@ async def test_evaluation_list_accuracy():
     Test that evaluation lists accurately reflect evaluation status.
     """
     # Use the correct API base URL without double /api/
-    api_host = os.getenv("API_HOST", "api-service.crucible.svc.cluster.local")
+    namespace = os.getenv("K8S_NAMESPACE", "crucible")
+    api_host = os.getenv("API_HOST", f"api-service.{namespace}.svc.cluster.local")
     api_port = os.getenv("API_PORT", "8080")
     api_base = f"http://{api_host}:{api_port}/api"
     

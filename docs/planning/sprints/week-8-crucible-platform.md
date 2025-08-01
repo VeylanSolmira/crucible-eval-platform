@@ -1216,3 +1216,66 @@ concurrency:
 - [ ] Remove unnecessary test fixtures from image
 
 **Rationale**: These optimizations will improve CI/CD performance, reduce build times, and provide better feedback to developers. The 872MB image size is a particular bottleneck for upload speeds.
+
+---
+
+### 24. GitHub Actions Workflow Improvements
+
+**Priority:** Low  
+**Effort:** 2-3 hours  
+**Impact:** Cleaner, more maintainable CI/CD workflows
+
+#### Overview
+Optimize terraform.yml workflow to reduce code duplication and improve maintainability.
+
+#### Current State
+- terraform.tfvars creation duplicated in 3 places (Plan, Apply, Destroy jobs)
+- Each job runs on isolated VMs requiring separate file creation
+- Maintenance overhead when updating variables
+
+#### Improvement Options
+
+**24.1 Composite Action Approach (Recommended)**
+- [ ] Create `.github/actions/setup-terraform/action.yml`
+```yaml
+name: Setup Terraform
+description: Creates terraform.tfvars from GitHub variables
+runs:
+  using: composite
+  steps:
+    - name: Create terraform.tfvars
+      shell: bash
+      run: |
+        cd infrastructure/terraform
+        cat > terraform.tfvars <<EOF
+        domain_name = "${{ inputs.domain_name }}"
+        email = "${{ inputs.email }}"
+        create_route53_zone = ${{ inputs.create_route53_zone }}
+        kubernetes_load_balancer_ip = "${{ inputs.kubernetes_lb_ip }}"
+        aws_profile = "${{ inputs.aws_profile }}"
+        EOF
+```
+- [ ] Benefits:
+  - Single source of truth for tfvars creation
+  - Reusable across workflows
+  - Version controlled with repo
+  - Can add other setup steps (tool installation, etc.)
+
+**24.2 Shared Artifact Approach**
+- [ ] Create setup job that uploads tfvars as artifact
+- [ ] Download in each subsequent job
+- [ ] Pros: True single execution
+- [ ] Cons: Adds complexity, slower due to upload/download
+
+**24.3 Reusable Workflow**
+- [ ] Extract common setup into `.github/workflows/terraform-setup.yml`
+- [ ] Call from main workflow
+- [ ] More complex than composite action for this use case
+
+#### Implementation Plan
+1. Start with composite action (Option 1)
+2. Test in development branch
+3. Gradually add more common setup tasks
+4. Document usage for team
+
+**Rationale**: While the current duplication works, implementing a composite action will improve maintainability and provide a foundation for standardizing other common CI/CD tasks. This demonstrates infrastructure-as-code best practices and GitHub Actions expertise.

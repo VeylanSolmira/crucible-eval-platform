@@ -8,18 +8,22 @@ import os
 from typing import Dict
 
 
-def get_k8s_service_url(service_name: str, namespace: str = "crucible", port: int = None) -> str:
+def get_k8s_service_url(service_name: str, namespace: str = None, port: int = None) -> str:
     """
     Get the appropriate service URL based on test environment.
     
     Args:
         service_name: Name of the Kubernetes service
-        namespace: Kubernetes namespace (default: crucible)
+        namespace: Kubernetes namespace (default: from K8S_NAMESPACE env var or crucible)
         port: Service port (if different from default)
     
     Returns:
         Service URL appropriate for the test environment
     """
+    # Use namespace from environment if not specified
+    if namespace is None:
+        namespace = os.environ.get("K8S_NAMESPACE", "crucible")
+    
     # Check if we're running inside Kubernetes
     in_cluster = os.environ.get("KUBERNETES_SERVICE_HOST") is not None
     in_cluster_tests = os.environ.get("IN_CLUSTER_TESTS", "false").lower() == "true"

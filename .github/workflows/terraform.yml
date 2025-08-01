@@ -90,17 +90,21 @@ jobs:
         cd infrastructure/terraform
         tofu init
 
+    - name: Create terraform.tfvars
+      run: |
+        cd infrastructure/terraform
+        cat > terraform.tfvars <<EOF
+        domain_name = "${{ vars.DOMAIN_NAME }}"
+        email = "${{ vars.EMAIL }}"
+        create_route53_zone = ${{ vars.CREATE_ROUTE53_ZONE }}
+        kubernetes_load_balancer_ip = "${{ vars.KUBERNETES_LB_IP }}"
+        aws_profile = "${{ vars.AWS_PROFILE }}"
+        EOF
+
     - name: OpenTofu Plan
       id: plan
       run: |
         cd infrastructure/terraform
-        
-        # Set terraform variables from GitHub repository variables
-        export TF_VAR_domain_name="${{ vars.DOMAIN_NAME }}"
-        export TF_VAR_email="${{ vars.EMAIL }}"
-        export TF_VAR_create_route53_zone="${{ vars.CREATE_ROUTE53_ZONE }}"
-        export TF_VAR_kubernetes_load_balancer_ip="${{ vars.KUBERNETES_LB_IP }}"
-        export TF_VAR_aws_profile="${{ vars.AWS_PROFILE }}"
         
         if [ -n "${{ github.event.inputs.target }}" ]; then
           tofu plan -out=tfplan -target="${{ github.event.inputs.target }}"
@@ -180,6 +184,17 @@ jobs:
         cd infrastructure/terraform
         tofu init
 
+    - name: Create terraform.tfvars
+      run: |
+        cd infrastructure/terraform
+        cat > terraform.tfvars <<EOF
+        domain_name = "${{ vars.DOMAIN_NAME }}"
+        email = "${{ vars.EMAIL }}"
+        create_route53_zone = ${{ vars.CREATE_ROUTE53_ZONE }}
+        kubernetes_load_balancer_ip = "${{ vars.KUBERNETES_LB_IP }}"
+        aws_profile = "${{ vars.AWS_PROFILE }}"
+        EOF
+
     - name: Download Plan (if from PR)
       if: github.event_name == 'push'
       continue-on-error: true
@@ -191,13 +206,6 @@ jobs:
     - name: OpenTofu Apply
       run: |
         cd infrastructure/terraform
-        
-        # Set terraform variables from GitHub repository variables
-        export TF_VAR_domain_name="${{ vars.DOMAIN_NAME }}"
-        export TF_VAR_email="${{ vars.EMAIL }}"
-        export TF_VAR_create_route53_zone="${{ vars.CREATE_ROUTE53_ZONE }}"
-        export TF_VAR_kubernetes_load_balancer_ip="${{ vars.KUBERNETES_LB_IP }}"
-        export TF_VAR_aws_profile="${{ vars.AWS_PROFILE }}"
         
         if [ -f "tfplan" ]; then
           echo "Applying saved plan..."
@@ -250,6 +258,17 @@ jobs:
       run: |
         cd infrastructure/terraform
         tofu init
+
+    - name: Create terraform.tfvars
+      run: |
+        cd infrastructure/terraform
+        cat > terraform.tfvars <<EOF
+        domain_name = "${{ vars.DOMAIN_NAME }}"
+        email = "${{ vars.EMAIL }}"
+        create_route53_zone = ${{ vars.CREATE_ROUTE53_ZONE }}
+        kubernetes_load_balancer_ip = "${{ vars.KUBERNETES_LB_IP }}"
+        aws_profile = "${{ vars.AWS_PROFILE }}"
+        EOF
 
     - name: OpenTofu Destroy
       run: |
