@@ -202,7 +202,7 @@ jobs:
         email = "${{ vars.EMAIL }}"
         create_route53_zone = ${{ vars.CREATE_ROUTE53_ZONE }}
         kubernetes_load_balancer_ip = "${{ vars.KUBERNETES_LB_IP }}"
-        aws_profile = "${{ vars.AWS_PROFILE }}"
+        # aws_profile is not needed in CI - using IAM role via OIDC
         EOF
 
     - name: Download Plan (if from PR)
@@ -277,7 +277,7 @@ jobs:
         email = "${{ vars.EMAIL }}"
         create_route53_zone = ${{ vars.CREATE_ROUTE53_ZONE }}
         kubernetes_load_balancer_ip = "${{ vars.KUBERNETES_LB_IP }}"
-        aws_profile = "${{ vars.AWS_PROFILE }}"
+        # aws_profile is not needed in CI - using IAM role via OIDC
         EOF
 
     - name: OpenTofu Destroy
