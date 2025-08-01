@@ -54,6 +54,10 @@ resource "acme_certificate" "crucible_wildcard" {
   }
 
   lifecycle {
+    # Ignore DNS challenge changes to prevent state drift between local and CI environments
+    # Local uses AWS_PROFILE for authentication, CI uses IAM roles via OIDC
+    # This prevents perpetual flip-flopping of state between environments
+    # To update DNS challenge config: temporarily comment out this block, apply changes, then restore
     ignore_changes = [dns_challenge]
   }
 }
