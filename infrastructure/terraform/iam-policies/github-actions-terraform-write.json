@@ -107,6 +107,7 @@
         "ec2:DeleteRouteTable",
         "ec2:CreateRoute",
         "ec2:DeleteRoute",
+        "ec2:ReplaceRoute",
         "ec2:CreateInternetGateway",
         "ec2:DeleteInternetGateway",
         "ec2:AttachInternetGateway",
@@ -220,6 +221,7 @@
       ],
       "Resource": [
         "arn:aws:iam::*:role/crucible-platform-*",
+        "arn:aws:iam::*:role/crucible-*",
         "arn:aws:iam::*:role/aws-service-role/*",
         "arn:aws:iam::*:instance-profile/crucible-*"
       ]
@@ -304,7 +306,8 @@
         "arn:aws:ecr:*:*:repository/storage-worker",
         "arn:aws:ecr:*:*:repository/cleanup-controller",
         "arn:aws:ecr:*:*:repository/base",
-        "arn:aws:ecr:*:*:repository/executor-*"
+        "arn:aws:ecr:*:*:repository/executor-*",
+        "arn:aws:ecr:*:*:repository/test-runner"
       ]
     },
     {
