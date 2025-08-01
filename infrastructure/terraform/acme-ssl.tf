@@ -49,8 +49,12 @@ resource "acme_certificate" "crucible_wildcard" {
     config = {
       AWS_HOSTED_ZONE_ID = aws_route53_zone.crucible[0].zone_id
       AWS_REGION         = var.aws_region
-      AWS_PROFILE        = var.aws_profile != "" ? var.aws_profile : null
+      AWS_PROFILE        = var.aws_profile
     }
+  }
+
+  lifecycle {
+    ignore_changes = [dns_challenge]
   }
 }
 
