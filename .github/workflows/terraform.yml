@@ -96,7 +96,7 @@ jobs:
         echo "EMAIL: '${{ vars.EMAIL }}'"
         echo "CREATE_ROUTE53_ZONE: '${{ vars.CREATE_ROUTE53_ZONE }}'"
         echo "KUBERNETES_LB_IP: '${{ vars.KUBERNETES_LB_IP }}'"
-        echo "AWS_PROFILE: '${{ vars.AWS_PROFILE }}'"
+        echo "AWS_PROFILE not used in CI - using IAM role via OIDC"
         
     - name: Create terraform.tfvars
       run: |
@@ -106,7 +106,7 @@ jobs:
         email = "${{ vars.EMAIL }}"
         create_route53_zone = ${{ vars.CREATE_ROUTE53_ZONE }}
         kubernetes_load_balancer_ip = "${{ vars.KUBERNETES_LB_IP }}"
-        aws_profile = "${{ vars.AWS_PROFILE }}"
+        # aws_profile is not needed in CI - using IAM role via OIDC
         EOF
         echo "=== terraform.tfvars contents ==="
         cat terraform.tfvars
