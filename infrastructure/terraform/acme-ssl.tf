@@ -46,11 +46,13 @@ resource "acme_certificate" "crucible_wildcard" {
   dns_challenge {
     provider = "route53"
 
-    config = {
-      AWS_HOSTED_ZONE_ID = aws_route53_zone.crucible[0].zone_id
-      AWS_REGION         = var.aws_region
-      AWS_PROFILE        = var.aws_profile
-    }
+    config = merge(
+      {
+        AWS_HOSTED_ZONE_ID = aws_route53_zone.crucible[0].zone_id
+        AWS_REGION         = var.aws_region
+      },
+      var.aws_profile != "" ? { AWS_PROFILE = var.aws_profile } : {}
+    )
   }
 }
 
