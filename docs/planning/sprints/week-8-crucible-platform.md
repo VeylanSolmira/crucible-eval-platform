@@ -1279,3 +1279,60 @@ runs:
 4. Document usage for team
 
 **Rationale**: While the current duplication works, implementing a composite action will improve maintainability and provide a foundation for standardizing other common CI/CD tasks. This demonstrates infrastructure-as-code best practices and GitHub Actions expertise.
+
+---
+
+### 25. GitHub Variables as Infrastructure as Code
+
+**Priority:** Medium  
+**Effort:** 2-4 hours  
+**Impact:** Better configuration management, easier environment setup
+
+#### Overview
+Currently GitHub repository variables must be set manually for terraform workflows to work. This creates a gap in our infrastructure-as-code approach.
+
+#### Current State
+- Variables set manually via `gh variable set` commands
+- No version control or audit trail for changes
+- New team members must know which variables to set
+- Risk of misconfiguration or missing variables
+
+#### Required Variables
+```bash
+# Current manual process
+gh variable set DOMAIN_NAME --body "crucible.veylan.dev"
+gh variable set EMAIL --body "veylan.solmira+crucible@gmail.com"
+gh variable set CREATE_ROUTE53_ZONE --body "true"
+gh variable set KUBERNETES_LB_IP --body "a8335c4cb06884e689342a1109e3a3e3-e467caecc5e4a715.elb.us-west-2.amazonaws.com"
+gh variable set AWS_PROFILE --body "AdministratorAccess-503132503803"
+```
+
+#### Improvement Options
+
+**25.1 Bootstrap Script (Quick Win)**
+- [ ] Create `scripts/setup-github-variables.sh`
+- [ ] Document all required variables with descriptions
+- [ ] Add validation to check if variables already exist
+- [ ] Include in developer onboarding docs
+
+**25.2 Terraform GitHub Provider**
+- [ ] Add GitHub provider to terraform
+- [ ] Manage variables as terraform resources
+- [ ] Pros: True IaC, version controlled, auditable
+- [ ] Cons: Requires GitHub token with repo permissions
+
+**25.3 Environment-Specific Configuration**
+- [ ] Create environment config files (dev.env, prod.env)
+- [ ] Script to sync env files to GitHub variables
+- [ ] Supports multiple environments easily
+- [ ] Clear separation of configuration
+
+**25.4 Alternative: Direct Environment Variables**
+- [ ] Skip GitHub variables entirely
+- [ ] Use `env:` block in workflow with direct values
+- [ ] Simpler but less flexible for secrets rotation
+
+#### Recommendation
+Start with bootstrap script (Option 1) for immediate improvement, then evaluate Terraform GitHub provider for long-term solution.
+
+**Rationale**: Configuration management is a critical part of infrastructure-as-code. The current manual process is error-prone and makes it difficult to maintain consistency across environments or onboard new team members.
