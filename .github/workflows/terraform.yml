@@ -90,6 +90,14 @@ jobs:
         cd infrastructure/terraform
         tofu init
 
+    - name: Debug Variables
+      run: |
+        echo "DOMAIN_NAME: '${{ vars.DOMAIN_NAME }}'"
+        echo "EMAIL: '${{ vars.EMAIL }}'"
+        echo "CREATE_ROUTE53_ZONE: '${{ vars.CREATE_ROUTE53_ZONE }}'"
+        echo "KUBERNETES_LB_IP: '${{ vars.KUBERNETES_LB_IP }}'"
+        echo "AWS_PROFILE: '${{ vars.AWS_PROFILE }}'"
+        
     - name: Create terraform.tfvars
       run: |
         cd infrastructure/terraform
@@ -100,6 +108,8 @@ jobs:
         kubernetes_load_balancer_ip = "${{ vars.KUBERNETES_LB_IP }}"
         aws_profile = "${{ vars.AWS_PROFILE }}"
         EOF
+        echo "=== terraform.tfvars contents ==="
+        cat terraform.tfvars
 
     - name: OpenTofu Plan
       id: plan
