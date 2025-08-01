@@ -38,8 +38,8 @@ class TestDispatcherService:
         from dispatcher_service.app import execute
         from kubernetes.client import V1Node, V1NodeStatus, V1ContainerImage
         
-        # Mock gVisor check to avoid permission errors
-        mock_gvisor_check.return_value = False
+        # Mock gVisor check to return True (simulating gVisor is available)
+        mock_gvisor_check.return_value = True
         
         # Mock ResourceQuota to return 404 (not found)
         from kubernetes.client.rest import ApiException

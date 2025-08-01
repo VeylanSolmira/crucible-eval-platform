@@ -55,3 +55,32 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: test-runner
+---
+# ClusterRole for cluster-scoped resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: test-runner-cluster
+  labels:
+    app.kubernetes.io/name: test-runner
+    app.kubernetes.io/component: testing
+rules:
+  # Allow reading runtime classes for gVisor checks
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: test-runner-cluster
+  labels:
+    app.kubernetes.io/name: test-runner
+    app.kubernetes.io/component: testing
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: test-runner-cluster
+subjects:
+  - kind: ServiceAccount
+    name: test-runner

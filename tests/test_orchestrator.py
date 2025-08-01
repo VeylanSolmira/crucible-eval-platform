@@ -111,8 +111,8 @@ class TestOrchestrator:
                 print(f"📦 Using ECR registry: {self.registry}")
                 # Use unique tags for CI/CD
                 unique_tag = os.environ.get("GITHUB_SHA", self.timestamp)[:8] if os.environ.get("GITHUB_SHA") else self.timestamp
-                self.test_image = f"{self.registry}/crucible-platform:test-runner-{unique_tag}"
-                self.test_image_latest = f"{self.registry}/crucible-platform:test-runner-latest"
+                self.test_image = f"{self.registry}/test-runner:{unique_tag}"
+                self.test_image_latest = f"{self.registry}/test-runner:latest"
             elif self.docker_hub_user:
                 self.registry = "docker.io"  # Docker Hub
                 self.test_image = f"{self.docker_hub_user}/crucible-test-runner:latest"

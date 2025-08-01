@@ -42,6 +42,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 
 # Security configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+HOST_OS = os.getenv("HOST_OS", "linux")  # Default to linux, can be set to "darwin" for macOS
 
 # Feature flags
 ENABLE_EVENT_MONITORING = os.getenv("ENABLE_EVENT_MONITORING", "true").lower() == "true"
