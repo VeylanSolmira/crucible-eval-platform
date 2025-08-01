@@ -95,6 +95,13 @@ jobs:
       run: |
         cd infrastructure/terraform
         
+        # Set terraform variables from GitHub repository variables
+        export TF_VAR_domain_name="${{ vars.DOMAIN_NAME }}"
+        export TF_VAR_email="${{ vars.EMAIL }}"
+        export TF_VAR_create_route53_zone="${{ vars.CREATE_ROUTE53_ZONE }}"
+        export TF_VAR_kubernetes_load_balancer_ip="${{ vars.KUBERNETES_LB_IP }}"
+        export TF_VAR_aws_profile="${{ vars.AWS_PROFILE }}"
+        
         if [ -n "${{ github.event.inputs.target }}" ]; then
           tofu plan -out=tfplan -target="${{ github.event.inputs.target }}"
         else
@@ -184,6 +191,13 @@ jobs:
     - name: OpenTofu Apply
       run: |
         cd infrastructure/terraform
+        
+        # Set terraform variables from GitHub repository variables
+        export TF_VAR_domain_name="${{ vars.DOMAIN_NAME }}"
+        export TF_VAR_email="${{ vars.EMAIL }}"
+        export TF_VAR_create_route53_zone="${{ vars.CREATE_ROUTE53_ZONE }}"
+        export TF_VAR_kubernetes_load_balancer_ip="${{ vars.KUBERNETES_LB_IP }}"
+        export TF_VAR_aws_profile="${{ vars.AWS_PROFILE }}"
         
         if [ -f "tfplan" ]; then
           echo "Applying saved plan..."
