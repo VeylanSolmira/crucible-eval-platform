@@ -29,8 +29,24 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 
 # For SSL warning suppression in tests
-urllib3==2.1.0
+# urllib3 version is constrained by kubernetes==28.1.0 which requires <2.0
 
-# For unit tests that import api.celery_client (even though we mock it)
+# Dependencies needed for unit tests that import application modules
+# API and Celery dependencies
 celery
 redis
+kubernetes==28.1.0  # For dispatcher service tests
+httpx==0.25.0  # For API client tests
+
+# Storage dependencies
+sqlalchemy==2.0.23
+greenlet  # Required by SQLAlchemy for async support
+# psycopg2-binary==2.9.9  # Not needed - unit tests should mock DB connections
+# alembic==1.12.1  # Not needed - unit tests shouldn't run migrations
+# asyncpg>=0.27.0  # Not needed - unit tests should mock async DB
+
+# Service dependencies
+pydantic-settings==2.1.0  # For service configuration (imported at module level)
+# uvicorn[standard]==0.24.0  # Not needed - FastAPI TestClient doesn't require uvicorn
+structlog==23.2.0  # For structured logging (imported by storage_worker)
+# tenacity>=8.2.0  # Check if needed - might be imported at module level

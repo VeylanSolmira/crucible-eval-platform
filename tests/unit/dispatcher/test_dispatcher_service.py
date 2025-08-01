@@ -14,7 +14,6 @@ from datetime import datetime
 from dispatcher_service import ExecuteRequest, ExecuteResponse
 
 
-@pytest.mark.whitebox
 @pytest.mark.unit
 class TestDispatcherService:
     """Test dispatcher service functionality."""

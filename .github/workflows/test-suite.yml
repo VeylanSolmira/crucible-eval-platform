@@ -57,7 +57,8 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r tests/requirements.txt
+          # Install dev requirements for local test execution capabilities
+          pip install -r requirements-dev.txt
       
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
@@ -157,27 +158,3 @@ jobs:
             .metadata.name' | \
             xargs -I {} kubectl delete job {} -n dev --ignore-not-found=true || true
 
-  # Optional: Run quick smoke tests on every push
-  smoke-test:
-    name: Smoke Tests
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r tests/requirements.txt
-      
-      - name: Run local smoke tests
-        run: |
-          # Run basic unit tests locally without cluster
-          python -m pytest tests/unit/test_smoke.py -v || true

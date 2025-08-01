@@ -15,7 +15,6 @@ from datetime import datetime, timezone
 from storage_worker import StorageWorker, create_health_app
 
 
-@pytest.mark.whitebox
 @pytest.mark.unit
 class TestStorageWorkerSimple:
     """Test storage worker core functionality."""

@@ -6,8 +6,13 @@ import os
 from typing import Dict, Any, Optional
 
 
-# Get API URL from environment or use default
-API_URL = os.getenv("API_BASE_URL", os.getenv("API_URL", "http://localhost:8080/api"))
+# Get API URL from environment - must be explicitly set
+API_URL = os.getenv("API_BASE_URL") or os.getenv("API_URL")
+if not API_URL:
+    raise ValueError(
+        "API_URL or API_BASE_URL environment variable must be set. "
+        "Example: API_URL=http://api-service.dev.svc.cluster.local:8080/api"
+    )
 
 
 def submit_evaluation(code: str, language: str = "python", timeout: int = 30, 

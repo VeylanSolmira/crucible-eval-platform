@@ -29,6 +29,7 @@ resources:
   # Task processing
   - celery/celery-worker.yaml
   - dispatcher/dispatcher_deployment.yaml
+  - dispatcher/dispatcher-rbac-cluster.yaml
   
   # Monitoring
   - flower/flower-deployment.yaml

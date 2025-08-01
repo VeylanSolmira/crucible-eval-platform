@@ -10,7 +10,7 @@ import pytest
 from api.celery_client import cancel_celery_task, get_celery_task_info
 
 
-@pytest.mark.whitebox
+@pytest.mark.unit
 class TestCeleryCancellation(unittest.TestCase):
     """Test the Celery cancellation functionality."""
 

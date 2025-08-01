@@ -627,6 +627,62 @@ class TestOrchestrator:
         
         return 1
     
+    def run_local_tests(self, 
+                       test_suites: List[str],
+                       test_files: List[str] = None,
+                       include_slow: bool = False,
+                       include_destructive: bool = False,
+                       verbose: bool = False) -> int:
+        """Run tests locally without Kubernetes."""
+        print("\n" + "="*80)
+        print("LOCAL TEST RUNNER")
+        print("="*80)
+        print("\n🏠 Running tests locally (no Kubernetes required)")
+        
+        # Build pytest command using the current Python interpreter
+        # This ensures we use the venv Python if it's activated
+        pytest_cmd = [sys.executable, "-m", "pytest"]
+        
+        # Add test paths
+        if test_files:
+            # Run specific test files
+            for test_file in test_files:
+                pytest_cmd.append(f"tests/{test_file}")
+        else:
+            # Run test suites
+            for suite in test_suites:
+                if suite == "all":
+                    pytest_cmd.append("tests/")
+                    break
+                else:
+                    pytest_cmd.append(f"tests/{suite}/")
+        
+        # Add pytest arguments
+        pytest_cmd.extend(["-v", "--tb=short"])
+        
+        # Handle markers
+        markers = []
+        if not include_slow:
+            markers.append("not slow")
+        if not include_destructive:
+            markers.append("not destructive")
+        
+        # When running unit tests locally, only run tests marked as unit
+        if "unit" in test_suites:
+            markers.append("unit")
+        
+        if markers:
+            pytest_cmd.extend(["-m", " and ".join(markers)])
+        
+        if verbose:
+            pytest_cmd.append("-s")  # No capture, show print statements
+        
+        # Run tests
+        print(f"\n🧪 Running: {' '.join(pytest_cmd)}")
+        result = subprocess.run(pytest_cmd)
+        
+        return result.returncode
+    
     def cleanup(self, exit_code=None):
         """Clean up the coordinator job."""
         print("\n🧹 Cleaning up coordinator job...")
@@ -652,8 +708,32 @@ class TestOrchestrator:
             include_destructive: bool = False,
             test_files: List[str] = None,
             verbose: bool = False,
-            resource_cleanup: str = "none") -> int:
+            resource_cleanup: str = "none",
+            local: str = "true") -> int:
         """Run the complete test orchestration pipeline."""
+        
+        # Separate unit tests from other suites
+        run_unit_locally = "unit" in test_suites and local != "false"
+        cluster_suites = [s for s in test_suites if s != "unit" or local == "false"]
+        
+        exit_code = 0
+        
+        # Run unit tests locally if requested
+        if run_unit_locally:
+            print("\n🏠 Running unit tests locally first...")
+            exit_code = self.run_local_tests(
+                test_suites=["unit"],
+                test_files=test_files,
+                include_slow=include_slow,
+                include_destructive=include_destructive,
+                verbose=verbose
+            )
+            if exit_code != 0:
+                return exit_code
+        
+        # If no cluster tests needed, we're done
+        if not cluster_suites:
+            return exit_code
         
         print("\n" + "="*80)
         print("KUBERNETES TEST ORCHESTRATOR")
@@ -668,7 +748,7 @@ class TestOrchestrator:
         if test_files:
             print(f"  Test Files: {test_files}")
         else:
-            print(f"  Test Suites: {test_suites or ['all']}")
+            print(f"  Test Suites: {cluster_suites if cluster_suites else ['none']}")
         print(f"  Parallel: {parallel}")
         print(f"  Include Slow: {include_slow}")
         print(f"  Include Destructive: {include_destructive}")
@@ -686,7 +766,7 @@ class TestOrchestrator:
             
             # Step 3: Create and submit coordinator job
             job_manifest = self.create_coordinator_job(
-                test_suites=test_suites,
+                test_suites=cluster_suites,
                 parallel=parallel,
                 include_slow=include_slow,
                 include_destructive=include_destructive,
@@ -754,6 +834,13 @@ def main():
         default="none",
         help="Resource cleanup level between tests (none, pods, or all)"
     )
+    parser.add_argument(
+        "--local",
+        type=str,
+        choices=["true", "false", "auto"],
+        default="auto",
+        help="Run tests locally without Kubernetes cluster. auto=local for unit tests, cluster for others (default: auto)"
+    )
     
     args = parser.parse_args()
     
@@ -766,7 +853,8 @@ def main():
         include_destructive=args.include_destructive,
         test_files=args.test_files,
         verbose=args.verbose,
-        resource_cleanup=args.resource_cleanup
+        resource_cleanup=args.resource_cleanup,
+        local=args.local
     )
     
     sys.exit(exit_code)

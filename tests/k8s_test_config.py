@@ -32,8 +32,12 @@ def get_k8s_service_url(service_name: str, namespace: str = None, port: int = No
         # Inside cluster: use Kubernetes DNS
         return f"{service_name}.{namespace}.svc.cluster.local"
     else:
-        # Outside cluster: assume port-forward to localhost
-        return "localhost"
+        # Outside cluster: must use environment variables
+        raise ValueError(
+            f"Not running in cluster and no explicit service URL provided. "
+            f"Please set appropriate environment variables for {service_name} service. "
+            f"For example: {service_name.upper()}_HOST=localhost (if using port-forward)"
+        )
 
 
 def get_service_config() -> Dict[str, str]:

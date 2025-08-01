@@ -13,7 +13,6 @@ from celery_worker.retry_config import (
 )
 
 
-@pytest.mark.whitebox
 @pytest.mark.unit
 class TestRetryConfig:
     """Test retry configuration logic."""

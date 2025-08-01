@@ -20,9 +20,9 @@ This directory contains integration tests that verify the interaction between mu
 ## Test Configuration
 
 All integration tests use the centralized configuration from `k8s_test_config.py` which provides:
-- API_URL: The API endpoint (defaults to http://localhost:8080)
-- REDIS_URL: Redis connection URL (defaults to redis://localhost:6379)
-- Other service endpoints as needed
+- API_URL: The API endpoint (must be set via environment variable)
+- REDIS_URL: Redis connection URL (must be set via environment variable)
+- Other service endpoints (automatically discovered when running in cluster)
 
 ## Test Files
 

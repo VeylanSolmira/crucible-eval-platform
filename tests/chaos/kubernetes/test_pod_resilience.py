@@ -18,6 +18,7 @@ import time
 import asyncio
 import json
 import logging
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 
@@ -118,8 +119,11 @@ def submit_evaluation(priority: int = 0) -> Optional[str]:
         time.sleep(2)  # Wait for port forward
         
         import requests
+        api_url = os.getenv("API_URL")
+        if not api_url:
+            pytest.skip("API_URL environment variable not set")
         response = requests.post(
-            "http://localhost:8080/api/eval",
+            f"{api_url}/eval",
             json={
                 "code": f"import time; print('Chaos test evaluation - priority {priority}'); time.sleep(5); print('Done')",
                 "language": "python",
@@ -154,7 +158,7 @@ def wait_for_evaluation(eval_id: str, timeout: int = 120) -> Dict[str, Any]:
         start_time = time.time()
         
         while time.time() - start_time < timeout:
-            response = requests.get(f"http://localhost:8080/api/eval/{eval_id}")
+            response = requests.get(f"{api_url}/eval/{eval_id}")
             
             if response.status_code == 200:
                 data = response.json()

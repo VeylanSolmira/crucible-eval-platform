@@ -77,22 +77,38 @@ except Exception:
     # Ignore errors - .env file is optional
     pass
 
-# Import configuration from k8s_test_config
-from k8s_test_config import API_URL, VERIFY_SSL, REQUEST_TIMEOUT
+# Lazy load configuration
+_config_cache = None
 
-# Default request configuration
-DEFAULT_REQUEST_CONFIG = {
-    "verify": VERIFY_SSL,
-    "timeout": REQUEST_TIMEOUT
-}
+def _load_config():
+    """Lazy load configuration only when needed"""
+    global _config_cache
+    if _config_cache is None:
+        from k8s_test_config import API_URL, VERIFY_SSL, REQUEST_TIMEOUT
+        _config_cache = {
+            "api_url": API_URL,
+            "verify_ssl": VERIFY_SSL,
+            "request_timeout": REQUEST_TIMEOUT
+        }
+    return _config_cache
+
+# Default request configuration (will be loaded lazily)
+def get_default_request_config():
+    """Get default request configuration"""
+    config = _load_config()
+    return {
+        "verify": config["verify_ssl"],
+        "timeout": config["request_timeout"]
+    }
 
 def get_api_url():
     """Get the appropriate API URL based on environment"""
-    return API_URL
+    config = _load_config()
+    return config["api_url"]
 
 def get_request_config(**overrides):
     """Get request configuration with optional overrides"""
-    config = DEFAULT_REQUEST_CONFIG.copy()
+    config = get_default_request_config().copy()
     config.update(overrides)
     return config
 

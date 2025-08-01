@@ -14,7 +14,6 @@ import json
 from storage_service.app import app
 
 
-@pytest.mark.whitebox
 @pytest.mark.unit
 class TestStorageServiceAPI:
     """Test storage service REST API endpoints."""

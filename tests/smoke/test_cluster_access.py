@@ -186,10 +186,11 @@ class TestClusterAccess:
     def test_api_accessible(self, namespace):
         """Verify API is accessible (may require port-forward)."""
         # First check if we can access directly (e.g., via LoadBalancer/Ingress)
-        api_urls = [
-            "http://localhost:8080/health",  # Port-forward scenario
-            "http://localhost/api/health",   # Ingress scenario
-        ]
+        # Get API URL from environment if set
+        api_base = os.environ.get("API_URL", "").rstrip("/api")
+        api_urls = []
+        if api_base:
+            api_urls.append(f"{api_base}/health")
         
         api_accessible = False
         for url in api_urls:
@@ -213,11 +214,17 @@ class TestClusterAccess:
             time.sleep(3)  # Wait for port-forward
             
             try:
-                response = requests.get("http://localhost:8080/health", timeout=5)
+                # Use the port-forwarded URL
+                pf_url = "http://localhost:8080/health"
+                response = requests.get(pf_url, timeout=5)
                 assert response.status_code == 200, f"API health check failed: {response.status_code}"
                 health_data = response.json()
                 assert health_data.get("status") == "healthy", f"API not healthy: {health_data}"
                 print("✓ API is healthy (via port-forward)")
+                
+                # Set API_URL for subsequent tests if not already set
+                if not os.environ.get("API_URL"):
+                    os.environ["API_URL"] = "http://localhost:8080/api"
             finally:
                 port_forward.terminate()
     
