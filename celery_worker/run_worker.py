@@ -31,5 +31,12 @@ if __name__ == "__main__":
     # Start health server in background thread
     start_health_server_thread()
     
-    # Start celery worker (blocks forever)
-    app.start()
+    # Start celery worker directly using worker_main
+    # This avoids CLI argument parsing issues
+    argv = [
+        'worker',
+        '--loglevel=info',
+        f'--concurrency={os.environ.get("CELERY_CONCURRENCY", "2")}',
+        '-Q', 'high_priority,evaluation,batch,maintenance'
+    ]
+    app.worker_main(argv)
