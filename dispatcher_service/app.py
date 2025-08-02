@@ -38,6 +38,7 @@ REGISTRY_PREFIX = os.getenv("REGISTRY_PREFIX", "")  # e.g. "localhost:5000" or "
 DEFAULT_IMAGE_TAG = os.getenv("DEFAULT_IMAGE_TAG", "latest")  # Default tag when none specified
 MAX_JOB_TTL = int(os.getenv("MAX_JOB_TTL", "3600"))  # 1 hour
 JOB_CLEANUP_TTL = int(os.getenv("JOB_CLEANUP_TTL", "300"))  # 5 minutes
+DEBUG_JOB_CLEANUP_TTL = int(os.getenv("DEBUG_JOB_CLEANUP_TTL", "3600"))  # 1 hour for debug pods
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 
 # Security configuration
@@ -533,10 +534,11 @@ class ExecuteRequest(BaseModel):
     code: str = Field(..., description="Python code to execute")
     language: str = Field(default="python", description="Programming language")
     timeout: int = Field(default=300, ge=1, le=MAX_JOB_TTL, description="Execution timeout in seconds")
-    memory_limit: str = Field(default="512Mi", description="Memory limit (e.g., 512Mi, 1Gi)")
-    cpu_limit: str = Field(default="500m", description="CPU limit (e.g., 500m, 1)")
+    memory_limit: str = Field(default="128Mi", description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
+    cpu_limit: str = Field(default="100m", description="CPU limit (e.g., 100m, 500m, 1)")
     priority: int = Field(default=0, description="Priority level: 1=high, 0=normal, -1=low")
     executor_image: Optional[str] = Field(default=None, description="Executor image name (e.g., 'python-ml') or full image path")
+    debug: bool = Field(default=False, description="Preserve pod for debugging if it fails")
     
 class ExecuteResponse(BaseModel):
     eval_id: str
@@ -547,8 +549,8 @@ class ExecuteResponse(BaseModel):
 
 # Capacity check models
 class CapacityRequest(BaseModel):
-    memory_limit: str = Field(default="512Mi", description="Memory limit (e.g., 512Mi, 1Gi)")
-    cpu_limit: str = Field(default="500m", description="CPU limit (e.g., 500m, 1)")
+    memory_limit: str = Field(default="128Mi", description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
+    cpu_limit: str = Field(default="100m", description="CPU limit (e.g., 100m, 500m, 1)")
 
 
 class CapacityResponse(BaseModel):
@@ -749,12 +751,14 @@ async def execute(request: ExecuteRequest):
             },
             annotations={
                 "eval-id": request.eval_id,
-                "created-at": datetime.now(timezone.utc).isoformat()
+                "created-at": datetime.now(timezone.utc).isoformat(),
+                **({"debug": "true"} if request.debug else {})
             }
         ),
         spec=client.V1JobSpec(
             # Clean up job after completion
-            ttl_seconds_after_finished=JOB_CLEANUP_TTL,
+            # Debug pods get longer TTL (1 hour) vs normal pods (5-10 minutes)
+            ttl_seconds_after_finished=DEBUG_JOB_CLEANUP_TTL if request.debug else JOB_CLEANUP_TTL,
             # Maximum runtime
             active_deadline_seconds=request.timeout + 300,  # 5 minute buffer
             # Don't retry on failure (evaluations shouldn't be retried)

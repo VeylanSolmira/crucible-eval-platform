@@ -16,17 +16,19 @@ if not API_URL:
 
 
 def submit_evaluation(code: str, language: str = "python", timeout: int = 30, 
-                     memory_limit: str = "512Mi", cpu_limit: str = "500m", 
-                     executor_image: str = None) -> str:
+                     memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None, 
+                     executor_image: str = None, debug: bool = False, priority: int = -1) -> str:
     """Submit an evaluation to the API
     
     Args:
         code: Code to evaluate
         language: Programming language (default: python)
         timeout: Timeout in seconds (default: 30)
-        memory_limit: Memory limit (e.g., 512Mi, 1Gi) (default: 512Mi)
-        cpu_limit: CPU limit (e.g., 500m, 1) (default: 500m)
+        memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+        cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
         executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+        debug: Preserve pod for debugging if it fails (default: False)
+        priority: Priority level: 1=high, 0=normal, -1=low (default: -1 for test evaluations)
         
     Returns:
         Evaluation ID
@@ -35,11 +37,15 @@ def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
         "code": code,
         "language": language,
         "timeout": timeout,
-        "memory_limit": memory_limit,
-        "cpu_limit": cpu_limit
+        "debug": debug,
+        "priority": priority  # Always include priority (default -1 for tests)
     }
     
-    # Add executor_image if provided
+    # Add optional parameters if provided
+    if memory_limit is not None:
+        payload["memory_limit"] = memory_limit
+    if cpu_limit is not None:
+        payload["cpu_limit"] = cpu_limit
     if executor_image:
         payload["executor_image"] = executor_image
     
@@ -49,7 +55,9 @@ def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
     )
     response.raise_for_status()
     data = response.json()
-    return data.get("eval_id")
+    eval_id = data.get("eval_id")
+    print(f"\n[EVAL_SUBMIT] eval_id={eval_id} timestamp={time.time()}")
+    return eval_id
 
 
 def get_evaluation_status(eval_id: str) -> Dict[str, Any]:

@@ -298,6 +298,7 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
             executor_image=request.executor_image,
             memory_limit=request.memory_limit,
             cpu_limit=request.cpu_limit,
+            debug=request.debug,
         )
         if celery_task_id:
             logger.info(f"Submitted evaluation {eval_id} to Celery: {celery_task_id}")
@@ -330,7 +331,7 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
         raise HTTPException(status_code=502, detail="Failed to queue evaluation")
 
 
-async def validate_resource_limits(memory_limit: str, cpu_limit: str) -> None:
+async def validate_resource_limits(memory_limit: Optional[str], cpu_limit: Optional[str]) -> None:
     """
     Validate that requested resources don't exceed cluster limits.
     Raises HTTPException if validation fails.
@@ -338,9 +339,11 @@ async def validate_resource_limits(memory_limit: str, cpu_limit: str) -> None:
     # Import resource parsing utilities
     from shared.utils.resource_parsing import parse_memory, parse_cpu
     
-    # Parse requested resources
-    requested_memory_mb = parse_memory(memory_limit)
-    requested_cpu_mc = parse_cpu(cpu_limit)
+    # Only parse if values are provided (for validation)
+    if memory_limit is not None and cpu_limit is not None:
+        # Parse requested resources for validation
+        requested_memory_mb = parse_memory(memory_limit)
+        requested_cpu_mc = parse_cpu(cpu_limit)
     
     # Check with dispatcher's capacity endpoint
     async with create_http_client() as client:
@@ -356,22 +359,24 @@ async def validate_resource_limits(memory_limit: str, cpu_limit: str) -> None:
             if response.status_code == 200:
                 capacity_data = response.json()
                 
-                # Check if request exceeds total cluster limits
-                total_memory_mb = capacity_data.get("total_memory_mb", 0)
-                total_cpu_mc = capacity_data.get("total_cpu_millicores", 0)
-                
-                # If request exceeds total cluster limits, reject immediately
-                if requested_memory_mb > total_memory_mb:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Requested memory ({memory_limit}) exceeds total cluster limit ({total_memory_mb}MB)"
-                    )
-                
-                if requested_cpu_mc > total_cpu_mc:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Requested CPU ({cpu_limit}) exceeds total cluster limit ({total_cpu_mc}m)"
-                    )
+                # Only validate limits if explicitly specified
+                if memory_limit is not None and cpu_limit is not None:
+                    # Check if request exceeds total cluster limits
+                    total_memory_mb = capacity_data.get("total_memory_mb", 0)
+                    total_cpu_mc = capacity_data.get("total_cpu_millicores", 0)
+                    
+                    # If request exceeds total cluster limits, reject immediately
+                    if requested_memory_mb > total_memory_mb:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Requested memory ({memory_limit}) exceeds total cluster limit ({total_memory_mb}MB)"
+                        )
+                    
+                    if requested_cpu_mc > total_cpu_mc:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Requested CPU ({cpu_limit}) exceeds total cluster limit ({total_cpu_mc}m)"
+                        )
                 
                 # Note: We don't check available capacity here - that's for the dispatcher/scheduler
                 # We only validate that the request is theoretically possible

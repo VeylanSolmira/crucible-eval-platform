@@ -1,7 +1,8 @@
-# Resource optimization patches for local development
-# Reduces CPU limits to fit within 4-core Docker Desktop allocation
+# Resource optimization patches for dev environment
+# Reduces both CPU and memory limits to prevent overcommitment on 2 CPU / 8GB node
+# Total savings: ~850m CPU, ~960Mi memory limits
 
-# Dispatcher - reduce to single replica
+# Dispatcher - reduce CPU limit from 500m to 200m, memory from 256Mi to 128Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -9,8 +10,16 @@ metadata:
   name: dispatcher
 spec:
   replicas: 1
+  template:
+    spec:
+      containers:
+      - name: dispatcher
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
 
-# Postgres - reduce from 1 core to 500m
+# Postgres - reduce CPU from 500m to 300m, memory from 512Mi to 256Mi
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -23,9 +32,10 @@ spec:
       - name: postgres
         resources:
           limits:
-            cpu: 500m
+            cpu: 300m
+            memory: 256Mi
 
-# Celery Worker - reduce from 1 core to 500m
+# Celery Worker - reduce CPU from 500m to 300m, memory from 512Mi to 256Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -38,7 +48,8 @@ spec:
       - name: celery-worker
         resources:
           limits:
-            cpu: 500m
+            cpu: 300m
+            memory: 256Mi
 
 # Celery Redis - reduce from 500m to 200m
 ---
@@ -55,7 +66,7 @@ spec:
           limits:
             cpu: 200m
 
-# Storage Service - reduce from 500m to 200m
+# Storage Service - reduce CPU from 200m to 150m, memory from 384Mi to 192Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,7 +79,8 @@ spec:
       - name: storage-service
         resources:
           limits:
-            cpu: 200m
+            cpu: 150m
+            memory: 192Mi
 
 # Storage Worker - reduce from 500m to 200m
 ---
@@ -114,3 +126,19 @@ spec:
         resources:
           limits:
             cpu: 200m
+
+# Frontend - reduce CPU from 200m to 100m, memory from 256Mi to 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: frontend
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi

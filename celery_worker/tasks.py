@@ -49,7 +49,7 @@ dlq = DeadLetterQueue(redis_client)
     retry_backoff_max=600,  # Max 10 minutes between retries
     retry_jitter=True,  # Add randomness to prevent thundering herd
 )
-def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeout: int = 300, priority: int = 0, executor_image: Optional[str] = None, memory_limit: str = "512Mi", cpu_limit: str = "500m") -> Dict[str, Any]:
+def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeout: int = 300, priority: int = 0, executor_image: Optional[str] = None, memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None, debug: bool = False) -> Dict[str, Any]:
     """
     Main task for evaluating code submissions using the dispatcher service.
 
@@ -60,8 +60,9 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
         timeout: Execution timeout in seconds (default: 300)
         priority: Priority level (0=normal, 1=high, -1=low) (default: 0)
         executor_image: Executor image name (e.g., 'executor-base') or full image path
-        memory_limit: Memory limit for the evaluation (e.g., '512Mi', '1Gi') (default: 512Mi)
-        cpu_limit: CPU limit for the evaluation (e.g., '500m', '1') (default: 500m)
+        memory_limit: Memory limit for the evaluation (e.g., '128Mi', '512Mi', '1Gi') (default: None, dispatcher decides)
+        cpu_limit: CPU limit for the evaluation (e.g., '100m', '500m', '1') (default: None, dispatcher decides)
+        debug: Preserve pod for debugging if it fails (default: False)
 
     Returns:
         Evaluation result dictionary
@@ -80,12 +81,12 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
         # Use the resource limits passed from the API
         
         with httpx.Client(timeout=30.0) as client:
-            # Check capacity first
+            # Always check capacity - dispatcher will use defaults if not specified
             capacity_response = client.post(
                 f"{DISPATCHER_SERVICE_URL}/capacity/check",
                 json={
-                    "memory_limit": memory_limit,
-                    "cpu_limit": cpu_limit
+                    "memory_limit": memory_limit,  # None is OK - dispatcher uses defaults
+                    "cpu_limit": cpu_limit         # None is OK - dispatcher uses defaults
                 }
             )
             
@@ -142,7 +143,8 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
                     "memory_limit": memory_limit,
                     "cpu_limit": cpu_limit,
                     "priority": priority,  # Pass priority to dispatcher
-                    "executor_image": executor_image  # Pass executor image to dispatcher
+                    "executor_image": executor_image,  # Pass executor image to dispatcher
+                    "debug": debug  # Pass debug flag to dispatcher
                 }
             )
             dispatch_response.raise_for_status()

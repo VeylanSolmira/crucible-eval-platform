@@ -49,8 +49,9 @@ if CELERY_ENABLED:
 
 
 def submit_evaluation_to_celery(
-    eval_id: str, code: str, language: str = "python", priority: bool = False, timeout: int = 300,
-    executor_image: Optional[str] = None, memory_limit: str = "512Mi", cpu_limit: str = "500m"
+    eval_id: str, code: str, language: str = "python", priority: int = 0, timeout: int = 300,
+    executor_image: Optional[str] = None, memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+    debug: bool = False
 ) -> Optional[str]:
     """
     Submit evaluation task to Celery if enabled.
@@ -59,11 +60,12 @@ def submit_evaluation_to_celery(
         eval_id: Evaluation ID
         code: Code to evaluate
         language: Programming language
-        priority: Whether this is a high-priority task
+        priority: Priority level: 1=high, 0=normal, -1=low
         timeout: Execution timeout in seconds
         executor_image: Executor image name (e.g., 'executor-base') or full image path
-        memory_limit: Memory limit for the evaluation (e.g., '512Mi', '1Gi')
-        cpu_limit: CPU limit for the evaluation (e.g., '500m', '1')
+        memory_limit: Memory limit for the evaluation (e.g., '128Mi', '512Mi', '1Gi') - None uses dispatcher defaults
+        cpu_limit: CPU limit for the evaluation (e.g., '100m', '500m', '1') - None uses dispatcher defaults
+        debug: Preserve pod for debugging if it fails
 
     Returns:
         Celery task ID if submitted, None otherwise
@@ -74,16 +76,16 @@ def submit_evaluation_to_celery(
     try:
         # Call evaluate_code directly - it now uses the dispatcher service
         task_name = "celery_worker.tasks.evaluate_code"
-        # Map boolean priority to queue for backward compatibility
-        queue = "high_priority" if priority else "evaluation"
-        # Convert boolean to int: True -> 1 (high), False -> 0 (normal)
-        priority_level = 1 if priority else 0
+        # Map priority to queue: high priority goes to dedicated queue
+        queue = "high_priority" if priority > 0 else "evaluation"
+        # Pass priority level directly (already int: 1=high, 0=normal, -1=low)
+        priority_level = priority
         
-        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}")
+        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}, debug={debug}")
 
         result = celery_app.send_task(
             task_name,
-            args=[eval_id, code, language, timeout, priority_level, executor_image, memory_limit, cpu_limit],
+            args=[eval_id, code, language, timeout, priority_level, executor_image, memory_limit, cpu_limit, debug],
             queue=queue,
             # Note: priority parameter doesn't work with Redis broker
             # We use separate queues instead
