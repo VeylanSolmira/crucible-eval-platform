@@ -3,13 +3,11 @@ kind: Service
 metadata:
   name: frontend-service
   labels:
-    app: crucible
-    component: frontend
+    app: frontend-deployment
 spec:
   type: LoadBalancer  # In kind, this will give us localhost access
   selector:
-    app: crucible
-    component: frontend
+    app: frontend-deployment
   ports:
   - port: 3000
     targetPort: 3000

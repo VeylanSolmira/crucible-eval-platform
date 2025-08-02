@@ -67,7 +67,7 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
     Returns:
         Evaluation result dictionary
     """
-    logger.info(f"Starting evaluation {eval_id} via dispatcher with timeout={timeout}s")
+    logger.info(f"Starting evaluation {eval_id} via dispatcher with timeout={timeout}s, priority={priority}")
 
     try:
         # Update status to provisioning

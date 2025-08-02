@@ -3,20 +3,17 @@ kind: Deployment
 metadata:
   name: frontend-deployment
   labels:
-    app: crucible
-    component: frontend
+    app: frontend-deployment
 spec:
   replicas: 1  # Default to 1, scale up in production
   selector:
     matchLabels:
-      app: crucible
-      component: frontend
+      app: frontend-deployment
   template:
     # This is your Pod template - looks familiar?
     metadata:
       labels:
-        app: crucible
-        component: frontend
+        app: frontend-deployment
     spec:
       priorityClassName: high-priority
       containers:

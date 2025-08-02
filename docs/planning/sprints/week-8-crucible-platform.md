@@ -1336,3 +1336,44 @@ gh variable set AWS_PROFILE --body "AdministratorAccess-503132503803"
 Start with bootstrap script (Option 1) for immediate improvement, then evaluate Terraform GitHub provider for long-term solution.
 
 **Rationale**: Configuration management is a critical part of infrastructure-as-code. The current manual process is error-prone and makes it difficult to maintain consistency across environments or onboard new team members.
+
+---
+
+### 26. Testing Utilities and Retry Patterns
+
+**Priority:** Low  
+**Effort:** 1-2 hours  
+**Impact:** More reliable tests, better failure handling
+
+#### Overview
+Create generalized retry utilities for test infrastructure to handle transient failures gracefully.
+
+#### Current State
+- Smoke tests occasionally fail on port-forward setup
+- Various tests implement custom retry logic
+- No standardized approach for handling transient failures
+
+#### Tasks
+
+**26.1 Create General Retry Utility**
+- [ ] Add `retry_with_backoff` function to `tests/utils/utils.py`
+- [ ] Support customizable:
+  - Maximum attempts
+  - Initial delay
+  - Backoff factor
+  - Custom exception filters (is_retryable)
+  - Retry callbacks for logging
+- [ ] Consider using or wrapping existing libraries (tenacity, retrying)
+
+**26.2 Apply to Common Test Patterns**
+- [ ] Port-forward establishment in smoke tests
+- [ ] API health check connections
+- [ ] Resource creation/deletion operations
+- [ ] Kubernetes API calls
+
+**26.3 Documentation**
+- [ ] Add examples to test development guide
+- [ ] Document when to use retry vs fail fast
+- [ ] Guidelines for appropriate retry counts/delays
+
+**Rationale**: Transient failures in distributed systems are common. Having a standardized retry utility reduces code duplication and makes tests more reliable without hiding real issues.

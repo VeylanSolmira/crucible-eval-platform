@@ -660,7 +660,7 @@ async def execute(request: ExecuteRequest):
     """
     Create a Kubernetes Job to execute the provided code.
     """
-    logger.info(f"Creating job for evaluation {request.eval_id}, code length: {len(request.code)} chars, timeout: {request.timeout}s")
+    logger.info(f"Creating job for evaluation {request.eval_id}, code length: {len(request.code)} chars, timeout: {request.timeout}s, priority: {request.priority}")
     
     # Check gVisor availability and requirements
     use_gvisor = check_gvisor_availability()

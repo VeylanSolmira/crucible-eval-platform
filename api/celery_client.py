@@ -81,7 +81,7 @@ def submit_evaluation_to_celery(
         # Pass priority level directly (already int: 1=high, 0=normal, -1=low)
         priority_level = priority
         
-        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}, debug={debug}")
+        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, priority={priority_level}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}, debug={debug}")
 
         result = celery_app.send_task(
             task_name,
