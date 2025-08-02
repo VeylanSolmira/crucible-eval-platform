@@ -58,6 +58,9 @@ jobs:
     name: Deploy ${{ inputs.service_name }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}-${{ inputs.service_name }}
+      cancel-in-progress: false
     
     permissions:
       id-token: write
@@ -138,7 +141,15 @@ jobs:
     
     - name: Update kubeconfig
       run: |
-        aws eks update-kubeconfig --region $AWS_REGION --name crucible-platform
+        echo "Updating kubeconfig for EKS cluster..."
+        if ! aws eks update-kubeconfig --region $AWS_REGION --name crucible-platform; then
+          echo "Failed to update kubeconfig. Checking cluster status..."
+          aws eks describe-cluster --name crucible-platform --region $AWS_REGION || true
+          exit 1
+        fi
+        echo "Kubeconfig updated successfully"
+        kubectl config current-context
+        kubectl cluster-info
     
     - name: Deploy to Kubernetes
       id: deploy

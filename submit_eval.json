@@ -1,0 +1,8 @@
+{
+  "code": "import time\nimport sys\n\nprint(\"Starting 15-second test evaluation\", flush=True)\nprint(f\"Process ID: {sys.argv[0]}\", flush=True)\n\nfor i in range(15):\n    print(f\"Second {i+1}/15: Still running...\", flush=True)\n    time.sleep(1)\n    \n    if i == 5:\n        print(\"WARNING: Halfway point reached!\", flush=True)\n    \n    if i == 10:\n        print(\"ERROR: Approaching critical failure!\", flush=True)\n\nprint(\"About to throw exception!\", flush=True)\nraise RuntimeError(\"BOOM! This is the intentional exception after 15 seconds\")",
+  "timeout": 30,
+  "resource_limits": {
+    "cpu": "500m",
+    "memory": "256Mi"
+  }
+}

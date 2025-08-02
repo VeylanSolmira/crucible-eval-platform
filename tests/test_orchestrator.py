@@ -167,6 +167,9 @@ class TestOrchestrator:
         """Step 2: Build and push test runner image."""
         if skip_build:
             print("\n⏭️  Skipping image build (--skip-build flag)")
+            # When skipping build, use the latest tag instead of timestamp tag
+            if hasattr(self, 'test_image_latest'):
+                self.test_image = self.test_image_latest
             print(f"📦 Using existing image: {self.test_image}")
             return True
             

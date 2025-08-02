@@ -12,6 +12,11 @@ resources:
 
 # Override settings for dev environment on EKS
 patches:
+# Fluent-bit config for dev namespace
+- path: fluent-bit-config-patch.yaml
+  target:
+    kind: ConfigMap
+    name: fluent-bit-config
 # Resource limits appropriate for dev
 - path: local-resources-patch.yaml
 # Use IfNotPresent for ECR images

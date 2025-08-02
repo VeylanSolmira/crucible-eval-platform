@@ -55,6 +55,25 @@ class AdaptiveWaiter:
             if elapsed > timeout:
                 remaining = total_count - len(completed) - len(failed)
                 print(f"\n❌ Timeout after {elapsed:.1f}s with {remaining} evaluations incomplete")
+                
+                # Print diagnostic info for incomplete evaluations
+                for eval_id in eval_ids:
+                    if eval_id not in completed and eval_id not in failed:
+                        try:
+                            response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+                            if response.status_code == 200:
+                                data = response.json()
+                                status = data.get("status", "unknown")
+                                job_name = data.get("job_name", "not-created-yet")
+                                print(f"\n⏱️  Timed out evaluation: {eval_id}")
+                                print(f"   Last status: {status}")
+                                print(f"   Job name: {job_name}")
+                                print(f"   Check status: curl http://api-service:8080/api/eval/{eval_id}")
+                                if job_name != "not-created-yet":
+                                    print(f"   Check job: kubectl get job {job_name} -n dev")
+                                    print(f"   Job logs: kubectl logs job/{job_name} -n dev")
+                        except Exception:
+                            pass
                 break
                 
             # Check progress periodically
@@ -184,13 +203,20 @@ class AdaptiveWaiter:
             try:
                 response = api_session.get(f"{api_base_url}/eval/{eval_id}")
                 if response.status_code == 200:
-                    status = response.json()["status"]
+                    data = response.json()
+                    status = data.get("status", "unknown")
+                    job_name = data.get("job_name", "not-created-yet")
+                    
+                    # Always print detailed status for each pending evaluation
+                    elapsed = time.time() - self.start_time
+                    print(f"  [{elapsed:.1f}s] {eval_id}: {status} (job: {job_name})")
+                    
                     if status == "completed":
                         new_completed.add(eval_id)
                     elif status in ["failed", "timeout"]:
                         new_failed.add(eval_id)
-            except Exception:
-                pass  # Ignore errors in status checks
+            except Exception as e:
+                print(f"  Error checking {eval_id}: {e}")  # Show errors instead of hiding them
                 
         return new_completed, new_failed
         
