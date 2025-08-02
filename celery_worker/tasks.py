@@ -82,12 +82,15 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
         
         with httpx.Client(timeout=30.0) as client:
             # Always check capacity - dispatcher will use defaults if not specified
+            capacity_payload = {}
+            if memory_limit is not None:
+                capacity_payload["memory_limit"] = memory_limit
+            if cpu_limit is not None:
+                capacity_payload["cpu_limit"] = cpu_limit
+            
             capacity_response = client.post(
                 f"{DISPATCHER_SERVICE_URL}/capacity/check",
-                json={
-                    "memory_limit": memory_limit,  # None is OK - dispatcher uses defaults
-                    "cpu_limit": cpu_limit         # None is OK - dispatcher uses defaults
-                }
+                json=capacity_payload
             )
             
             if capacity_response.status_code == 200:
@@ -133,19 +136,27 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
                         raise self.retry(countdown=delay)
             
             # Capacity available (or check failed), proceed with job creation
+            # Build request payload - only include resource limits if specified
+            dispatch_payload = {
+                "eval_id": eval_id,
+                "code": code,
+                "language": language,
+                "timeout": timeout,  # Use the actual timeout from the request
+                "priority": priority,  # Pass priority to dispatcher
+                "debug": debug  # Pass debug flag to dispatcher
+            }
+            
+            # Only include optional fields if they have values
+            if memory_limit is not None:
+                dispatch_payload["memory_limit"] = memory_limit
+            if cpu_limit is not None:
+                dispatch_payload["cpu_limit"] = cpu_limit
+            if executor_image is not None:
+                dispatch_payload["executor_image"] = executor_image
+            
             dispatch_response = client.post(
                 f"{DISPATCHER_SERVICE_URL}/execute",
-                json={
-                    "eval_id": eval_id,
-                    "code": code,
-                    "language": language,
-                    "timeout": timeout,  # Use the actual timeout from the request
-                    "memory_limit": memory_limit,
-                    "cpu_limit": cpu_limit,
-                    "priority": priority,  # Pass priority to dispatcher
-                    "executor_image": executor_image,  # Pass executor image to dispatcher
-                    "debug": debug  # Pass debug flag to dispatcher
-                }
+                json=dispatch_payload
             )
             dispatch_response.raise_for_status()
             result = dispatch_response.json()
