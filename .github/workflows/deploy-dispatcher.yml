@@ -33,6 +33,5 @@ jobs:
       ecr_repo: dispatcher
       health_check_port: '8090'
       health_check_path: '/health'
-      needs_openapi: false
       environment: ${{ github.event.inputs.environment || 'dev' }}
     secrets: inherit

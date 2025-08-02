@@ -20,7 +20,37 @@ on:
         default: 'dev'
 
 jobs:
+  openapi-generation:
+    name: Generate OpenAPI Specs
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies for OpenAPI generation
+      run: |
+        pip install fastapi pyyaml pydantic
+    
+    - name: Generate OpenAPI specs
+      run: |
+        echo "📄 Generating OpenAPI specs for frontend build..."
+        ./scripts/generate-all-openapi-specs.sh
+    
+    - name: Upload OpenAPI specs as artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: openapi-specs
+        path: |
+          api/openapi.yaml
+          storage_service/openapi.yaml
+
   deploy:
+    needs: openapi-generation
     permissions:
       id-token: write
       contents: read
@@ -34,6 +64,5 @@ jobs:
       dockerfile_path: frontend/Dockerfile
       health_check_port: '3000'
       health_check_path: '/'
-      needs_openapi: true
       environment: ${{ github.event.inputs.environment || 'dev' }}
     secrets: inherit

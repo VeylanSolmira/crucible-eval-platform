@@ -38,11 +38,6 @@ on:
         type: string
         default: '/health'
         description: 'Path for health check'
-      needs_openapi:
-        required: false
-        type: boolean
-        default: false
-        description: 'Whether to generate OpenAPI specs'
       environment:
         required: false
         type: string
@@ -114,12 +109,6 @@ jobs:
           echo "EXISTS=false" >> $GITHUB_OUTPUT
           echo "🔨 Building new image"
         fi
-    
-    - name: Generate OpenAPI specs
-      if: inputs.needs_openapi && steps.check-image.outputs.EXISTS == 'false'
-      run: |
-        echo "📄 Generating OpenAPI specs..."
-        ./scripts/generate-all-openapi-specs.sh
     
     - name: Build and push Docker image
       if: steps.check-image.outputs.EXISTS == 'false'
