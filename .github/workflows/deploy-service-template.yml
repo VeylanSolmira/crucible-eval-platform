@@ -119,7 +119,7 @@ jobs:
       if: inputs.needs_openapi && steps.check-image.outputs.EXISTS == 'false'
       run: |
         echo "📄 Generating OpenAPI specs..."
-        python ${{ inputs.service_dir }}/scripts/export-openapi-spec.py
+        ./scripts/generate-all-openapi-specs.sh
     
     - name: Build and push Docker image
       if: steps.check-image.outputs.EXISTS == 'false'
