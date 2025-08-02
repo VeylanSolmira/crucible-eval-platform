@@ -48,6 +48,13 @@ HOST_OS = os.getenv("HOST_OS", "linux")  # Default to linux, can be set to "darw
 # Feature flags
 ENABLE_EVENT_MONITORING = os.getenv("ENABLE_EVENT_MONITORING", "true").lower() == "true"
 
+# Autoscaling configuration
+MAX_NODES = int(os.getenv("MAX_NODES", "2"))  # Maximum cluster size
+NODE_CPU_MILLICORES = int(os.getenv("NODE_CPU_MILLICORES", "1930"))  # t3.large has ~1930m available
+NODE_MEMORY_MB = int(os.getenv("NODE_MEMORY_MB", "7400"))  # t3.large has ~7.4GB available  
+SCALE_UP_THRESHOLD = float(os.getenv("SCALE_UP_THRESHOLD", "0.9"))  # Scale at 90% capacity
+ENABLE_PROJECTED_CAPACITY = os.getenv("ENABLE_PROJECTED_CAPACITY", "true").lower() == "true"
+
 
 def watch_job_events_sync(event_queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
     """
@@ -586,73 +593,265 @@ def min_resource(limit: str, default: str, resource_type: str) -> str:
     return default
 
 
+def count_pending_evaluation_pods() -> int:
+    """Count the number of pending evaluation pods in the namespace."""
+    try:
+        # List pods with evaluation label
+        pods = core_v1.list_namespaced_pod(
+            namespace=KUBERNETES_NAMESPACE,
+            label_selector="app=evaluation"
+        )
+        
+        pending_count = 0
+        for pod in pods.items:
+            if pod.status.phase == "Pending":
+                # Check if it's pending due to insufficient resources
+                if pod.status.conditions:
+                    for condition in pod.status.conditions:
+                        if condition.type == "PodScheduled" and condition.status == "False":
+                            if condition.reason in ["Unschedulable", "InsufficientCPU", "InsufficientMemory"]:
+                                pending_count += 1
+                                break
+                else:
+                    # No conditions yet, count as pending
+                    pending_count += 1
+        
+        return pending_count
+    except ApiException as e:
+        logger.error(f"Failed to count pending pods: {e}")
+        return 0
+
+
+def get_current_node_count() -> int:
+    """Get the current number of ready nodes in the cluster."""
+    try:
+        nodes = core_v1.list_node()
+        ready_nodes = 0
+        
+        for node in nodes.items:
+            # Check if node is ready
+            if node.status.conditions:
+                for condition in node.status.conditions:
+                    if condition.type == "Ready" and condition.status == "True":
+                        ready_nodes += 1
+                        break
+        
+        return ready_nodes
+    except ApiException as e:
+        logger.error(f"Failed to count nodes: {e}")
+        return 1  # Assume at least 1 node
+
+
+def calculate_projected_capacity(current_nodes: int, pending_pods: int) -> Dict[str, int]:
+    """
+    Calculate projected cluster capacity based on current nodes and pending pods.
+    
+    Returns dict with projected CPU and memory capacity.
+    """
+    # Estimate pods per node (conservative estimate)
+    evaluation_cpu_request = 100  # Default evaluation CPU request in millicores
+    evaluation_memory_request = 128  # Default evaluation memory request in MB
+    
+    # Calculate how many evaluation pods can fit per node
+    pods_per_node_cpu = NODE_CPU_MILLICORES // evaluation_cpu_request
+    pods_per_node_memory = NODE_MEMORY_MB // evaluation_memory_request
+    pods_per_node = min(pods_per_node_cpu, pods_per_node_memory)
+    
+    # Calculate nodes needed for pending pods
+    nodes_needed_for_pending = max(1, (pending_pods + pods_per_node - 1) // pods_per_node)
+    
+    # Project how many nodes we'll have (capped at MAX_NODES)
+    projected_nodes = min(current_nodes + nodes_needed_for_pending, MAX_NODES)
+    
+    # Calculate projected capacity
+    return {
+        "nodes": projected_nodes,
+        "cpu_millicores": projected_nodes * NODE_CPU_MILLICORES,
+        "memory_mb": projected_nodes * NODE_MEMORY_MB
+    }
+
+
 @app.post("/capacity/check", response_model=CapacityResponse)
 async def check_capacity(request: CapacityRequest):
     """
     Check if the cluster has capacity for a new evaluation with specified resources.
+    
+    With projected capacity enabled, this will allow pods to be created up to the
+    projected capacity of MAX_NODES, enabling cluster autoscaling.
     """
     try:
-        # Get ResourceQuota for evaluations
-        quota = core_v1.read_namespaced_resource_quota(
-            name="evaluation-quota",
-            namespace=KUBERNETES_NAMESPACE
-        )
-        
-        # Parse current usage and limits
-        memory_limit = quota.status.hard.get("limits.memory", "0")
-        memory_used = quota.status.used.get("limits.memory", "0")
-        cpu_limit = quota.status.hard.get("limits.cpu", "0")
-        cpu_used = quota.status.used.get("limits.cpu", "0")
-        
-        # Convert to standard units
-        total_memory_mb = parse_memory(memory_limit)
-        used_memory_mb = parse_memory(memory_used)
-        total_cpu_millicores = parse_cpu(cpu_limit)
-        used_cpu_millicores = parse_cpu(cpu_used)
-        
-        available_memory_mb = total_memory_mb - used_memory_mb
-        available_cpu_millicores = total_cpu_millicores - used_cpu_millicores
-        
         # Check requested resources
         requested_memory_mb = parse_memory(request.memory_limit)
         requested_cpu_millicores = parse_cpu(request.cpu_limit)
         
-        # Determine if we have capacity
-        has_capacity = (
-            available_memory_mb >= requested_memory_mb and
-            available_cpu_millicores >= requested_cpu_millicores
-        )
-        
-        reason = None
-        if not has_capacity:
-            if available_memory_mb < requested_memory_mb:
-                reason = f"Insufficient memory: {available_memory_mb}MB available, {requested_memory_mb}MB requested"
+        # If projected capacity is enabled, use node-based calculation
+        if ENABLE_PROJECTED_CAPACITY:
+            current_nodes = get_current_node_count()
+            pending_pods = count_pending_evaluation_pods()
+            
+            # Calculate current usage (approximate based on node count and known overhead)
+            # System pods use roughly 1475m CPU and 1970MB memory
+            system_cpu_overhead = 1475
+            system_memory_overhead = 1970
+            
+            # Get current actual capacity
+            current_total_cpu = current_nodes * NODE_CPU_MILLICORES
+            current_total_memory = current_nodes * NODE_MEMORY_MB
+            
+            # Estimate current available (after system overhead)
+            current_available_cpu = current_total_cpu - system_cpu_overhead
+            current_available_memory = current_total_memory - system_memory_overhead
+            
+            # Check if we're above scale threshold
+            cpu_utilization = system_cpu_overhead / current_total_cpu
+            memory_utilization = system_memory_overhead / current_total_memory
+            current_utilization = max(cpu_utilization, memory_utilization)
+            
+            # Calculate projected capacity
+            projection = calculate_projected_capacity(current_nodes, pending_pods)
+            projected_total_cpu = projection["cpu_millicores"]
+            projected_total_memory = projection["memory_mb"]
+            
+            # Use projected capacity if we're above threshold or have pending pods
+            if current_utilization >= SCALE_UP_THRESHOLD or pending_pods > 0:
+                total_cpu_millicores = projected_total_cpu
+                total_memory_mb = projected_total_memory
+                logger.info(f"Using projected capacity: {projection['nodes']} nodes "
+                          f"(current: {current_nodes}, pending pods: {pending_pods})")
             else:
-                reason = f"Insufficient CPU: {available_cpu_millicores}m available, {requested_cpu_millicores}m requested"
-        
-        return CapacityResponse(
-            has_capacity=has_capacity,
-            available_memory_mb=available_memory_mb,
-            available_cpu_millicores=available_cpu_millicores,
-            total_memory_mb=total_memory_mb,
-            total_cpu_millicores=total_cpu_millicores,
-            reason=reason
-        )
+                total_cpu_millicores = current_total_cpu
+                total_memory_mb = current_total_memory
+            
+            # For capacity check, compare against projected limits minus overhead
+            available_cpu_millicores = total_cpu_millicores - system_cpu_overhead
+            available_memory_mb = total_memory_mb - system_memory_overhead
+            
+            # Determine if we have capacity
+            has_capacity = (
+                requested_memory_mb <= available_memory_mb and
+                requested_cpu_millicores <= available_cpu_millicores
+            )
+            
+            reason = None
+            if not has_capacity:
+                if requested_memory_mb > available_memory_mb:
+                    reason = f"Exceeds projected memory capacity: {available_memory_mb}MB available (with {projection['nodes']} nodes), {requested_memory_mb}MB requested"
+                else:
+                    reason = f"Exceeds projected CPU capacity: {available_cpu_millicores}m available (with {projection['nodes']} nodes), {requested_cpu_millicores}m requested"
+            
+            return CapacityResponse(
+                has_capacity=has_capacity,
+                available_memory_mb=int(available_memory_mb),
+                available_cpu_millicores=int(available_cpu_millicores),
+                total_memory_mb=int(total_memory_mb),
+                total_cpu_millicores=int(total_cpu_millicores),
+                reason=reason
+            )
+            
+        else:
+            # Original ResourceQuota-based logic
+            quota = core_v1.read_namespaced_resource_quota(
+                name="evaluation-quota",
+                namespace=KUBERNETES_NAMESPACE
+            )
+            
+            # Parse current usage and limits
+            memory_limit = quota.status.hard.get("limits.memory", "0")
+            memory_used = quota.status.used.get("limits.memory", "0")
+            cpu_limit = quota.status.hard.get("limits.cpu", "0")
+            cpu_used = quota.status.used.get("limits.cpu", "0")
+            
+            # Convert to standard units
+            total_memory_mb = parse_memory(memory_limit)
+            used_memory_mb = parse_memory(memory_used)
+            total_cpu_millicores = parse_cpu(cpu_limit)
+            used_cpu_millicores = parse_cpu(cpu_used)
+            
+            available_memory_mb = total_memory_mb - used_memory_mb
+            available_cpu_millicores = total_cpu_millicores - used_cpu_millicores
+            
+            # Determine if we have capacity
+            has_capacity = (
+                available_memory_mb >= requested_memory_mb and
+                available_cpu_millicores >= requested_cpu_millicores
+            )
+            
+            reason = None
+            if not has_capacity:
+                if available_memory_mb < requested_memory_mb:
+                    reason = f"Insufficient memory: {available_memory_mb}MB available, {requested_memory_mb}MB requested"
+                else:
+                    reason = f"Insufficient CPU: {available_cpu_millicores}m available, {requested_cpu_millicores}m requested"
+            
+            return CapacityResponse(
+                has_capacity=has_capacity,
+                available_memory_mb=available_memory_mb,
+                available_cpu_millicores=available_cpu_millicores,
+                total_memory_mb=total_memory_mb,
+                total_cpu_millicores=total_cpu_millicores,
+                reason=reason
+            )
         
     except ApiException as e:
         if e.status == 404:
-            # No resource quota found, assume capacity is available
-            logger.warning("No ResourceQuota found, assuming capacity is available")
-            return CapacityResponse(
-                has_capacity=True,
-                available_memory_mb=99999,
-                available_cpu_millicores=99999,
-                total_memory_mb=99999,
-                total_cpu_millicores=99999,
-                reason="No resource quota configured"
-            )
+            # No resource quota found, use projected capacity if enabled
+            if ENABLE_PROJECTED_CAPACITY:
+                current_nodes = get_current_node_count()
+                return CapacityResponse(
+                    has_capacity=True,
+                    available_memory_mb=current_nodes * NODE_MEMORY_MB,
+                    available_cpu_millicores=current_nodes * NODE_CPU_MILLICORES,
+                    total_memory_mb=MAX_NODES * NODE_MEMORY_MB,
+                    total_cpu_millicores=MAX_NODES * NODE_CPU_MILLICORES,
+                    reason="Using node-based capacity (no ResourceQuota)"
+                )
+            else:
+                logger.warning("No ResourceQuota found, assuming capacity is available")
+                return CapacityResponse(
+                    has_capacity=True,
+                    available_memory_mb=99999,
+                    available_cpu_millicores=99999,
+                    total_memory_mb=99999,
+                    total_cpu_millicores=99999,
+                    reason="No resource quota configured"
+                )
         else:
             raise HTTPException(status_code=500, detail=f"Failed to check capacity: {str(e)}")
+
+
+@app.get("/cluster/status")
+async def get_cluster_status():
+    """Get current cluster scaling status."""
+    try:
+        current_nodes = get_current_node_count()
+        pending_pods = count_pending_evaluation_pods()
+        
+        # Calculate utilization
+        system_cpu_overhead = 1475
+        system_memory_overhead = 1970
+        current_total_cpu = current_nodes * NODE_CPU_MILLICORES
+        current_total_memory = current_nodes * NODE_MEMORY_MB
+        
+        cpu_utilization = system_cpu_overhead / current_total_cpu
+        memory_utilization = system_memory_overhead / current_total_memory
+        
+        # Get projected capacity
+        projection = calculate_projected_capacity(current_nodes, pending_pods)
+        
+        return {
+            "current_nodes": current_nodes,
+            "max_nodes": MAX_NODES,
+            "pending_evaluation_pods": pending_pods,
+            "cpu_utilization_percent": round(cpu_utilization * 100, 1),
+            "memory_utilization_percent": round(memory_utilization * 100, 1),
+            "scale_threshold_percent": round(SCALE_UP_THRESHOLD * 100, 1),
+            "projected_nodes": projection["nodes"],
+            "projected_capacity_enabled": ENABLE_PROJECTED_CAPACITY,
+            "would_scale": cpu_utilization >= SCALE_UP_THRESHOLD or memory_utilization >= SCALE_UP_THRESHOLD or pending_pods > 0
+        }
+    except Exception as e:
+        logger.error(f"Failed to get cluster status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/execute", response_model=ExecuteResponse)

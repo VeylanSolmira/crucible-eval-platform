@@ -157,8 +157,10 @@ resource "aws_eks_node_group" "main" {
   disk_size = 20 # GB, minimum for Kubernetes
 
   tags = merge(local.common_tags, {
-    Name    = "${var.project_name}-eks-nodes"
-    Purpose = "Worker nodes for EKS cluster"
+    Name                                                     = "${var.project_name}-eks-nodes"
+    Purpose                                                  = "Worker nodes for EKS cluster"
+    "k8s.io/cluster-autoscaler/enabled"                      = "true"
+    "k8s.io/cluster-autoscaler/${aws_eks_cluster.main.name}" = "owned"
   })
 
   depends_on = [

@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Cluster Autoscaler runs in kube-system namespace
+namespace: kube-system
+
+resources:
+  - cluster-autoscaler.yaml
+
+# This will be patched with the actual IAM role ARN from Terraform
+configMapGenerator:
+  - name: cluster-autoscaler-status
+    literals:
+      - role_arn_placeholder=${CLUSTER_AUTOSCALER_ROLE_ARN}

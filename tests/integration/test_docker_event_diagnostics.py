@@ -66,9 +66,9 @@ def get_executor_status(api_session: requests.Session, api_base_url: str) -> Dic
     return {}
 
 
+from utils.utils import submit_evaluation
+
 def submit_evaluation_batch(
-    api_session: requests.Session, 
-    api_base_url: str,
     codes: List[str],
     timeout: int = 30
 ) -> List[str]:
@@ -76,18 +76,12 @@ def submit_evaluation_batch(
     eval_ids = []
     
     for code in codes:
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={
-                "code": code,
-                "language": "python",
-                "timeout": timeout
-            }
-        )
-        if response.status_code == 200:
-            eval_ids.append(response.json()["eval_id"])
-        else:
-            raise RuntimeError(f"Failed to submit evaluation: {response.text}")
+        try:
+            # Use the unified submit_evaluation function with default priority=-1
+            eval_id = submit_evaluation(code, timeout=timeout)
+            eval_ids.append(eval_id)
+        except Exception as e:
+            raise RuntimeError(f"Failed to submit evaluation: {e}")
     
     return eval_ids
 
@@ -193,7 +187,7 @@ def test_concurrent_fast_failures_event_handling(api_session: requests.Session, 
     codes = [f'print("Concurrent test {i}"); 1/{i}' for i in range(10)]
     
     start_time = time.time()
-    eval_ids = submit_evaluation_batch(api_session, api_base_url, codes)
+    eval_ids = submit_evaluation_batch(codes)
     submission_time = time.time() - start_time
     
     print(f"\nSubmitted {len(eval_ids)} evaluations in {submission_time:.3f}s")

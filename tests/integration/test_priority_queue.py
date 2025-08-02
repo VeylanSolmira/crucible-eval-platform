@@ -10,22 +10,7 @@ import requests
 import time
 from typing import Tuple, List, Optional
 from k8s_test_config import API_URL
-
-
-def submit_evaluation(
-    api_session: requests.Session,
-    api_base_url: str,
-    code: str,
-    priority: bool = False
-) -> str:
-    """Submit an evaluation with optional priority."""
-    response = api_session.post(
-        f"{api_base_url}/eval",
-        json={"code": code, "language": "python", "priority": priority}
-    )
-    
-    assert response.status_code == 200, f"Failed to submit evaluation: {response.text}"
-    return response.json()["eval_id"]
+from utils.utils import submit_evaluation
 
 
 def wait_for_completion(
@@ -77,7 +62,7 @@ def test_queue_status_accuracy(api_session: requests.Session, api_base_url: str)
     eval_ids = []
     for i in range(3):
         code = f'import time; time.sleep(1); print("Task {i} done")'
-        eval_id = submit_evaluation(api_session, api_base_url, code)
+        eval_id = submit_evaluation(code)
         eval_ids.append(eval_id)
     
     # Check queue status immediately

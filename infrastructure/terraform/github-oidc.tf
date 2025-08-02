@@ -339,6 +339,15 @@ resource "aws_iam_role_policy" "github_actions" {
         Resource = "*"
       },
       {
+        # Auto Scaling permissions for Cluster Autoscaler tags
+        Effect = "Allow"
+        Action = [
+          "autoscaling:CreateOrUpdateTags",
+          "autoscaling:DeleteTags"
+        ]
+        Resource = "arn:aws:autoscaling:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/*"
+      },
+      {
         # ElasticLoadBalancing permissions (for ALBs)
         Effect = "Allow"
         Action = [

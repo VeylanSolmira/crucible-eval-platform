@@ -20,20 +20,7 @@ import requests
 import time
 from typing import Tuple, List, Optional
 from tests.k8s_test_config import API_URL
-
-
-def submit_evaluation(
-    code: str,
-    priority: bool = False
-) -> str:
-    """Submit an evaluation with optional priority."""
-    response = requests.post(
-        f"{API_URL}/eval",
-        json={"code": code, "language": "python", "priority": priority}
-    )
-    
-    assert response.status_code == 200, f"Failed to submit evaluation: {response.text}"
-    return response.json()["eval_id"]
+from tests.utils.utils import submit_evaluation
 
 
 def wait_for_completion(
@@ -131,7 +118,7 @@ def test_priority_queue_execution_order():
     for i in range(total_slots):
         # Use 30s sleep to ensure tasks stay running through multiple poll cycles
         code = f'import time; time.sleep(30); print("Blocker {i} done")'
-        eval_id = submit_evaluation(code, priority=False)
+        eval_id = submit_evaluation(code, priority=0)
         blocker_ids.append(eval_id)
     
     # Step 2: Wait for all blockers to be in "running" state
@@ -159,12 +146,12 @@ def test_priority_queue_execution_order():
     # Submit normal priority tasks first
     for i in range(3):
         code = f'print("Queued normal task {i} completed")'
-        eval_id = submit_evaluation(code, priority=False)
+        eval_id = submit_evaluation(code, priority=0)
         queued_eval_ids.append((eval_id, False, f"Normal {i}"))
     
     # Submit high priority task
     code = 'print("HIGH PRIORITY task completed!")'
-    high_priority_id = submit_evaluation(code, priority=True)
+    high_priority_id = submit_evaluation(code, priority=1)
     queued_eval_ids.append((high_priority_id, True, "HIGH PRIORITY"))
     
     # Step 4: Cancel one blocker to free up a slot
@@ -214,14 +201,14 @@ def test_priority_queue_under_load():
     normal_eval_ids = []
     for i in range(10):
         code = f'import time; time.sleep(0.5); print("Normal {i}")'
-        eval_id = submit_evaluation(code, priority=False)
+        eval_id = submit_evaluation(code, priority=0)
         normal_eval_ids.append(eval_id)
     
     # Now submit a few high priority tasks
     high_eval_ids = []
     for i in range(3):
         code = f'print("High priority {i} done quickly!")'
-        eval_id = submit_evaluation(code, priority=True)
+        eval_id = submit_evaluation(code, priority=1)
         high_eval_ids.append(eval_id)
     
     # Track completion times

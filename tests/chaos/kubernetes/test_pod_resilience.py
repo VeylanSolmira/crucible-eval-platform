@@ -105,41 +105,16 @@ def run_kubectl(cmd: str) -> subprocess.CompletedProcess:
     return result
 
 
+from utils.utils import submit_evaluation as base_submit_evaluation
+
 def submit_evaluation(priority: int = 0) -> Optional[str]:
     """Submit an evaluation and return its ID."""
-    # Port forward to API service
-    port_forward = subprocess.Popen(
-        f"kubectl port-forward -n {NAMESPACE} service/{API_SERVICE} 8080:8080",
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    
     try:
-        time.sleep(2)  # Wait for port forward
-        
-        import requests
-        api_url = os.getenv("API_URL")
-        if not api_url:
-            pytest.skip("API_URL environment variable not set")
-        response = requests.post(
-            f"{api_url}/eval",
-            json={
-                "code": f"import time; print('Chaos test evaluation - priority {priority}'); time.sleep(5); print('Done')",
-                "language": "python",
-                "timeout": 30,
-                "priority": priority
-            }
-        )
-        
-        if response.status_code == 200:
-            return response.json().get("eval_id")
-        else:
-            logger.error(f"Failed to submit evaluation: {response.status_code}")
-            return None
-            
-    finally:
-        port_forward.terminate()
+        code = f"import time; print('Chaos test evaluation - priority {priority}'); time.sleep(5); print('Done')"
+        return base_submit_evaluation(code, priority=priority)
+    except Exception as e:
+        logger.error(f"Failed to submit evaluation: {e}")
+        return None
 
 
 def wait_for_evaluation(eval_id: str, timeout: int = 120) -> Dict[str, Any]:

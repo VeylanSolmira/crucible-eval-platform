@@ -29,6 +29,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conftest import get_api_url, get_request_config
+from utils.utils import submit_evaluation as base_submit_evaluation
 
 # Configuration
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
@@ -95,18 +96,10 @@ class ThroughputTest:
         
         try:
             start_time = time.time()
-            response = requests.post(
-                f"{get_api_url()}/eval",
-                json={
-                    "code": workload["code"],
-                    "language": "python",
-                    "timeout": 30
-                },
-                **get_request_config()
-            )
+            # Use the unified submit_evaluation function with default priority=-1
+            eval_id = base_submit_evaluation(workload["code"], timeout=30)
             
-            if response.status_code == 200:
-                eval_id = response.json()["eval_id"]
+            if eval_id:
                 self.active_evaluations[eval_id] = {
                     "start_time": start_time,
                     "workload": workload["name"]

@@ -81,11 +81,11 @@ print(f"2 + 2 = {result}")
             )
             assert response.status_code == 200  # Storage service returns 200, not 201
         
-        # Submit task using send_task
+        # Submit task using send_task with correct argument order
+        # evaluate_code(self, eval_id, code, language="python", timeout=300, priority=0, ...)
         result = celery_app.send_task(
             'celery_worker.tasks.evaluate_code',
-            args=[eval_id, test_code, "python"],
-            kwargs={"timeout": 300}
+            args=[eval_id, test_code, "python", 300, -1]  # language, timeout, priority
         )
         assert result.id is not None
         
@@ -145,8 +145,7 @@ print(f"2 + 2 = {result}")
                 # Submit task
                 result = celery_app.send_task(
                     'celery_worker.tasks.evaluate_code',
-                    args=[eval_id, code, "python"],
-                    kwargs={"timeout": 300}
+                    args=[eval_id, code, "python", 300, -1]  # language, timeout, priority
                 )
                 tasks.append((eval_id, result))
                 time.sleep(0.1)  # Small delay between submissions
@@ -206,8 +205,7 @@ print("Task completed!")
         try:
             result = celery_app.send_task(
                 'celery_worker.tasks.evaluate_code',
-                args=[eval_id, test_code, "python"],
-                kwargs={"timeout": 300}
+                args=[eval_id, test_code, "python", 300, -1]  # language, timeout, priority
             )
         
             # Track state changes

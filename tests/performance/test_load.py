@@ -99,6 +99,8 @@ class LoadTestResult:
 rate_limiter = RateLimiter(MAX_REQUESTS_PER_SECOND, BURST_ALLOWANCE)
 
 
+from utils.utils import submit_evaluation as base_submit_evaluation
+
 def submit_evaluation(index: int, code: str) -> Tuple[Optional[str], LoadTestResult]:
     """Submit an evaluation and return eval_id and initial result."""
     result = LoadTestResult()
@@ -110,30 +112,18 @@ def submit_evaluation(index: int, code: str) -> Tuple[Optional[str], LoadTestRes
         
         # Submit evaluation
         start_time = time.time()
-        eval_request = {
-            "code": code,
-            "language": "python",
-            "engine": "docker",
-            "timeout": 60
-        }
         
-        response = requests.post(f"{API_BASE_URL}/eval", json=eval_request, timeout=10)
+        # Use the unified submit_evaluation function with default priority=-1
+        eval_id = base_submit_evaluation(code, timeout=60)
         
-        if response.status_code == 429:
-            result.rate_limited = True
-            result.error = "Rate limited despite token bucket"
-            result.status = "rate_limited"
-            return None, result
-            
-        response.raise_for_status()
-        result.eval_id = response.json()["eval_id"]
+        result.eval_id = eval_id
         result.submit_time = time.time() - start_time
         result.status = "submitted"
         
         # Store submission timestamp for later monitoring
         result.submit_timestamp = time.time()
         
-        return result.eval_id, result
+        return eval_id, result
         
     except Exception as e:
         result.error = str(e)

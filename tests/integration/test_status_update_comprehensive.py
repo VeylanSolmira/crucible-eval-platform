@@ -10,6 +10,7 @@ import httpx
 import time
 import json
 import redis.asyncio as redis
+from tests.utils.utils import submit_evaluation
 
 
 class StatusUpdateTestSuite:
@@ -45,44 +46,42 @@ class StatusUpdateTestSuite:
         print("TEST 1: Event Publishing")
         print("-" * 40)
         
-        async with httpx.AsyncClient(verify=False) as client:
-            # Submit evaluation
-            resp = await client.post(f"{self.api_base}/eval", json={"code": "print('test')", "language": "python"})
-            eval_id = resp.json()["eval_id"]
-            
-            # Monitor Redis for events
-            redis_client = await redis.from_url(self.redis_url)
-            pubsub = redis_client.pubsub()
-            await pubsub.subscribe("evaluation:*")
-            
-            # Wait for events
-            events_received = []
-            start_time = time.time()
-            
-            async def collect_events():
-                async for message in pubsub.listen():
-                    if message["type"] == "message":
-                        events_received.append({
-                            "channel": message["channel"],
-                            "data": json.loads(message["data"])
-                        })
-            
-            # Collect events for 5 seconds
-            try:
-                await asyncio.wait_for(collect_events(), timeout=5)
-            except asyncio.TimeoutError:
-                pass
-            
-            # Check what events were published
-            print(f"Events received: {len(events_received)}")
-            for event in events_received:
-                print(f"  - {event['channel']}: eval_id={event['data'].get('eval_id')}")
-            
-            # Issues to check
-            if not any(e["channel"] == "evaluation:completed" for e in events_received):
-                self.issues_found.append("No completion event published")
-            
-            await redis_client.close()
+        # Submit evaluation using unified function
+        eval_id = submit_evaluation("print('test')")
+        
+        # Monitor Redis for events
+        redis_client = await redis.from_url(self.redis_url)
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe("evaluation:*")
+        
+        # Wait for events
+        events_received = []
+        start_time = time.time()
+        
+        async def collect_events():
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    events_received.append({
+                        "channel": message["channel"],
+                        "data": json.loads(message["data"])
+                    })
+        
+        # Collect events for 5 seconds
+        try:
+            await asyncio.wait_for(collect_events(), timeout=5)
+        except asyncio.TimeoutError:
+            pass
+        
+        # Check what events were published
+        print(f"Events received: {len(events_received)}")
+        for event in events_received:
+            print(f"  - {event['channel']}: eval_id={event['data'].get('eval_id')}")
+        
+        # Issues to check
+        if not any(e["channel"] == "evaluation:completed" for e in events_received):
+            self.issues_found.append("No completion event published")
+        
+        await redis_client.close()
         
         print()
     
@@ -141,9 +140,8 @@ class StatusUpdateTestSuite:
         print("-" * 40)
         
         async with httpx.AsyncClient(verify=False) as client:
-            # Submit and wait for completion
-            resp = await client.post(f"{self.api_base}/eval", json={"code": "print('api test')", "language": "python"})
-            eval_id = resp.json()["eval_id"]
+            # Submit and wait for completion using unified function
+            eval_id = submit_evaluation("print('api test')")
             
             # Wait for completion
             await asyncio.sleep(3)
