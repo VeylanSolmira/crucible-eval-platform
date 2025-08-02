@@ -186,41 +186,27 @@ async def process_job_event(event: Dict, redis_client: ResilientRedisClient):
                 logger.info(f"Published evaluation:running event for {eval_id}")
                 
             elif status == "succeeded":
-                # Get job logs
+                # Job succeeded in Kubernetes = evaluation succeeded
+                # Try to get logs but don't block on it
                 logs_result = await get_job_logs_internal(job_name)
+                logs = logs_result.get("logs", "")
+                log_source = logs_result.get("source", "not_available")
                 
-                # Check exit code to determine if it's truly successful
-                exit_code = logs_result.get("exit_code", 0)
                 completion_time = job.status.completion_time.isoformat() if job.status and job.status.completion_time else None
                 
-                if exit_code == 0:
-                    # Publish completed event
-                    event_data = {
-                        "eval_id": eval_id,
-                        "output": logs_result.get("logs", ""),
-                        "exit_code": exit_code,
-                        "metadata": {
-                            "job_name": job_name,
-                            "completed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat(),
-                            "log_source": logs_result.get("source", "unknown")
-                        }
+                # Always publish completed event when Kubernetes says job succeeded
+                event_data = {
+                    "eval_id": eval_id,
+                    "output": logs,  # Empty string if logs not available
+                    "exit_code": 0,  # Kubernetes already confirmed success
+                    "metadata": {
+                        "job_name": job_name,
+                        "completed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat(),
+                        "log_source": log_source
                     }
-                    await redis_client.publish("evaluation:completed", json.dumps(event_data))
-                    logger.info(f"Published evaluation:completed event for {eval_id} (logs from {logs_result.get('source', 'unknown')})")
-                else:
-                    # Non-zero exit code means failure
-                    event_data = {
-                        "eval_id": eval_id,
-                        "error": logs_result.get("logs", "Process exited with non-zero code"),
-                        "exit_code": exit_code,
-                        "metadata": {
-                            "job_name": job_name,
-                            "failed_at": completion_time if completion_time else datetime.now(timezone.utc).isoformat(),
-                            "log_source": logs_result.get("source", "unknown")
-                        }
-                    }
-                    await redis_client.publish("evaluation:failed", json.dumps(event_data))
-                    logger.info(f"Published evaluation:failed event for {eval_id} (exit code {exit_code})")
+                }
+                await redis_client.publish("evaluation:completed", json.dumps(event_data))
+                logger.info(f"Published evaluation:completed event for {eval_id} (logs from {log_source})")
                 
             elif status == "failed":
                 # Get job logs
@@ -1146,48 +1132,29 @@ async def get_job_status(job_name: str, redis_client: ResilientRedisClient = Dep
                             logger.info(f"Published evaluation:running event for {eval_id}")
                     
                     elif status == "succeeded":
-                        # Get job logs for the completed evaluation
+                        # Job succeeded in Kubernetes = evaluation succeeded
+                        # Try to get logs but don't block on it
                         logs_result = await get_job_logs_internal(job_name)
+                        logs = logs_result.get("logs", "")
+                        log_source = logs_result.get("source", "not_available")
                         
-                        # Check exit code to determine if it's truly successful
-                        exit_code = logs_result.get("exit_code", 0)
-                        
-                        if exit_code == 0:
-                            # Publish evaluation completed event
-                            event_data = {
-                                "eval_id": eval_id,
-                                "output": logs_result.get("logs", ""),
-                                "exit_code": exit_code,
-                                "metadata": {
-                                    "job_name": job_name,
-                                    "completed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat(),
-                                    "log_source": logs_result.get("source", "unknown")
-                                }
+                        # Always publish completed event when Kubernetes says job succeeded
+                        event_data = {
+                            "eval_id": eval_id,
+                            "output": logs,  # Empty string if logs not available
+                            "exit_code": 0,  # Kubernetes already confirmed success
+                            "metadata": {
+                                "job_name": job_name,
+                                "completed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat(),
+                                "log_source": log_source
                             }
-                            success = await redis_client.publish(
-                                "evaluation:completed",
-                                json.dumps(event_data)
-                            )
-                            if success:
-                                logger.info(f"Published evaluation:completed event for {eval_id} (logs from {logs_result.get('source', 'unknown')})")
-                        else:
-                            # Non-zero exit code means failure
-                            event_data = {
-                                "eval_id": eval_id,
-                                "error": logs_result.get("logs", "Process exited with non-zero code"),
-                                "exit_code": exit_code,
-                                "metadata": {
-                                    "job_name": job_name,
-                                    "failed_at": job.status.completion_time.isoformat() if job.status.completion_time else datetime.now(timezone.utc).isoformat(),
-                                    "log_source": logs_result.get("source", "unknown")
-                                }
-                            }
-                            success = await redis_client.publish(
-                                "evaluation:failed",
-                                json.dumps(event_data)
-                            )
-                            if success:
-                                logger.info(f"Published evaluation:failed event for {eval_id} (exit code {exit_code})")
+                        }
+                        success = await redis_client.publish(
+                            "evaluation:completed",
+                            json.dumps(event_data)
+                        )
+                        if success:
+                            logger.info(f"Published evaluation:completed event for {eval_id} (logs from {log_source})")
                     
                     elif status == "failed":
                         # Get job logs for the failed evaluation
@@ -1324,6 +1291,13 @@ async def get_job_logs_internal(job_name: str, tail_lines: int = 100):
     """
     Internal function to get logs from a job's pod.
     Returns a dict with logs and exit code.
+    
+    IMPORTANT: The exit_code returned here is NOT the job's actual exit code when:
+    - No pods are found (returns exit_code: 1)
+    - Pod is deleted but logs are in Loki (returns exit_code: 0 as default)
+    
+    Only use this exit_code when you have actual pod container status.
+    For job success/failure, trust the Kubernetes Job status instead.
     """
     try:
         # Find pods for this job

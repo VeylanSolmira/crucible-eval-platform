@@ -28,8 +28,12 @@ import json
 pytestmark = [pytest.mark.e2e, pytest.mark.kubernetes]
 
 
-def get_kubernetes_jobs(namespace: str = "crucible", label_selector: Optional[str] = None) -> List[Dict]:
+def get_kubernetes_jobs(namespace: str = None, label_selector: Optional[str] = None) -> List[Dict]:
     """Get list of Kubernetes jobs in the namespace."""
+    if namespace is None:
+        namespace = os.environ.get("K8S_NAMESPACE")
+        if not namespace:
+            pytest.fail("K8S_NAMESPACE environment variable must be set")
     cmd = ["kubectl", "get", "jobs", "-n", namespace, "-o", "json"]
     if label_selector:
         cmd.extend(["-l", label_selector])
@@ -42,14 +46,18 @@ def get_kubernetes_jobs(namespace: str = "crucible", label_selector: Optional[st
     return data.get("items", [])
 
 
-def get_job_count(namespace: str = "crucible", label_selector: Optional[str] = None) -> int:
+def get_job_count(namespace: str = None, label_selector: Optional[str] = None) -> int:
     """Get count of Kubernetes jobs."""
     jobs = get_kubernetes_jobs(namespace, label_selector)
     return len(jobs)
 
 
-def wait_for_job_cleanup(initial_count: int, namespace: str = "crucible", timeout: int = 30) -> bool:
+def wait_for_job_cleanup(initial_count: int, namespace: str = None, timeout: int = 30) -> bool:
     """Wait for jobs to be cleaned up back to initial count."""
+    if namespace is None:
+        namespace = os.environ.get("K8S_NAMESPACE")
+        if not namespace:
+            pytest.fail("K8S_NAMESPACE environment variable must be set")
     start_time = time.time()
     while time.time() - start_time < timeout:
         current_count = get_job_count(namespace, "app=evaluation")
@@ -67,7 +75,10 @@ def test_single_evaluation_job_lifecycle():
     print("="*60)
     
     # Get initial job count
-    initial_job_count = get_job_count("crucible", "app=evaluation")
+    namespace = os.environ.get("K8S_NAMESPACE")
+    if not namespace:
+        pytest.fail("K8S_NAMESPACE environment variable must be set")
+    initial_job_count = get_job_count(namespace, "app=evaluation")
     print(f"Initial evaluation jobs: {initial_job_count}")
     
     # Submit evaluation
@@ -78,7 +89,7 @@ def test_single_evaluation_job_lifecycle():
     time.sleep(2)
     
     # Check that a job was created
-    jobs_during = get_kubernetes_jobs("crucible", "app=evaluation")
+    jobs_during = get_kubernetes_jobs(namespace, "app=evaluation")
     job_names = [job["metadata"]["name"] for job in jobs_during]
     
     # Use shared utility to get the job name prefix
@@ -104,7 +115,7 @@ def test_single_evaluation_job_lifecycle():
     if cleaned_up:
         print("✅ Job cleaned up successfully")
     else:
-        current_count = get_job_count("crucible", "app=evaluation")
+        current_count = get_job_count(namespace, "app=evaluation")
         print(f"⚠️  Job cleanup may be delayed (current count: {current_count}, initial: {initial_job_count})")
 
 
@@ -133,7 +144,10 @@ def test_concurrent_job_execution():
     time.sleep(3)
     
     # Check that multiple jobs are running
-    jobs = get_kubernetes_jobs("crucible", "app=evaluation")
+    namespace = os.environ.get("K8S_NAMESPACE")
+    if not namespace:
+        pytest.fail("K8S_NAMESPACE environment variable must be set")
+    jobs = get_kubernetes_jobs(namespace, "app=evaluation")
     running_jobs = [j for j in jobs if j["status"].get("active", 0) > 0]
     
     print(f"\nJobs created: {len(jobs)}")
@@ -186,7 +200,10 @@ print("Should not reach here if cancelled")
     time.sleep(3)
     
     # Find the job
-    jobs = get_kubernetes_jobs("crucible", "app=evaluation")
+    namespace = os.environ.get("K8S_NAMESPACE")
+    if not namespace:
+        pytest.fail("K8S_NAMESPACE environment variable must be set")
+    jobs = get_kubernetes_jobs(namespace, "app=evaluation")
     eval_job = None
     job_prefix = get_job_name_prefix(eval_id)
     for job in jobs:
@@ -214,12 +231,12 @@ print("Should not reach here if cancelled")
         else:
             print(f"⚠️  Failed to cancel via API: {response.status_code} - {response.text}")
             # Fallback to direct job deletion for test to continue
-            cmd = ["kubectl", "delete", "job", job_name, "-n", "crucible"]
+            cmd = ["kubectl", "delete", "job", job_name, "-n", namespace]
             subprocess.run(cmd, capture_output=True, text=True)
     except Exception as e:
         print(f"⚠️  Error calling API: {e}")
         # Fallback to direct job deletion
-        cmd = ["kubectl", "delete", "job", job_name, "-n", "crucible"]  
+        cmd = ["kubectl", "delete", "job", job_name, "-n", namespace]  
         subprocess.run(cmd, capture_output=True, text=True)
     
     # Wait a bit and check evaluation status

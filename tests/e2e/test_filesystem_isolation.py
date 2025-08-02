@@ -36,13 +36,13 @@ import os
 
 results = []
 
-# Test 1: Try to read /etc/passwd (blocked by gVisor, readable without)
+# Test 1: Try to read /etc/passwd (should be readable - normal Linux behavior)
 try:
     with open('/etc/passwd', 'r') as f:
         content = f.read()
-    results.append(f"FAIL: Read /etc/passwd - {len(content)} bytes")
+    results.append(f"PASS: Read /etc/passwd - {len(content)} bytes (normal behavior)")
 except Exception as e:
-    results.append(f"PASS: Cannot read /etc/passwd - {type(e).__name__}")
+    results.append(f"WARN: Cannot read /etc/passwd - {type(e).__name__} (unexpected)")
 
 # Test 2: Try to read /etc/shadow (should always fail - even without gVisor)
 try:
@@ -68,16 +68,20 @@ try:
 except Exception as e:
     results.append(f"PASS: Cannot write to root - {type(e).__name__}")
 
-# Test 5: Check kernel info to detect gVisor
-try:
-    with open('/proc/version', 'r') as f:
-        kernel = f.read().strip()
-    if 'gVisor' in kernel:
-        results.append("INFO: Running under gVisor kernel")
-    else:
-        results.append(f"INFO: Running under standard kernel")
-except Exception as e:
-    results.append(f"INFO: Cannot read kernel version - {type(e).__name__}")
+# Test 5: Robust gVisor detection
+# gVisor blocks certain /proc files that are normally present
+gvisor_blocked_files = ['/proc/kcore', '/proc/kallsyms', '/proc/modules']
+missing_count = 0
+
+for path in gvisor_blocked_files:
+    if not os.path.exists(path):
+        missing_count += 1
+
+# If all gVisor-blocked files are missing, we're likely under gVisor
+if missing_count == len(gvisor_blocked_files):
+    results.append("INFO: Running under gVisor (detected via missing /proc files)")
+else:
+    results.append(f"INFO: Running under standard kernel ({missing_count}/{len(gvisor_blocked_files)} gVisor indicators)")
 
 for result in results:
     print(result)
@@ -121,31 +125,30 @@ def test_filesystem_isolation():
     assert "PASS: Can write to /tmp" in output, "Should be able to write to /tmp"
     assert "PASS: Cannot write to root" in output, "Should not be able to write to root"
     
-    # Conditional expectations based on gVisor availability
+    # /etc/passwd should be readable (normal Linux behavior)
+    assert "PASS: Read /etc/passwd" in output, \
+        "/etc/passwd should be readable - this is normal Linux behavior"
+    
+    # Check for gVisor detection
     if GVISOR_AVAILABLE:
-        # With gVisor: Full isolation expected
-        assert "PASS: Cannot read /etc/passwd" in output, \
-            "With gVisor, should not be able to read /etc/passwd"
-        assert "FAIL: Read /etc/passwd" not in output, \
-            "Should not be able to read sensitive files with gVisor"
+        # With gVisor: Should detect it via missing /proc files
+        assert "Running under gVisor" in output, \
+            "Should detect gVisor runtime via missing /proc files"
+        print("\n✓ gVisor detected and working properly")
+        print("  - Syscall filtering active (not file blocking)")
+        print("  - Container still has normal filesystem access")
     else:
-        # Without gVisor: Limited isolation (development only)
+        # Without gVisor: Standard kernel
         if IS_PRODUCTION:
             # This shouldn't happen - we check above
             pytest.fail("Production requires gVisor")
         
-        # In development, /etc/passwd will be readable
-        if "PASS: Cannot read /etc/passwd" in output:
-            pytest.skip(
-                "Test shows /etc/passwd is not readable - this might indicate:\n"
-                "1. gVisor is actually working (good!)\n"
-                "2. The evaluation failed to run properly\n"
-                "Skipping as we can't determine which case this is."
-            )
+        assert "Running under standard kernel" in output, \
+            "Should detect standard kernel when gVisor is not present"
         
         # Development mode warning
-        print("\n⚠️  WARNING: Running without gVisor - limited filesystem isolation")
-        print("   - /etc/passwd is readable (expected in development)")
+        print("\n⚠️  WARNING: Running without gVisor")
+        print("   - No syscall filtering")
         print("   - Production MUST use gVisor for security")
     
     # Always check for critical failures

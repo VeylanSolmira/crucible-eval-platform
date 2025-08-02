@@ -14,7 +14,7 @@ import time
 import requests
 from typing import Dict, Any
 from tests.k8s_test_config import API_URL
-from tests.utils.utils import wait_for_completion
+from tests.utils.utils import wait_for_completion, submit_evaluation
 
 
 @pytest.mark.e2e
@@ -43,18 +43,8 @@ def test_health_check():
 def test_submit_evaluation():
     """Test submitting a simple evaluation."""
     # Submit evaluation
-    eval_request = {
-        "code": "print('Hello from integration test!')",
-        "language": "python",
-        "timeout": 30,
-    }
-    
-    response = requests.post(f"{API_URL}/eval", json=eval_request)
-    assert response.status_code == 200, f"Failed to submit evaluation: {response.text}"
-    
-    submit_data = response.json()
-    eval_id = submit_data.get("eval_id")
-    assert eval_id, f"No eval_id returned: {submit_data}"
+    code = "print('Hello from integration test!')"
+    eval_id = submit_evaluation(code, language="python", timeout=30)
     
     # Verify evaluation ID format
     assert isinstance(eval_id, str), "eval_id should be a string"
@@ -66,16 +56,8 @@ def test_submit_evaluation():
 def test_evaluation_lifecycle():
     """Test complete evaluation lifecycle from submission to completion."""
     # Submit evaluation
-    eval_request = {
-        "code": "import time\nprint('Starting...')\ntime.sleep(1)\nprint('Done!')",
-        "language": "python",
-        "timeout": 30,
-    }
-    
-    response = requests.post(f"{API_URL}/eval", json=eval_request)
-    assert response.status_code == 200, f"Failed to submit evaluation: {response.text}"
-    
-    eval_id = response.json()["eval_id"]
+    code = "import time\nprint('Starting...')\ntime.sleep(1)\nprint('Done!')"
+    eval_id = submit_evaluation(code, language="python", timeout=30)
     
     # Wait for completion
     result = wait_for_completion(eval_id, use_adaptive=True)
@@ -98,16 +80,8 @@ def test_evaluation_lifecycle():
 def test_error_handling():
     """Test error handling for various failure scenarios."""
     # Test 1: Code that exits with error
-    eval_request = {
-        "code": "import sys\nsys.exit(1)",
-        "language": "python",
-        "timeout": 10,
-    }
-    
-    response = requests.post(f"{API_URL}/eval", json=eval_request)
-    assert response.status_code == 200
-    
-    eval_id = response.json()["eval_id"]
+    code = "import sys\nsys.exit(1)"
+    eval_id = submit_evaluation(code, language="python", timeout=10)
     result = wait_for_completion(eval_id, timeout=15, use_adaptive=True)
     
     assert result["status"] == "failed", f"Expected failed status for sys.exit(1), got: {result['status']}"
@@ -119,16 +93,8 @@ def test_error_handling():
     assert response.status_code == 422, f"Expected 422 for invalid request, got: {response.status_code}"
     
     # Test 3: Division by zero
-    eval_request = {
-        "code": "print('Before error')\nresult = 1/0",
-        "language": "python",
-        "timeout": 10,
-    }
-    
-    response = requests.post(f"{API_URL}/eval", json=eval_request)
-    assert response.status_code == 200
-    
-    eval_id = response.json()["eval_id"]
+    code = "print('Before error')\nresult = 1/0"
+    eval_id = submit_evaluation(code, language="python", timeout=10)
     result = wait_for_completion(eval_id, use_adaptive=True)
     
     assert result["status"] == "failed", "Division by zero should fail"
@@ -146,15 +112,9 @@ def test_concurrent_evaluations():
     num_evaluations = 5
     
     for i in range(num_evaluations):
-        eval_request = {
-            "code": f"import time\nprint('Eval {i}')\ntime.sleep(0.5)",
-            "language": "python",
-            "timeout": 30,
-        }
-        
-        response = requests.post(f"{API_URL}/eval", json=eval_request)
-        assert response.status_code == 200
-        eval_ids.append(response.json()["eval_id"])
+        code = f"import time\nprint('Eval {i}')\ntime.sleep(0.5)"
+        eval_id = submit_evaluation(code, language="python", timeout=30)
+        eval_ids.append(eval_id)
     
     assert len(eval_ids) == num_evaluations, f"Expected {num_evaluations} eval IDs"
     
@@ -180,16 +140,8 @@ def test_concurrent_evaluations():
 def test_storage_retrieval():
     """Test storage retrieval functionality."""
     # Submit an evaluation
-    eval_request = {
-        "code": "print('Storage test output')",
-        "language": "python",
-        "timeout": 10,
-    }
-    
-    response = requests.post(f"{API_URL}/eval", json=eval_request)
-    assert response.status_code == 200
-    
-    eval_id = response.json()["eval_id"]
+    code = "print('Storage test output')"
+    eval_id = submit_evaluation(code, language="python", timeout=10)
     
     # Wait for completion
     result = wait_for_completion(eval_id, use_adaptive=True)
@@ -230,16 +182,8 @@ def test_evaluation_timeout():
     reporting will be accurate to when the job was actually terminated.
     """
     # Submit evaluation that will timeout
-    eval_request = {
-        "code": "import time\ntime.sleep(10)\nprint('Should not see this')",
-        "language": "python",
-        "timeout": 2,  # 2 second timeout
-    }
-    
-    response = requests.post(f"{API_URL}/eval", json=eval_request)
-    assert response.status_code == 200
-    
-    eval_id = response.json()["eval_id"]
+    code = "import time\ntime.sleep(10)\nprint('Should not see this')"
+    eval_id = submit_evaluation(code, language="python", timeout=2)  # 2 second timeout
     
     # Wait for timeout - need to wait longer than the 2 second timeout plus overhead
     result = wait_for_completion(eval_id, timeout=30, use_adaptive=True)
@@ -269,17 +213,17 @@ def test_language_parameter():
     this test to verify proper language validation and execution.
     """
     # Currently only Python is supported, but test the parameter
-    eval_request = {
-        "code": "print('Language test')",
-        "language": "python",
-        "timeout": 10,
-    }
-    
-    response = requests.post(f"{API_URL}/eval", json=eval_request)
-    assert response.status_code == 200
+    code = "print('Language test')"
+    eval_id = submit_evaluation(code, language="python", timeout=10)
+    # If we get here, submission was successful
     
     # Test unsupported language (if validation is implemented)
-    eval_request["language"] = "javascript"
+    # Note: We need to use direct API call here to test invalid language parameter
+    eval_request = {
+        "code": "print('Language test')",
+        "language": "javascript",
+        "timeout": 10,
+    }
     response = requests.post(f"{API_URL}/eval", json=eval_request)
     
     # TODO: LANGUAGE-SUPPORT - The platform currently treats all languages as Python

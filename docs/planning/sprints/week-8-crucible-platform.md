@@ -1377,3 +1377,71 @@ Create generalized retry utilities for test infrastructure to handle transient f
 - [ ] Guidelines for appropriate retry counts/delays
 
 **Rationale**: Transient failures in distributed systems are common. Having a standardized retry utility reduces code duplication and makes tests more reliable without hiding real issues.
+
+---
+
+### 27. Filesystem Isolation Test Improvements
+
+**Priority:** Low  
+**Effort:** 2-3 hours  
+**Impact:** More comprehensive security testing and validation
+
+#### Overview
+Enhance the filesystem isolation test to validate actual gVisor security features rather than just detection. The current test correctly validates basic filesystem security but could be expanded to test what gVisor actually provides.
+
+#### Current State
+- Tests basic filesystem permissions (can't read /etc/shadow, can't write to root)
+- Validates that /etc/passwd is readable (normal Linux behavior)
+- Detects gVisor using missing /proc files method
+
+#### Proposed Improvements
+
+**27.1 Test Actual gVisor Security Features**
+- [ ] Add syscall restriction tests
+  ```python
+  # Test blocked syscalls that gVisor prevents
+  - mount() syscall blocking
+  - ptrace() restrictions  
+  - Raw socket creation prevention
+  - Kernel module loading attempts
+  ```
+
+**27.2 Network Isolation Testing**
+- [ ] Verify network security restrictions
+  - Can't bind to privileged ports without CAP_NET_BIND_SERVICE
+  - Can't create raw sockets for packet crafting
+  - Network namespace isolation validation
+
+**27.3 Resource Limit Enforcement**
+- [ ] Test that resource limits are properly enforced
+  - Memory limits trigger OOM killer appropriately
+  - CPU limits prevent resource exhaustion
+  - Disk I/O limits (if configured)
+
+**27.4 Enhanced gVisor Detection**
+- [ ] Add more sophisticated detection methods
+  - Check for gVisor-specific syscall behavior patterns
+  - Test memory mapping restrictions unique to gVisor
+  - Validate signal handling differences
+  - Check /proc/self/exe behavior differences
+
+**27.5 Security Policy Testing**
+- [ ] If additional security policies are implemented:
+  - Test seccomp filter effectiveness
+  - Validate AppArmor/SELinux policy enforcement
+  - Check Linux capabilities restrictions
+
+**27.6 File Access Pattern Tests**
+- [ ] Test advanced file security scenarios
+  - Directory traversal prevention
+  - Symlink restriction validation
+  - Special file access restrictions (/dev/*, /proc/*/mem)
+  - File descriptor inheritance limitations
+
+#### Implementation Notes
+- Keep tests focused on actual security boundaries, not implementation details
+- Document why each test matters for AI safety evaluation
+- Consider making tests configurable for different security levels
+- Ensure tests fail gracefully when features aren't available
+
+**Rationale**: While the current test provides basic validation, testing actual gVisor security features would provide stronger guarantees about the isolation environment. This is particularly important for AI safety evaluation where we need to ensure evaluated code cannot escape its sandbox or perform malicious actions.

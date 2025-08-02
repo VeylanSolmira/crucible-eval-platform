@@ -64,14 +64,9 @@ class AdaptiveWaiter:
                             if response.status_code == 200:
                                 data = response.json()
                                 status = data.get("status", "unknown")
-                                job_name = data.get("job_name", "not-created-yet")
                                 print(f"\n⏱️  Timed out evaluation: {eval_id}")
                                 print(f"   Last status: {status}")
-                                print(f"   Job name: {job_name}")
                                 print(f"   Check status: curl http://api-service:8080/api/eval/{eval_id}")
-                                if job_name != "not-created-yet":
-                                    print(f"   Check job: kubectl get job {job_name} -n dev")
-                                    print(f"   Job logs: kubectl logs job/{job_name} -n dev")
                         except Exception:
                             pass
                 break
@@ -205,11 +200,9 @@ class AdaptiveWaiter:
                 if response.status_code == 200:
                     data = response.json()
                     status = data.get("status", "unknown")
-                    job_name = data.get("job_name", "not-created-yet")
-                    
                     # Always print detailed status for each pending evaluation
                     elapsed = time.time() - self.start_time
-                    print(f"  [{elapsed:.1f}s] {eval_id}: {status} (job: {job_name})")
+                    print(f"  [{elapsed:.1f}s] {eval_id}: {status}")
                     
                     if status == "completed":
                         new_completed.add(eval_id)

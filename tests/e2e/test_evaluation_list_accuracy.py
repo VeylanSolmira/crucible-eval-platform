@@ -98,7 +98,10 @@ async def test_multiple_evaluation_statuses():
     """
     Test that multiple evaluations with different statuses are correctly categorized.
     """
-    api_host = os.getenv("API_HOST", "api-service.crucible.svc.cluster.local")
+    namespace = os.environ.get("K8S_NAMESPACE")
+    if not namespace:
+        pytest.fail("K8S_NAMESPACE environment variable must be set")
+    api_host = os.getenv("API_HOST", f"api-service.{namespace}.svc.cluster.local")
     api_port = os.getenv("API_PORT", "8080")
     api_base = f"http://{api_host}:{api_port}/api"
     

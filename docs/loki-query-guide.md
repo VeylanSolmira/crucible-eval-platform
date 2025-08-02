@@ -33,6 +33,18 @@ kubectl exec -n dev deployment/loki -- wget -q -O - 'http://localhost:3100/loki/
 # Query with time range (nanoseconds since epoch)
 kubectl exec -n dev deployment/loki -- wget -q -O - 'http://localhost:3100/loki/api/v1/query_range?query={job="fluentbit"}&limit=5&start=1754100000000000000'
 
+# IMPORTANT: Using line filters like |= or |~ requires URL encoding
+# BAD: query={job="fluentbit"} |= "error"  # Returns 400 Bad Request
+# GOOD: query={job="fluentbit"}%20|=%20"error"  # Spaces and operators must be encoded
+# BETTER: Just use grep after the query instead of line filters
+
+# WARNING: {job="fluentbit"} alone may return fluent-bit's own logs
+# To get application logs, use more specific labels like:
+# {job="fluentbit",kubernetes_container_name!="fluent-bit"}
+# IMPORTANT: The != operator MUST be URL encoded as %21= in wget queries
+# GOOD: kubernetes_container_name%21="fluent-bit"
+# BAD: kubernetes_container_name!="fluent-bit" (returns 400)
+
 # List available labels
 kubectl exec -n dev deployment/loki -- wget -q -O - 'http://localhost:3100/loki/api/v1/labels'
 
@@ -111,3 +123,7 @@ kubectl exec -n dev deployment/loki -- wget -q -O - \
   'http://localhost:3100/loki/api/v1/query_range?query={kubernetes_pod_name=~".*061425.*"}&start='$(echo $(( $(date +%s) - 300 ))000000000)'&limit=1' \
   | jq -r '.data.result[0].stream.kubernetes_pod_name'
 ```
+
+## Debugging Failed Evaluations
+
+**IMPORTANT**: When debugging failed evaluations, see [Debugging Failed Evaluations Guide](./debugging-failed-evaluations.md) for the required process and principles.

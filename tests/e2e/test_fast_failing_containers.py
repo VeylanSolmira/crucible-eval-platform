@@ -25,7 +25,7 @@ import time
 import requests
 from typing import Dict, Any
 from tests.k8s_test_config import API_URL
-from tests.utils.utils import wait_for_completion
+from tests.utils.utils import wait_for_completion, submit_evaluation
 
 # Test code that should fail immediately
 FAST_FAILING_CODE = 'print("Before error"); 1/0'
@@ -50,17 +50,7 @@ def test_fast_failing_container_logs_captured():
     logs properly captured before the pod terminates.
     """
     # Submit evaluation with code that fails immediately
-    response = requests.post(
-        f"{API_URL}/eval",
-        json={
-            "code": FAST_FAILING_CODE,
-            "language": "python",
-            "timeout": 30
-        }
-    )
-    
-    assert response.status_code == 200, f"Failed to submit evaluation: {response.text}"
-    eval_id = response.json()["eval_id"]
+    eval_id = submit_evaluation(FAST_FAILING_CODE, language="python", timeout=30)
     
     # Wait for evaluation to complete
     result = wait_for_completion(eval_id, use_adaptive=True)
@@ -96,17 +86,7 @@ def test_mixed_stdout_stderr_fast_failure():
     limitation documented in /week-4-demo/docker-logs-issue.md
     """
     # Submit evaluation with code that outputs to both streams
-    response = requests.post(
-        f"{API_URL}/eval",
-        json={
-            "code": FAST_FAILING_WITH_STDERR,
-            "language": "python",
-            "timeout": 30
-        }
-    )
-    
-    assert response.status_code == 200, f"Failed to submit evaluation: {response.text}"
-    eval_id = response.json()["eval_id"]
+    eval_id = submit_evaluation(FAST_FAILING_WITH_STDERR, language="python", timeout=30)
     
     # Wait for evaluation to complete
     result = wait_for_completion(eval_id, use_adaptive=True)
@@ -139,16 +119,9 @@ def test_multiple_fast_failures_no_stuck_evaluations():
     
     # Submit multiple fast-failing evaluations
     for i in range(5):
-        response = requests.post(
-            f"{API_URL}/eval",
-            json={
-                "code": f'print("Test {i}"); raise RuntimeError("Fast failure {i}")',
-                "language": "python",
-                "timeout": 30
-            }
-        )
-        assert response.status_code == 200
-        eval_ids.append(response.json()["eval_id"])
+        code = f'print("Test {i}"); raise RuntimeError("Fast failure {i}")'
+        eval_id = submit_evaluation(code, language="python", timeout=30)
+        eval_ids.append(eval_id)
     
     # Wait for all evaluations to complete (they may be queued)
     max_wait = 30  # Allow up to 30 seconds for processing
@@ -196,17 +169,7 @@ def test_extremely_fast_exit():
     # Code that exits as fast as possible
     instant_exit_code = "import sys; sys.exit(42)"
     
-    response = requests.post(
-        f"{API_URL}/eval",
-        json={
-            "code": instant_exit_code,
-            "language": "python",
-            "timeout": 30
-        }
-    )
-    
-    assert response.status_code == 200
-    eval_id = response.json()["eval_id"]
+    eval_id = submit_evaluation(instant_exit_code, language="python", timeout=30)
     
     # Wait for completion
     result = wait_for_completion(eval_id, use_adaptive=True)
