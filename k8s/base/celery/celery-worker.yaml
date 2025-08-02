@@ -17,7 +17,10 @@ spec:
       - name: celery-worker
         image: crucible-platform/celery-worker
         imagePullPolicy: Always
-        command: ["sh", "-c", "celery -A celery_worker.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-2} -Q high_priority,evaluation,batch,maintenance"]
+        command: ["python", "celery_worker/run_worker.py", "worker", "--loglevel=info", "--concurrency=${CELERY_CONCURRENCY:-2}", "-Q", "high_priority,evaluation,batch,maintenance"]
+        ports:
+        - containerPort: 8088
+          name: health
         env:
         - name: CELERY_BROKER_URL
           value: "redis://celery-redis:6379/0"
@@ -47,24 +50,16 @@ spec:
             memory: "512Mi"
             cpu: "1000m"
         livenessProbe:
-          exec:
-            command:
-            - celery
-            - -A
-            - celery_worker.celery_app
-            - inspect
-            - ping
+          httpGet:
+            path: /healthz
+            port: 8088
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
         readinessProbe:
-          exec:
-            command:
-            - celery
-            - -A
-            - celery_worker.celery_app
-            - inspect
-            - ping
+          httpGet:
+            path: /readyz
+            port: 8088
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5

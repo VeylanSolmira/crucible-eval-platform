@@ -39,7 +39,6 @@ patches:
 - path: pull-policy-patch.yaml
 - path: storage-pvc-patch.yaml
 - path: replicas-patch.yaml
-- path: celery-readiness-patch.yaml
 - path: dev-writable-filesystems-patch.yaml
 - path: uvicorn-reload-patch.yaml
 - path: memory-optimization-patch.yaml

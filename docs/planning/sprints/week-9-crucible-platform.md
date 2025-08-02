@@ -106,7 +106,14 @@
 
 ### 5. Technical Debt Reduction
 
-#### 5.1 Remove Inter-Service Health Checks (from Week 8)
+#### 5.1 Fix Celery Worker Readiness Probe
+- [ ] Replace broken `celery inspect ping` exec probe
+  - [ ] Add HTTP health endpoints (/healthz and /readyz)
+  - [ ] Run small FastAPI server alongside celery worker
+  - [ ] Update Kubernetes deployment to use HTTP probes
+  - [ ] Follow pattern from storage_worker implementation
+
+#### 5.2 Remove Inter-Service Health Checks (from Week 8)
 - [ ] Audit remaining services for health check anti-patterns
   - [ ] Storage service
   - [ ] Storage worker
@@ -177,9 +184,46 @@
 - Consider using Bottlerocket OS in future (has better runtime support)
 - gVisor adds ~50-100ms overhead per container start
 
+## Completed Tasks ✅
+
+### Monitoring Service Architecture Design
+- [x] Identified fundamental design flaws in dispatcher log fetching
+  - Dispatcher was trying to fetch logs when Kubernetes job completed
+  - Created race conditions between job completion and pod cleanup
+  - Made evaluation success dependent on log availability
+  - Violated single responsibility principle
+
+#### Key Issues Discovered:
+1. **Double Race Condition**
+   - Race between Job completion and Pod cleanup by cleanup controller
+   - Race between Pod deletion and Loki log ingestion by Fluent Bit
+   - Dispatcher interpreted "no logs in Loki yet" as "evaluation failed"
+
+2. **Architectural Smell**
+   - Logs are already handled by Fluent Bit → Loki pipeline
+   - Dispatcher duplicating log collection responsibility
+   - Bundling logs with completion events created unnecessary coupling
+
+3. **Fix Implemented**
+   - Removed exit code checking from log retrieval
+   - Trust Kubernetes job status as source of truth
+   - Made logs best-effort in completion events
+   - Job succeeded = evaluation succeeded, regardless of log availability
+
+### Monitoring Service Proposal
+Based on the issues discovered, the monitoring service should:
+- Own all log aggregation and retrieval
+- Query Loki asynchronously after events
+- Provide unified log API for all services
+- Handle log shipping coordination with Fluent Bit
+- Monitor log pipeline health
+
+This separation would eliminate the race conditions and properly separate concerns.
+
 ## Links & Resources 🔗
 
 - [gVisor Installation Analysis](../../deployment/gvisor-eks-analysis.md)
 - [gVisor Documentation](https://gvisor.dev/docs/)
 - [EKS Custom AMI Guide](https://docs.aws.amazon.com/eks/latest/userguide/eks-custom-ami.html)
 - [Kubernetes DaemonSet Best Practices](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/)
+- [Event Architecture Documentation](../../architecture/events.md)

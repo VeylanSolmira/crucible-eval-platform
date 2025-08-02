@@ -49,5 +49,8 @@ LABEL service="celery-worker" \
 # Use appuser from base image
 USER appuser
 
-# Default to worker, but allow override for beat, flower, etc.
-CMD ["celery", "-A", "celery_worker.celery_app", "worker", "--loglevel=info"]
+# Expose health check port
+EXPOSE 8088
+
+# Run worker with embedded health server
+CMD ["python", "celery_worker/run_worker.py", "worker", "--loglevel=info"]

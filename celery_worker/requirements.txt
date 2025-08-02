@@ -5,5 +5,9 @@
 # Service-specific dependencies
 celery[redis]==5.3.6
 
+# Health server dependencies
+fastapi==0.104.1
+uvicorn==0.24.0
+
 # Include shared requirements for resilient connections
 -r ../shared/requirements-utils.txt
