@@ -31,9 +31,9 @@ jobs:
       deployment_name: frontend-deployment
       ecr_repo: frontend
       container_name: frontend
-      dockerfile_path: frontend/docker/Dockerfile
+      dockerfile_path: frontend/Dockerfile
       health_check_port: '3000'
       health_check_path: '/'
-      needs_openapi: false
+      needs_openapi: true
       environment: ${{ github.event.inputs.environment || 'dev' }}
     secrets: inherit

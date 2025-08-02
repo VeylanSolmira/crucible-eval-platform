@@ -33,6 +33,6 @@ jobs:
       ecr_repo: storage-service
       health_check_port: '8085'
       health_check_path: '/health'
-      needs_openapi: true
+      needs_openapi: false
       environment: ${{ github.event.inputs.environment || 'dev' }}
     secrets: inherit

@@ -23,7 +23,7 @@ jobs:
       ecr_repo: api
       health_check_port: '8080'
       health_check_path: '/healthz'
-      needs_openapi: true
+      needs_openapi: false
       environment: dev
     secrets: inherit
 
@@ -55,7 +55,7 @@ jobs:
       ecr_repo: storage-service
       health_check_port: '8085'
       health_check_path: '/health'
-      needs_openapi: true
+      needs_openapi: false
       environment: dev
     secrets: inherit
 

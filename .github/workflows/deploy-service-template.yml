@@ -131,6 +131,7 @@ jobs:
           -t $ECR_REGISTRY/${{ inputs.ecr_repo }}:latest \
           -t $ECR_REGISTRY/${{ inputs.ecr_repo }}:$K8S_NAMESPACE \
           --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --build-arg BASE_IMAGE=$ECR_REGISTRY/base:latest \
           --cache-from $ECR_REGISTRY/${{ inputs.ecr_repo }}:latest \
           .
         

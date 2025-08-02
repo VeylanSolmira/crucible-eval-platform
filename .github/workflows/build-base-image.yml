@@ -1,0 +1,53 @@
+name: Build Base Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'shared/docker/base.Dockerfile'
+      - 'shared/docker/requirements-base.txt'
+      - 'shared/docker/healthcheck.py'
+      - '.github/workflows/build-base-image.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REGISTRY: 503132503803.dkr.ecr.us-west-2.amazonaws.com
+  ECR_REPOSITORY: base
+
+jobs:
+  build:
+    name: Build and Push Base Image
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build and push base image
+      run: |
+        echo "🔨 Building base image..."
+        docker build \
+          -f shared/docker/base.Dockerfile \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:${GITHUB_SHA::8} \
+          --cache-from $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          .
+        
+        echo "📤 Pushing base image..."
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:${GITHUB_SHA::8}
+        
+        echo "✅ Base image pushed successfully"
