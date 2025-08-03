@@ -22,6 +22,7 @@ class AdaptiveWaiter:
         self.last_progress_time = time.time()
         self.completed_count = 0
         self.last_status_check = 0
+        self.last_no_progress_warning = 0  # Track when we last warned about no progress
         self.verbose = os.environ.get('VERBOSE_TESTS', 'false').lower() == 'true'
         # Get namespace from environment - REQUIRED for tests
         self.namespace = os.environ.get('K8S_NAMESPACE')
@@ -72,8 +73,8 @@ class AdaptiveWaiter:
                                 print(f"\n⏱️  Timed out evaluation: {eval_id}")
                                 print(f"   Last status: {status}")
                                 print(f"   Check status: curl http://api-service:8080/api/eval/{eval_id}")
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"   Error getting timeout info for {eval_id}: {e}")
                 break
                 
             # Check progress periodically
@@ -99,19 +100,27 @@ class AdaptiveWaiter:
                         timeout = min(timeout * 1.2, 300)  # Max 5 minutes
                         print(f"  → Extended timeout to {timeout}s due to progress")
                         
-                # No progress warning
+                # No progress warning (check every 30 seconds, but only warn every 10 seconds)
                 elif current_time - self.last_progress_time > 30:
-                    print(f"\n⚠️  No progress in {current_time - self.last_progress_time:.0f}s")
-                    if check_resources:
-                        self._print_resource_status()
+                    # Only show warning if we haven't warned recently
+                    if current_time - self.last_no_progress_warning > 10:
+                        self.last_no_progress_warning = current_time
+                        no_progress_seconds = int(current_time - self.last_progress_time)
+                        print(f"\n⚠️  No progress in {no_progress_seconds}s")
                         
-                        # Check if cluster is at capacity
-                        if self._is_cluster_at_capacity():
-                            # Cluster is busy, this is expected - extend timeout
-                            print("  → Cluster at capacity - extending timeout")
-                            timeout = min(timeout * 1.2, 600)  # Max 10 minutes
-                            # Reset the "no progress" timer since this is expected
-                            self.last_progress_time = current_time
+                        if check_resources:
+                            print("  Checking cluster resources...")
+                            self._print_resource_status()
+                            
+                            # Check if cluster is at capacity
+                            if self._is_cluster_at_capacity():
+                                # Cluster is busy, this is expected - extend timeout
+                                print("  → Cluster at capacity - extending timeout")
+                                timeout = min(timeout * 1.2, 600)  # Max 10 minutes
+                                # Reset the "no progress" timer since this is expected
+                                self.last_progress_time = current_time
+                            else:
+                                print("  → Cluster has available capacity - waiting for scheduling")
                             
                             # Print detailed resource information if verbose
                             if self.verbose:
@@ -233,9 +242,11 @@ class AdaptiveWaiter:
                 pending = sum(1 for pod in pods if 'Pending' in pod)
                 
                 print(f"  Resource status: {running} running, {pending} pending evaluation pods")
+            else:
+                print(f"  Failed to get pod status: {result.stderr}")
                 
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  Error checking pod status: {e}")
     
     def _is_cluster_at_capacity(self) -> bool:
         """Check if cluster is at or near resource capacity."""

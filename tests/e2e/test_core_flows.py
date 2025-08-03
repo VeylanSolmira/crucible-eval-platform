@@ -163,20 +163,14 @@ def test_storage_retrieval():
     output = wait_for_logs(eval_id, timeout=30)
     assert "Storage test output" in output, f"Expected 'Storage test output' in output, got: {output}"
     
-    # Test storage retrieval endpoint (if it exists)
-    # Note: This endpoint might not exist in all configurations
-    storage_response = requests.get(f"{API_URL}/storage/evaluation/{eval_id}")
+    # Test evaluation retrieval through standard endpoint
+    eval_response = requests.get(f"{API_URL}/eval/{eval_id}")
+    assert eval_response.status_code == 200, f"Failed to retrieve evaluation: {eval_response.status_code}"
     
-    if storage_response.status_code == 200:
-        storage_data = storage_response.json()
-        assert storage_data.get("eval_id") == eval_id, "Storage eval_id mismatch"
-        assert "Storage test output" in storage_data.get("output", ""), "Output not stored correctly"
-    elif storage_response.status_code == 404:
-        # Storage endpoint might not be exposed, which is okay
-        # We already verified the output is available via wait_for_logs
-        pass
-    else:
-        pytest.fail(f"Unexpected storage response: {storage_response.status_code}")
+    eval_data = eval_response.json()
+    assert eval_data.get("eval_id") == eval_id, "Eval ID mismatch"
+    assert eval_data.get("status") == "completed", f"Unexpected status: {eval_data.get('status')}"
+    assert eval_data.get("output"), "Missing output in evaluation data"
 
 
 @pytest.mark.e2e
