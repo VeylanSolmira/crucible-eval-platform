@@ -10,6 +10,7 @@ import json
 import pytest
 import os
 from typing import List, Dict, Optional, Callable
+from shared.constants.evaluation_defaults import DEFAULT_MEMORY_MB
 
 
 class AdaptiveWaiter:
@@ -160,8 +161,8 @@ class AdaptiveWaiter:
                 used_mb = self._parse_memory(memory_used)
                 available_mb = limit_mb - used_mb
                 
-                # Each evaluation needs ~512Mi
-                max_concurrent = max(1, available_mb // 512)
+                # Each evaluation needs DEFAULT_MEMORY_MB
+                max_concurrent = max(1, available_mb // DEFAULT_MEMORY_MB)
                 
                 # Calculate waves needed
                 waves = (count + max_concurrent - 1) // max_concurrent
@@ -262,8 +263,8 @@ class AdaptiveWaiter:
                 if self.verbose:
                     print(f"    Quota check: {used_mb}MB used / {limit_mb}MB limit ({available_mb}MB available)")
                 
-                # Check if less than 512MB available (1 pod worth)
-                if available_mb < 512:
+                # Check if less than one evaluation's worth of memory is available
+                if available_mb < DEFAULT_MEMORY_MB:
                     is_memory_constrained = True
             else:
                 if self.verbose:

@@ -24,6 +24,10 @@ import httpx
 # Import shared resilient Redis client
 from shared.utils.resilient_connections import ResilientRedisClient
 from shared.utils.kubernetes_utils import generate_job_name
+from shared.constants.evaluation_defaults import (
+    DEFAULT_MEMORY_LIMIT, DEFAULT_CPU_LIMIT,
+    DEFAULT_MEMORY_MB, DEFAULT_CPU_MILLICORES
+)
 
 # Configure logging
 logging.basicConfig(
@@ -527,8 +531,8 @@ class ExecuteRequest(BaseModel):
     code: str = Field(..., description="Python code to execute")
     language: str = Field(default="python", description="Programming language")
     timeout: int = Field(default=300, ge=1, le=MAX_JOB_TTL, description="Execution timeout in seconds")
-    memory_limit: str = Field(default="128Mi", description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
-    cpu_limit: str = Field(default="100m", description="CPU limit (e.g., 100m, 500m, 1)")
+    memory_limit: str = Field(default=DEFAULT_MEMORY_LIMIT, description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
+    cpu_limit: str = Field(default=DEFAULT_CPU_LIMIT, description="CPU limit (e.g., 100m, 500m, 1)")
     priority: int = Field(default=0, description="Priority level: 1=high, 0=normal, -1=low")
     executor_image: Optional[str] = Field(default=None, description="Executor image name (e.g., 'python-ml') or full image path")
     debug: bool = Field(default=False, description="Preserve pod for debugging if it fails")
@@ -542,8 +546,8 @@ class ExecuteResponse(BaseModel):
 
 # Capacity check models
 class CapacityRequest(BaseModel):
-    memory_limit: str = Field(default="128Mi", description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
-    cpu_limit: str = Field(default="100m", description="CPU limit (e.g., 100m, 500m, 1)")
+    memory_limit: str = Field(default=DEFAULT_MEMORY_LIMIT, description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
+    cpu_limit: str = Field(default=DEFAULT_CPU_LIMIT, description="CPU limit (e.g., 100m, 500m, 1)")
 
 
 class CapacityResponse(BaseModel):
@@ -635,8 +639,8 @@ def calculate_projected_capacity(current_nodes: int, pending_pods: int) -> Dict[
     Returns dict with projected CPU and memory capacity.
     """
     # Estimate pods per node (conservative estimate)
-    evaluation_cpu_request = 100  # Default evaluation CPU request in millicores
-    evaluation_memory_request = 128  # Default evaluation memory request in MB
+    evaluation_cpu_request = DEFAULT_CPU_MILLICORES  # From shared constants
+    evaluation_memory_request = DEFAULT_MEMORY_MB  # From shared constants
     
     # Calculate how many evaluation pods can fit per node
     pods_per_node_cpu = NODE_CPU_MILLICORES // evaluation_cpu_request
