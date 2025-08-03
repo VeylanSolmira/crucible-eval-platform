@@ -23,7 +23,7 @@ class EvaluationRequest(BaseModel):
     language: str = Field("python", description="Programming language")
     engine: str = Field("docker", description="Execution engine")
     timeout: int = Field(30, description="Timeout in seconds", ge=MIN_TIMEOUT, le=MAX_TIMEOUT)
-    priority: int = Field(0, description="Priority level: 1=high, 0=normal, -1=low", ge=-1, le=1)
+    priority: int = Field(0, description="Numeric priority (0-2000+, higher = more important)")
     memory_limit: Optional[str] = Field(None, description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
     cpu_limit: Optional[str] = Field(None, description="CPU limit (e.g., 100m, 500m, 1)")
     executor_image: Optional[str] = Field(None, description="Executor image name (e.g., 'python-base') or full image path")
