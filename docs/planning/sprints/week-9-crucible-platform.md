@@ -145,7 +145,18 @@
 
 ### 6. Testing Infrastructure
 
-#### 6.1 gVisor-Specific Tests
+#### 6.1 Implement Adaptive Timeout Testing
+- [ ] Create sophisticated timeout validation for tests
+  - [ ] Consider cluster load when asserting on execution times
+  - [ ] Account for pod scheduling delays and preemption
+  - [ ] Implement load-aware timeout assertions
+  - [ ] Add cluster resource metrics to test context
+- [ ] Update test_evaluation_timeout to be less brittle
+  - [ ] Remove hard-coded 15-second limit
+  - [ ] Base expectations on actual cluster conditions
+  - [ ] Consider retry attempts in timing calculations
+
+#### 6.2 gVisor-Specific Tests
 - [ ] Create test suite for gVisor functionality
   - [ ] Runtime isolation tests
   - [ ] Performance benchmarks
@@ -155,7 +166,7 @@
   - [ ] Run security tests
   - [ ] Performance regression tests
 
-#### 6.2 Chaos Testing for gVisor
+#### 6.3 Chaos Testing for gVisor
 - [ ] Test gVisor runtime failures
   - [ ] DaemonSet pod deletion
   - [ ] Containerd restart during evaluation
