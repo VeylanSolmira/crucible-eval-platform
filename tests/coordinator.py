@@ -20,9 +20,13 @@ import argparse
 import re
 from typing import List, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 # Import k8s test config to get proper Redis URL
 from k8s_test_config import REDIS_URL
+
+# Import cluster resource monitoring
+from shared.utils.cluster_resources import get_cluster_resources, format_resource_report, format_resource_table_compact
 
 
 class TestCoordinator:
@@ -193,7 +197,7 @@ class TestCoordinator:
                 "template": {
                     "spec": {
                         "serviceAccountName": "test-runner",
-                        "priorityClassName": "test-priority",
+                        "priorityClassName": "test-infrastructure-priority",  # Priority 400 - higher than test evaluations (100-399)
                         "containers": [{
                             "name": "test-runner",
                             "image": self.test_image,
@@ -267,14 +271,17 @@ class TestCoordinator:
         
         log_queue = queue.Queue()
         captured_logs = []  # Buffer to store logs for TestLogBuffer
+        log_process = None  # Track the kubectl process
+        log_streaming_complete = threading.Event()  # Signal when log streaming is done
         
         def stream_logs():
             """Stream logs in a separate thread to avoid blocking."""
+            nonlocal log_process
             try:
                 # Wait a moment for pod to be ready
                 time.sleep(2)
                 
-                process = subprocess.Popen(
+                log_process = subprocess.Popen(
                     ["kubectl", "logs", "-f", f"job/{job_name}", "-n", self.namespace],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
@@ -282,17 +289,19 @@ class TestCoordinator:
                     bufsize=1
                 )
                 
-                for line in iter(process.stdout.readline, ''):
+                for line in iter(log_process.stdout.readline, ''):
                     if line:
                         line_stripped = line.rstrip()
                         log_queue.put(line_stripped)
                         captured_logs.append(line_stripped)  # Buffer for later use
                     
-                process.wait()
+                log_process.wait()
             except Exception as e:
                 log_queue.put(f"[Log streaming error: {e}]")
+            finally:
+                log_streaming_complete.set()  # Signal that streaming is done
         
-        log_thread = threading.Thread(target=stream_logs, daemon=True)
+        log_thread = threading.Thread(target=stream_logs, daemon=False)  # Not daemon so it completes
         log_thread.start()
         
         # Wait for job to complete
@@ -346,7 +355,8 @@ class TestCoordinator:
             )
             
             if result.returncode != 0:
-                log_process.terminate()
+                if log_process and log_process.poll() is None:
+                    log_process.terminate()
                 return {
                     "job_name": job_name,
                     "status": "error",
@@ -357,9 +367,54 @@ class TestCoordinator:
             job_data = json.loads(result.stdout)
             status = job_data.get("status", {})
             
-            if status.get("succeeded", 0) > 0 or status.get("failed", 0) > 0:
-                # Give thread a moment to finish
-                time.sleep(1)
+            # Debug: Log job status in verbose mode
+            if self.verbose and (status.get("succeeded", 0) > 0 or status.get("failed", 0) > 0):
+                print(f"\n[DEBUG {job_name}] Job status: active={status.get('active', 0)}, "
+                      f"succeeded={status.get('succeeded', 0)}, failed={status.get('failed', 0)}")
+                
+                # Check for conditions that might indicate why job ended
+                conditions = job_data.get("status", {}).get("conditions", [])
+                for condition in conditions:
+                    print(f"[DEBUG {job_name}] Condition: {condition.get('type')}={condition.get('status')} "
+                          f"reason={condition.get('reason')} message={condition.get('message')}")
+            
+            # Check if job is actually complete (no active pods)
+            if status.get("active", 0) == 0 and (status.get("succeeded", 0) > 0 or status.get("failed", 0) > 0):
+                # Job is complete - no pods are running
+                # DON'T terminate logs immediately - let kubectl logs finish naturally
+                # This prevents missing the pytest summary line due to buffering
+                
+                # Debug: Check pod status to understand why job completed
+                if self.verbose:
+                    pod_result = subprocess.run(
+                        ["kubectl", "get", "pods", "-n", self.namespace, "-l", f"job-name={job_name}", "-o", "json"],
+                        capture_output=True,
+                        text=True
+                    )
+                    if pod_result.returncode == 0:
+                        pod_data = json.loads(pod_result.stdout)
+                        for pod in pod_data.get("items", []):
+                            pod_status = pod.get("status", {})
+                            print(f"[DEBUG {job_name}] Pod {pod['metadata']['name']}: "
+                                  f"phase={pod_status.get('phase')}, "
+                                  f"reason={pod_status.get('reason')}")
+                            
+                            # Check container statuses
+                            for container in pod_status.get("containerStatuses", []):
+                                state = container.get("state", {})
+                                if "terminated" in state:
+                                    term = state["terminated"]
+                                    print(f"[DEBUG {job_name}] Container terminated: "
+                                          f"exitCode={term.get('exitCode')}, "
+                                          f"reason={term.get('reason')}, "
+                                          f"message={term.get('message')}")
+                    
+                # Wait for log streaming to complete (up to 30 seconds)
+                if not log_streaming_complete.wait(timeout=30):
+                    print(f"  ⚠️  Log streaming timeout for {job_name} - terminating")
+                    # Only terminate after timeout
+                    if log_process and log_process.poll() is None:
+                        log_process.terminate()
                 
                 # Drain any remaining log messages
                 try:
@@ -465,9 +520,18 @@ class TestCoordinator:
                 if failure_details:
                     result_dict["failure_details"] = failure_details
                 
+                # Ensure log thread is complete
+                if log_thread.is_alive():
+                    # Only terminate if still alive after our 30s wait above
+                    if log_process and log_process.poll() is None:
+                        log_process.terminate()
+                    log_thread.join(timeout=2)
+                    
                 return result_dict
                 
-            elif False:  # This block is now unreachable
+            # This condition is now unreachable due to the break above
+            # but kept for reference
+            if False:
                 # Get logs for failure details
                 log_result = subprocess.run(
                     ["kubectl", "logs", f"job/{job_name}", "-n", self.namespace, "--tail=50"],
@@ -484,6 +548,12 @@ class TestCoordinator:
             
             # Still running
             time.sleep(1)  # Reduced from 5s for more responsive output
+            
+        # Should never reach here, but ensure cleanup
+        if log_process and log_process.poll() is None:
+            log_process.terminate()
+        if log_thread.is_alive():
+            log_thread.join(timeout=2)
     
     def run_parallel(self, suites: List[Dict], pytest_args: List[str]) -> Dict[str, List]:
         """Run test suites in parallel."""
@@ -580,6 +650,32 @@ class TestCoordinator:
         
         return results
     
+    def _monitor_cluster_resources(self):
+        """Monitor cluster resources in background thread."""
+        iteration = 0
+        while not self.resource_monitor_stop.is_set():
+            try:
+                iteration += 1
+                resources = get_cluster_resources(namespace=self.namespace)
+                
+                # Use compact format for frequent updates, detailed every 3rd iteration
+                if iteration % 3 == 0:
+                    # Full detailed report
+                    report = format_resource_report(resources, show_details=True)
+                    print(report)
+                else:
+                    # Compact single-line summary
+                    summary = format_resource_table_compact(resources)
+                    print(f"\n{summary}")
+                
+                # Wait 5 seconds or until stop signal
+                self.resource_monitor_stop.wait(5)
+                
+            except Exception as e:
+                print(f"\n⚠️  Resource monitoring error: {e}")
+                # Continue monitoring even if there's an error
+                self.resource_monitor_stop.wait(5)
+    
     def cleanup_jobs(self, preserve_failed=True, preserve_all=False):
         """Clean up all test jobs."""
         print("\n🧹 Cleaning up test jobs...")
@@ -614,9 +710,11 @@ class TestCoordinator:
                             capture_output=True,
                             text=True
                         )
-                        if "0 passed" in log_output or "collected 0 items" in log_output:
-                            print(f"   ⚠️  Preserving job with no tests found: {job_name}")
-                            continue
+                        if log_result.returncode == 0:
+                            log_output = log_result.stdout
+                            if "0 passed" in log_output or "collected 0 items" in log_output:
+                                print(f"   ⚠️  Preserving job with no tests found: {job_name}")
+                                continue
             
             # Delete the job
             subprocess.run(
@@ -678,11 +776,14 @@ class TestCoordinator:
             include_destructive: bool = False,
             test_files: List[str] = None,
             verbose: bool = False,
-            resource_cleanup: str = "none") -> int:
+            resource_cleanup: str = "none",
+            show_cluster_resources: bool = False) -> int:
         """Main coordinator entry point."""
         
         self.verbose = verbose
         self.resource_cleanup = resource_cleanup
+        self.resource_monitor_stop = threading.Event()
+        self.resource_monitor_thread = None
         
         print("="*80)
         print("TEST COORDINATOR")
@@ -723,6 +824,15 @@ class TestCoordinator:
         
         print(f"\nFound {len(suites)} test suites to run")
         
+        # Start resource monitoring if requested
+        if show_cluster_resources:
+            print("\n🔍 Starting cluster resource monitoring (every 5 seconds)...")
+            self.resource_monitor_thread = threading.Thread(
+                target=self._monitor_cluster_resources,
+                daemon=True
+            )
+            self.resource_monitor_thread.start()
+        
         try:
             # Run tests
             if parallel:
@@ -736,6 +846,11 @@ class TestCoordinator:
             return 0 if all_passed else 1
             
         finally:
+            # Stop resource monitoring
+            if self.resource_monitor_thread:
+                self.resource_monitor_stop.set()
+                self.resource_monitor_thread.join(timeout=1)
+                
             self.cleanup_jobs()
 
 
@@ -754,6 +869,9 @@ def main():
                         choices=["none", "pods", "all"], 
                         default="none",
                         help="Resource cleanup level between tests (none, pods, or all)")
+    parser.add_argument("--show-cluster-resources",
+                        action="store_true",
+                        help="Show cluster resource usage every 5 seconds during test execution")
     
     args = parser.parse_args()
     
@@ -765,7 +883,8 @@ def main():
         include_destructive=args.include_destructive,
         test_files=args.test_files,
         verbose=args.verbose,
-        resource_cleanup=args.resource_cleanup
+        resource_cleanup=args.resource_cleanup,
+        show_cluster_resources=args.show_cluster_resources
     )
     
     sys.exit(exit_code)

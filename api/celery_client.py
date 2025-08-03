@@ -11,6 +11,7 @@ from typing import Optional
 from celery import Celery
 import redis
 from .celery_constants import TASK_MAPPING_TTL_SECONDS
+from shared.utils.priority_mapping import get_celery_queue
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +77,9 @@ def submit_evaluation_to_celery(
     try:
         # Call evaluate_code directly - it now uses the dispatcher service
         task_name = "celery_worker.tasks.evaluate_code"
-        # Map priority to queue: high priority goes to dedicated queue
-        queue = "high_priority" if priority > 0 else "evaluation"
-        # Pass priority level directly (already int: 1=high, 0=normal, -1=low)
+        # Map numeric priority to appropriate queue
+        queue = get_celery_queue(priority)
+        # Pass numeric priority directly to dispatcher
         priority_level = priority
         
         logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, priority={priority_level}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}, debug={debug}")

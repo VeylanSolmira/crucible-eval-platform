@@ -38,6 +38,7 @@ default_exchange = Exchange("crucible", type="direct")
 task_queues = (
     Queue("evaluation", default_exchange, routing_key="evaluation", priority=5),
     Queue("high_priority", default_exchange, routing_key="high_priority", priority=10),
+    Queue("low_priority", default_exchange, routing_key="low_priority", priority=2),
     Queue("batch", default_exchange, routing_key="batch", priority=1),
     Queue("maintenance", default_exchange, routing_key="maintenance", priority=0),
 )
@@ -48,9 +49,10 @@ task_default_exchange = "crucible"
 task_default_routing_key = "evaluation"
 
 # Task routing
+# Note: evaluate_code queue is dynamically set based on priority in api/celery_client.py
 task_routes = {
     "celery_worker.tasks.assign_executor": {"queue": "evaluation"},
-    "celery_worker.tasks.evaluate_code": {"queue": "evaluation"},
+    "celery_worker.tasks.evaluate_code": {"queue": "evaluation"},  # Default, overridden by send_task
     "celery_worker.tasks.release_executor_task": {"queue": "evaluation"},
     "celery_worker.tasks.evaluate_code_high_priority": {"queue": "high_priority"},
     "celery_worker.tasks.batch_evaluation": {"queue": "batch"},

@@ -302,7 +302,8 @@ class TestOrchestrator:
                              include_destructive: bool = False,
                              test_files: List[str] = None,
                              verbose: bool = False,
-                             resource_cleanup: str = "none") -> Dict:
+                             resource_cleanup: str = "none",
+                             show_cluster_resources: bool = False) -> Dict:
         """Create the coordinator job manifest."""
         
         # Build command for coordinator
@@ -328,6 +329,9 @@ class TestOrchestrator:
             
         if resource_cleanup != "none":
             coordinator_cmd.extend(["--resource-cleanup", resource_cleanup])
+            
+        if show_cluster_resources:
+            coordinator_cmd.append("--show-cluster-resources")
         
         # Debug: Check registry value
         print(f"\n🔍 Debug - Registry value: '{self.registry}'")
@@ -351,7 +355,7 @@ class TestOrchestrator:
                 "template": {
                     "spec": {
                         "serviceAccountName": "test-coordinator",
-                        "priorityClassName": "test-priority",
+                        "priorityClassName": "test-infrastructure-priority",  # Priority 400 - higher than test evaluations
                         "containers": [{
                             "name": "coordinator",
                             "image": self.test_image,
@@ -421,6 +425,21 @@ class TestOrchestrator:
                             "apiGroups": [""],
                             "resources": ["pods", "pods/log"],
                             "verbs": ["get", "list", "watch"]
+                        },
+                        {
+                            "apiGroups": [""],
+                            "resources": ["nodes"],
+                            "verbs": ["get", "list"]
+                        },
+                        {
+                            "apiGroups": [""],
+                            "resources": ["resourcequotas"],
+                            "verbs": ["get", "list"]
+                        },
+                        {
+                            "apiGroups": ["metrics.k8s.io"],
+                            "resources": ["nodes"],
+                            "verbs": ["get", "list"]
                         }
                     ]
                 },
@@ -435,6 +454,42 @@ class TestOrchestrator:
                         "apiGroup": "rbac.authorization.k8s.io",
                         "kind": "Role",
                         "name": "test-coordinator"
+                    },
+                    "subjects": [{
+                        "kind": "ServiceAccount",
+                        "name": "test-coordinator",
+                        "namespace": self.namespace
+                    }]
+                },
+                {
+                    "apiVersion": "rbac.authorization.k8s.io/v1",
+                    "kind": "ClusterRole",
+                    "metadata": {
+                        "name": "test-coordinator-cluster-viewer"
+                    },
+                    "rules": [
+                        {
+                            "apiGroups": [""],
+                            "resources": ["nodes", "pods"],
+                            "verbs": ["get", "list"]
+                        },
+                        {
+                            "apiGroups": ["metrics.k8s.io"],
+                            "resources": ["nodes"],
+                            "verbs": ["get", "list"]
+                        }
+                    ]
+                },
+                {
+                    "apiVersion": "rbac.authorization.k8s.io/v1",
+                    "kind": "ClusterRoleBinding",
+                    "metadata": {
+                        "name": f"test-coordinator-{self.namespace}-cluster-viewer"
+                    },
+                    "roleRef": {
+                        "apiGroup": "rbac.authorization.k8s.io",
+                        "kind": "ClusterRole",
+                        "name": "test-coordinator-cluster-viewer"
                     },
                     "subjects": [{
                         "kind": "ServiceAccount",
@@ -712,7 +767,8 @@ class TestOrchestrator:
             test_files: List[str] = None,
             verbose: bool = False,
             resource_cleanup: str = "none",
-            local: str = "true") -> int:
+            local: str = "true",
+            show_cluster_resources: bool = False) -> int:
         """Run the complete test orchestration pipeline."""
         
         # Separate unit tests from other suites
@@ -775,7 +831,8 @@ class TestOrchestrator:
                 include_destructive=include_destructive,
                 test_files=test_files,
                 verbose=verbose,
-                resource_cleanup=resource_cleanup
+                resource_cleanup=resource_cleanup,
+                show_cluster_resources=show_cluster_resources
             )
             
             if not self.submit_coordinator_job(job_manifest):
@@ -844,6 +901,11 @@ def main():
         default="auto",
         help="Run tests locally without Kubernetes cluster. auto=local for unit tests, cluster for others (default: auto)"
     )
+    parser.add_argument(
+        "--show-cluster-resources",
+        action="store_true",
+        help="Show cluster resource usage every 5 seconds during test execution"
+    )
     
     args = parser.parse_args()
     
@@ -857,7 +919,8 @@ def main():
         test_files=args.test_files,
         verbose=args.verbose,
         resource_cleanup=args.resource_cleanup,
-        local=args.local
+        local=args.local,
+        show_cluster_resources=args.show_cluster_resources
     )
     
     sys.exit(exit_code)

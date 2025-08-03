@@ -28,6 +28,7 @@ from shared.constants.evaluation_defaults import (
     DEFAULT_MEMORY_LIMIT, DEFAULT_CPU_LIMIT,
     DEFAULT_MEMORY_MB, DEFAULT_CPU_MILLICORES
 )
+from shared.utils.priority_mapping import get_priority_class, normalize_priority
 
 # Configure logging
 logging.basicConfig(
@@ -964,12 +965,8 @@ async def execute(request: ExecuteRequest):
                     restart_policy="Never",
                     # Use gVisor runtime for strong isolation when available
                     runtime_class_name="gvisor" if use_gvisor else None,
-                    # Set priority class based on priority level
-                    priority_class_name=(
-                        "high-priority-evaluation" if request.priority > 0
-                        else "low-priority-evaluation" if request.priority < 0
-                        else "normal-priority-evaluation"
-                    ),
+                    # Set priority class based on numeric priority
+                    priority_class_name=get_priority_class(normalize_priority(request.priority)),
                     # Reduce grace period so timeouts are enforced quickly
                     termination_grace_period_seconds=1,
                     # EKS nodes have ECR permissions via IAM role, no pull secret needed

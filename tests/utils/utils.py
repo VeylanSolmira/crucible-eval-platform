@@ -4,6 +4,7 @@ import time
 import requests
 import os
 from typing import Dict, Any, Optional
+from shared.constants.evaluation_defaults import PriorityClass
 
 
 # Get API URL from environment - must be explicitly set
@@ -17,7 +18,7 @@ if not API_URL:
 
 def submit_evaluation(code: str, language: str = "python", timeout: int = 30, 
                      memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None, 
-                     executor_image: str = None, debug: bool = False, priority: int = -1) -> str:
+                     executor_image: str = None, debug: bool = False, priority: int = None) -> str:
     """Submit an evaluation to the API
     
     Args:
@@ -28,17 +29,21 @@ def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
         cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
         executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
         debug: Preserve pod for debugging if it fails (default: False)
-        priority: Priority level: 1=high, 0=normal, -1=low (default: -1 for test evaluations)
+        priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
         
     Returns:
         Evaluation ID
     """
+    # Use default test priority if not specified
+    if priority is None:
+        priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+    
     payload = {
         "code": code,
         "language": language,
         "timeout": timeout,
         "debug": debug,
-        "priority": priority  # Always include priority (default -1 for tests)
+        "priority": priority  # Numeric priority value
     }
     
     # Add optional parameters if provided

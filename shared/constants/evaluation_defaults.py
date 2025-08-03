@@ -22,7 +22,24 @@ MAX_CPU_LIMIT = "500m"
 DEFAULT_TIMEOUT_SECONDS = 300  # 5 minutes
 MAX_TIMEOUT_SECONDS = 600  # 10 minutes
 
-# Priority levels
+# Legacy priority levels (deprecated - use PriorityClass enum)
 PRIORITY_HIGH = 1
 PRIORITY_NORMAL = 0
 PRIORITY_LOW = -1
+
+# New priority system using Kubernetes priority values
+from enum import IntEnum
+
+class PriorityClass(IntEnum):
+    """Kubernetes priority class values for evaluation pods."""
+    # Production priorities
+    CRITICAL = 2000                    # Critical services only
+    HIGH_PRIORITY_EVAL = 1000         # High priority production evaluations
+    NORMAL_PRIORITY_EVAL = 500        # Normal priority production evaluations
+    LOW_PRIORITY_EVAL = 100           # Low priority production evaluations
+    
+    # Test infrastructure and evaluations
+    TEST_INFRASTRUCTURE = 400         # Test runners and coordinators
+    TEST_HIGH_PRIORITY_EVAL = 350     # High priority test evaluations
+    TEST_NORMAL_PRIORITY_EVAL = 250   # Normal priority test evaluations  
+    TEST_LOW_PRIORITY_EVAL = 150      # Low priority test evaluations (default for tests)

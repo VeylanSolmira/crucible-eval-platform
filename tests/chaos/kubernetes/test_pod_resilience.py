@@ -106,8 +106,9 @@ def run_kubectl(cmd: str) -> subprocess.CompletedProcess:
 
 
 from utils.utils import submit_evaluation as base_submit_evaluation
+from shared.constants.evaluation_defaults import PriorityClass
 
-def submit_evaluation(priority: int = 0) -> Optional[str]:
+def submit_evaluation(priority: int = None) -> Optional[str]:
     """Submit an evaluation and return its ID."""
     try:
         code = f"import time; print('Chaos test evaluation - priority {priority}'); time.sleep(5); print('Done')"
@@ -154,7 +155,7 @@ async def test_api_pod_deletion_during_submission(k8s_client, ensure_healthy_clu
     core_v1 = k8s_client["core"]
     
     # Submit evaluation
-    eval_id = submit_evaluation(priority=1)
+    eval_id = submit_evaluation(priority=PriorityClass.TEST_NORMAL_PRIORITY_EVAL)
     assert eval_id is not None, "Failed to submit evaluation"
     
     # Delete API pod
@@ -184,7 +185,7 @@ async def test_dispatcher_failure_during_processing(k8s_client, ensure_healthy_c
     # Submit multiple evaluations
     eval_ids = []
     for i in range(3):
-        eval_id = submit_evaluation(priority=i)
+        eval_id = submit_evaluation(priority=PriorityClass.TEST_LOW_PRIORITY_EVAL)
         if eval_id:
             eval_ids.append(eval_id)
         time.sleep(1)
@@ -227,7 +228,7 @@ async def test_storage_worker_pod_deletion(k8s_client, ensure_healthy_cluster):
     core_v1 = k8s_client["core"]
     
     # Submit evaluation
-    eval_id = submit_evaluation(priority=0)
+    eval_id = submit_evaluation(priority=PriorityClass.TEST_LOW_PRIORITY_EVAL)
     assert eval_id is not None, "Failed to submit evaluation"
     
     # Wait for it to start processing
@@ -260,7 +261,7 @@ async def test_multiple_component_failures(k8s_client, ensure_healthy_cluster):
     apps_v1 = k8s_client["apps"]
     
     # Submit high-priority evaluation
-    eval_id = submit_evaluation(priority=10)
+    eval_id = submit_evaluation(priority=PriorityClass.TEST_HIGH_PRIORITY_EVAL)
     assert eval_id is not None, "Failed to submit evaluation"
     
     # Cause multiple failures
@@ -307,7 +308,13 @@ async def test_rapid_pod_cycling(k8s_client, ensure_healthy_cluster):
     # Submit evaluations
     eval_ids = []
     for i in range(5):
-        eval_id = submit_evaluation(priority=i % 3)
+        # Cycle through different priority levels
+        priorities = [
+            PriorityClass.TEST_LOW_PRIORITY_EVAL,
+            PriorityClass.TEST_NORMAL_PRIORITY_EVAL,
+            PriorityClass.TEST_HIGH_PRIORITY_EVAL
+        ]
+        eval_id = submit_evaluation(priority=priorities[i % 3])
         if eval_id:
             eval_ids.append(eval_id)
     
