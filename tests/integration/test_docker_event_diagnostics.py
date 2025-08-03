@@ -17,6 +17,7 @@ import requests
 import json
 from typing import Dict, Any, List, Optional
 from tests.utils.adaptive_timeouts import wait_with_progress
+from tests.utils.utils import wait_for_logs
 
 
 def wait_for_evaluation_completion(
@@ -136,6 +137,16 @@ def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_
         if result:
             completion_time = time.time() - start_time
             
+            # Wait for logs to be available (async log fetching)
+            try:
+                logs = wait_for_logs(eval_id, timeout=60)
+                has_logs = bool(logs)
+                log_length = len(logs)
+            except TimeoutError:
+                # If wait_for_logs times out, check both fields
+                has_logs = bool(result.get("error") or result.get("output"))
+                log_length = len((result.get("error") or "") + (result.get("output") or ""))
+            
             timing_results.append({
                 "test_name": test_name,
                 "eval_id": eval_id,
@@ -143,8 +154,8 @@ def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_
                 "completion_time": completion_time,
                 "execution_time": completion_time - submission_time,
                 "status": result["status"],
-                "has_logs": bool(result.get("error") or result.get("output")),
-                "log_length": len((result.get("error") or "") + (result.get("output") or ""))
+                "has_logs": has_logs,
+                "log_length": log_length
             })
         else:
             pytest.fail(f"Evaluation {eval_id} for test '{test_name}' timed out")

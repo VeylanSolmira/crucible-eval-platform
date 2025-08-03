@@ -13,6 +13,7 @@ import time
 import requests
 from typing import Dict, Any
 from shared.utils import is_valid_evaluation_id
+from tests.utils.utils import wait_for_logs
 
 
 def wait_for_evaluation(
@@ -222,7 +223,9 @@ print("Some examples:", ", ".join(list(sys.builtin_module_names)[:10]))
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"
         
-        output = result.get("output", "")
+        # Wait for logs to be available (handles async log fetching)
+        from tests.utils.utils import wait_for_logs
+        output = wait_for_logs(eval_id, timeout=60)
         
         # Verify environment information
         assert "Python version:" in output
@@ -261,8 +264,11 @@ print("This should not execute")
         # Should fail due to syntax error
         assert result["status"] == "failed", f"Expected failure but got: {result['status']}"
         
+        # Wait for logs to be collected
+        logs = wait_for_logs(eval_id, timeout=30)
+        
         # Check error message
-        error = (result.get("error") or "") + (result.get("output") or "")
+        error = (result.get("error") or "") + logs
         assert "SyntaxError" in error or "invalid syntax" in error
         assert "This should not execute" not in error  # Should not reach this line
     

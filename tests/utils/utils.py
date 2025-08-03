@@ -125,7 +125,7 @@ def wait_for_completion(eval_id: str, timeout: int = 60, use_adaptive: bool = Fa
     raise TimeoutError(f"Evaluation {eval_id} did not complete within {timeout} seconds")
 
 
-def wait_for_logs(eval_id: str, timeout: int = 30) -> str:
+def wait_for_logs(eval_id: str, timeout: int = 60) -> str:
     """Wait for evaluation logs to be available
     
     This handles the race condition where logs might not be immediately available
