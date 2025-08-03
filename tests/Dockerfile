@@ -30,6 +30,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r tests/requirements.txt
 
 # Copy application code
+# NOTE: We copy the entire application because:
+# 1. Unit tests import directly from many modules (storage_worker, dispatcher_service, etc.)
+# 2. Selectively copying becomes error-prone and hard to maintain
+# 3. This image is only used for testing, not production
+# Consider running unit tests in CI only, and using this image just for integration/e2e tests
 COPY . .
 
 # No symlinks needed - directories already use Python-compatible names
