@@ -9,31 +9,10 @@ properly handle various import scenarios, including:
 """
 
 import pytest
-import time
 import requests
-from typing import Dict, Any
 from shared.utils import is_valid_evaluation_id
-from tests.utils.utils import wait_for_logs
-
-
-def wait_for_evaluation(
-    api_session: requests.Session,
-    api_base_url: str,
-    eval_id: str,
-    timeout: int = 30
-) -> Dict[str, Any]:
-    """Wait for an evaluation to reach a terminal state."""
-    start_time = time.time()
-    
-    while time.time() - start_time < timeout:
-        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
-        if response.status_code == 200:
-            result = response.json()
-            if result.get("status") in ["completed", "failed", "timeout", "cancelled"]:
-                return result
-        time.sleep(0.5)
-    
-    raise TimeoutError(f"Evaluation {eval_id} did not complete within {timeout} seconds")
+from tests.utils.utils import wait_for_logs, submit_evaluation
+from tests.utils.adaptive_timeouts import AdaptiveWaiter
 
 
 @pytest.mark.integration
@@ -61,15 +40,25 @@ print(f"Python version: {sys.version}")
 print(f"Platform: {os.environ.get('KUBERNETES_SERVICE_HOST', 'not in k8s')}")
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function
+        eval_id = submit_evaluation(code, language="python", timeout=30)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Verify successful completion
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -107,15 +96,25 @@ except ImportError as e:
 print("Import test completed", file=sys.stdout)
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function
+        eval_id = submit_evaluation(code, language="python", timeout=30)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Should complete successfully (we caught the exceptions)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -160,15 +159,25 @@ except ImportError as e:
 print("ML library test completed")
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function
+        eval_id = submit_evaluation(code, language="python", timeout=30)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Should complete (even if libraries aren't available)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -210,15 +219,25 @@ print(f"Number of built-in modules: {len(sys.builtin_module_names)}")
 print("Some examples:", ", ".join(list(sys.builtin_module_names)[:10]))
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function
+        eval_id = submit_evaluation(code, language="python", timeout=30)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -251,15 +270,25 @@ from invalid syntax import something
 print("This should not execute")
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function with expect_failure
+        eval_id = submit_evaluation(code, language="python", timeout=30, expect_failure=True)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Should fail due to syntax error
         assert result["status"] == "failed", f"Expected failure but got: {result['status']}"
@@ -290,15 +319,25 @@ except ImportError as e:
 print("Relative import test completed")
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function
+        eval_id = submit_evaluation(code, language="python", timeout=30)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Should complete (we're catching the errors)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -340,15 +379,25 @@ print(f"Counter: {dict(counter)}")
 print("✅ Complex imports working!")
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function
+        eval_id = submit_evaluation(code, language="python", timeout=30)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"
@@ -402,15 +451,25 @@ except Exception as e:
 print("✅ Subprocess imports test completed")
 """
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={"code": code, "language": "python", "timeout": 30}
-        )
-        assert response.status_code == 200
+        # Submit evaluation using utility function
+        eval_id = submit_evaluation(code, language="python", timeout=30)
         
-        eval_id = response.json()["eval_id"]
-        result = wait_for_evaluation(api_session, api_base_url, eval_id, timeout=60)
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=60)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        # Check if evaluation completed
+        if eval_id not in results['completed'] and eval_id not in results['failed']:
+            raise TimeoutError(f"Evaluation {eval_id} did not complete within timeout")
+        
+        # Get the final result
+        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+        result = response.json()
         
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"

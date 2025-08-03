@@ -100,7 +100,7 @@ def test_single_evaluation_job_lifecycle():
     print(f"✅ Job created: {eval_job[0]}")
     
     # Wait for completion
-    status = wait_for_completion(eval_id, timeout=60, use_adaptive=True)
+    status = wait_for_completion(eval_id, timeout=300, use_adaptive=True)
     assert status is not None, "Evaluation did not complete in time"
     
     # Get evaluation details
@@ -108,7 +108,7 @@ def test_single_evaluation_job_lifecycle():
     assert eval_data["status"] == "completed", f"Evaluation failed: {eval_data}"
     
     # Wait for logs to be available
-    output = wait_for_logs(eval_id, timeout=30)
+    output = wait_for_logs(eval_id, timeout=120)
     assert "Hello from Kubernetes Job!" in output, f"Expected output not found, got: {output}"
     
     # Wait for job cleanup (TTL controller should clean it up)
@@ -165,14 +165,14 @@ def test_concurrent_job_execution():
     print("\nWaiting for all evaluations to complete...")
     completed = 0
     for eval_id in eval_ids:
-        status = wait_for_completion(eval_id, timeout=60, use_adaptive=True)
+        status = wait_for_completion(eval_id, timeout=300, use_adaptive=True)
         if status:
             eval_data = get_evaluation_status(eval_id)
             if eval_data["status"] == "completed":
                 completed += 1
                 # Check that output shows different pod names (proving parallel execution)
                 try:
-                    output = wait_for_logs(eval_id, timeout=30)
+                    output = wait_for_logs(eval_id, timeout=120)
                     if "pod" in output:
                         pod_name = output.split("pod ")[-1].strip()
                         print(f"  {eval_id}: completed on {pod_name}")

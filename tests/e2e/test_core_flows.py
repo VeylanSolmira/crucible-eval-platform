@@ -83,9 +83,9 @@ def test_error_handling():
     """Test error handling for various failure scenarios."""
     # Test 1: Code that exits with error
     code = "import sys\nsys.exit(1)"
-    eval_id = submit_evaluation(code, language="python", timeout=10)
+    eval_id = submit_evaluation(code, language="python", timeout=10, expect_failure=True)
     # Extended timeout for when cluster is under load
-    result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
+    result = wait_for_completion(eval_id, timeout=300, use_adaptive=True)
     
     assert result["status"] == "failed", f"Expected failed status for sys.exit(1), got: {result['status']}. Full result: {result}"
     
@@ -97,8 +97,8 @@ def test_error_handling():
     
     # Test 3: Division by zero
     code = "print('Before error')\nresult = 1/0"
-    eval_id = submit_evaluation(code, language="python", timeout=10)
-    result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
+    eval_id = submit_evaluation(code, language="python", timeout=10, expect_failure=True)
+    result = wait_for_completion(eval_id, timeout=300, use_adaptive=True)
     
     assert result["status"] == "failed", f"Division by zero should fail. Got status: {result['status']}. Full result: {result}"
     

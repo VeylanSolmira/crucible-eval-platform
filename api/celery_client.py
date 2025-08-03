@@ -52,7 +52,7 @@ if CELERY_ENABLED:
 def submit_evaluation_to_celery(
     eval_id: str, code: str, language: str = "python", priority: int = 0, timeout: int = 300,
     executor_image: Optional[str] = None, memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
-    debug: bool = False
+    debug: bool = False, expect_failure: bool = False
 ) -> Optional[str]:
     """
     Submit evaluation task to Celery if enabled.
@@ -67,6 +67,7 @@ def submit_evaluation_to_celery(
         memory_limit: Memory limit for the evaluation (e.g., '128Mi', '512Mi', '1Gi') - None uses dispatcher defaults
         cpu_limit: CPU limit for the evaluation (e.g., '100m', '500m', '1') - None uses dispatcher defaults
         debug: Preserve pod for debugging if it fails
+        expect_failure: If True, job will use backoffLimit=0 (no retries)
 
     Returns:
         Celery task ID if submitted, None otherwise
@@ -82,11 +83,11 @@ def submit_evaluation_to_celery(
         # Pass numeric priority directly to dispatcher
         priority_level = priority
         
-        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, priority={priority_level}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}, debug={debug}")
+        logger.info(f"Sending Celery task with args: eval_id={eval_id}, language={language}, timeout={timeout}, priority={priority_level}, executor_image={executor_image}, memory_limit={memory_limit}, cpu_limit={cpu_limit}, debug={debug}, expect_failure={expect_failure}")
 
         result = celery_app.send_task(
             task_name,
-            args=[eval_id, code, language, timeout, priority_level, executor_image, memory_limit, cpu_limit, debug],
+            args=[eval_id, code, language, timeout, priority_level, executor_image, memory_limit, cpu_limit, debug, expect_failure],
             queue=queue,
             # Note: priority parameter doesn't work with Redis broker
             # We use separate queues instead

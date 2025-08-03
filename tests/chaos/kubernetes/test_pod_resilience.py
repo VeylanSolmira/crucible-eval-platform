@@ -21,6 +21,7 @@ import logging
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from tests.utils.adaptive_timeouts import AdaptiveWaiter
 
 # Only run if we have kubectl access
 pytest.importorskip("kubernetes")
@@ -119,7 +120,7 @@ def submit_evaluation(priority: int = None) -> Optional[str]:
 
 
 def wait_for_evaluation(eval_id: str, timeout: int = 120) -> Dict[str, Any]:
-    """Wait for evaluation to complete and return final status."""
+    """Wait for evaluation to complete and return final status using AdaptiveWaiter."""
     port_forward = subprocess.Popen(
         f"kubectl port-forward -n {NAMESPACE} service/{API_SERVICE} 8080:8080",
         shell=True,
@@ -131,17 +132,24 @@ def wait_for_evaluation(eval_id: str, timeout: int = 120) -> Dict[str, Any]:
         time.sleep(2)  # Wait for port forward
         
         import requests
-        start_time = time.time()
+        api_url = "http://localhost:8080/api"
         
-        while time.time() - start_time < timeout:
+        # Use AdaptiveWaiter for better timeout handling
+        waiter = AdaptiveWaiter(initial_timeout=timeout)
+        with requests.Session() as session:
+            results = waiter.wait_for_evaluations(
+                api_session=session,
+                api_base_url=api_url,
+                eval_ids=[eval_id],
+                check_resources=True
+            )
+        
+        # Check if evaluation completed
+        if eval_id in results['completed'] or eval_id in results['failed']:
+            # Get the final result
             response = requests.get(f"{api_url}/eval/{eval_id}")
-            
             if response.status_code == 200:
-                data = response.json()
-                if data["status"] in ["completed", "failed", "cancelled"]:
-                    return data
-            
-            time.sleep(2)
+                return response.json()
         
         return {"status": "timeout", "eval_id": eval_id}
         

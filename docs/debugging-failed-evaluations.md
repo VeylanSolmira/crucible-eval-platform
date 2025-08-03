@@ -28,5 +28,8 @@
 4. If logs are missing, identify what logging needs to be added
 5. Rerun the test with enhanced logging if needed
 
+## Important: Pod Cleanup
+**Pods are cleaned up with a 10s grace period by the cleanup controller.** The pods themselves will not be available for inspection, but logs are retained in Loki. Never tell the human that pods aren't available - just query Loki for the logs.
+
 ## Reference
 See [Loki Query Guide](./loki-query-guide.md) for query examples and techniques.

@@ -539,6 +539,7 @@ class ExecuteRequest(BaseModel):
     priority: int = Field(default=0, description="Numeric priority (0-2000+, higher = more important)")
     executor_image: Optional[str] = Field(default=None, description="Executor image name (e.g., 'python-ml') or full image path")
     debug: bool = Field(default=False, description="Preserve pod for debugging if it fails")
+    expect_failure: bool = Field(default=False, description="If True, job will use backoffLimit=0 (no retries)")
     
 class ExecuteResponse(BaseModel):
     eval_id: str
@@ -955,8 +956,8 @@ async def execute(request: ExecuteRequest):
             active_deadline_seconds=request.timeout + 300,  # 5 minute buffer
             # Use default Kubernetes backoff policy (6 retries with exponential backoff)
             # This allows pods to retry after preemption or transient failures
-            # Specific evaluations can opt-out by setting backoff_limit=0 if needed
-            backoff_limit=None,  # None means use k8s default (6)
+            # Evaluations that expect failure should set expect_failure=True for no retries
+            backoff_limit=0 if request.expect_failure else 2,  # None means use k8s default (6)
             # Pod template
             template=client.V1PodTemplateSpec(
                 metadata=client.V1ObjectMeta(

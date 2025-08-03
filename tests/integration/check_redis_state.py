@@ -31,16 +31,13 @@ class TestRedisStateManagement:
     @pytest.mark.api
     def test_basic_evaluation_lifecycle(self, redis_client, api_session, api_base_url, wait_for):
         """Test that Redis state is properly managed throughout evaluation lifecycle."""
-        # Submit evaluation
-        payload = {
-            "code": "print('Testing Redis state'); import time; time.sleep(2); print('Done')",
-            "language": "python"
-        }
-        
-        response = api_session.post(f"{api_base_url}/eval", json=payload)
-        assert response.status_code == 200, f"Failed to submit: {response.status_code}"
-        
-        eval_id = response.json()["eval_id"]
+        # Submit evaluation using utility function
+        from tests.utils.utils import submit_evaluation
+        eval_id = submit_evaluation(
+            code="print('Testing Redis state'); import time; time.sleep(2); print('Done')",
+            language="python",
+            timeout=30
+        )
         print(f"\nSubmitted evaluation: {eval_id}")
         
         # Define keys we're checking
@@ -85,16 +82,14 @@ class TestRedisStateManagement:
     @pytest.mark.api
     def test_failed_evaluation_cleanup(self, redis_client, api_session, api_base_url, wait_for):
         """Test that Redis state is cleaned up even when evaluation fails."""
-        # Submit evaluation that will fail
-        payload = {
-            "code": "import sys; sys.exit(1)",
-            "language": "python"
-        }
-        
-        response = api_session.post(f"{api_base_url}/eval", json=payload)
-        assert response.status_code == 200
-        
-        eval_id = response.json()["eval_id"]
+        # Submit evaluation that will fail using utility function
+        from tests.utils.utils import submit_evaluation
+        eval_id = submit_evaluation(
+            code="import sys; sys.exit(1)",
+            language="python",
+            timeout=30,
+            expect_failure=True  # Prevent Kubernetes retry backoff
+        )
         print(f"\nSubmitted failing evaluation: {eval_id}")
         
         # Wait for completion (should fail quickly)

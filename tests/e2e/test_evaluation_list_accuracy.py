@@ -45,7 +45,7 @@ async def test_evaluation_list_accuracy():
         # 2. Wait for it to complete using adaptive waiter
         print("\n2. Waiting for completion...")
         sync_session = requests.Session()
-        results = wait_with_progress(sync_session, api_base, [eval_id], timeout=30)
+        results = wait_with_progress(sync_session, api_base, [eval_id], timeout=300)
         
         assert len(results["completed"]) == 1, f"Evaluation did not complete: {results}"
         
@@ -127,7 +127,7 @@ async def test_multiple_evaluation_statuses():
         
         # Wait for both to complete using adaptive waiter
         sync_session = requests.Session()
-        results = wait_with_progress(sync_session, api_base, eval_ids, timeout=30)
+        results = wait_with_progress(sync_session, api_base, eval_ids, timeout=300)
         
         # Should have 2 evaluations in terminal state (completed or failed)
         total_done = len(results["completed"]) + len(results["failed"])

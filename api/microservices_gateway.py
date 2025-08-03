@@ -299,6 +299,7 @@ async def _submit_evaluation(request: EvaluationRequest, eval_id: Optional[str] 
             memory_limit=request.memory_limit,
             cpu_limit=request.cpu_limit,
             debug=request.debug,
+            expect_failure=request.expect_failure,
         )
         if celery_task_id:
             logger.info(f"Submitted evaluation {eval_id} to Celery: {celery_task_id}")

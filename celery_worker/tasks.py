@@ -49,7 +49,7 @@ dlq = DeadLetterQueue(redis_client)
     retry_backoff_max=600,  # Max 10 minutes between retries
     retry_jitter=True,  # Add randomness to prevent thundering herd
 )
-def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeout: int = 300, priority: int = 0, executor_image: Optional[str] = None, memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None, debug: bool = False) -> Dict[str, Any]:
+def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeout: int = 300, priority: int = 0, executor_image: Optional[str] = None, memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None, debug: bool = False, expect_failure: bool = False) -> Dict[str, Any]:
     """
     Main task for evaluating code submissions using the dispatcher service.
 
@@ -63,6 +63,7 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
         memory_limit: Memory limit for the evaluation (e.g., '128Mi', '512Mi', '1Gi') (default: None, dispatcher decides)
         cpu_limit: CPU limit for the evaluation (e.g., '100m', '500m', '1') (default: None, dispatcher decides)
         debug: Preserve pod for debugging if it fails (default: False)
+        expect_failure: If True, job will use backoffLimit=0 (no retries) (default: False)
 
     Returns:
         Evaluation result dictionary
@@ -143,7 +144,8 @@ def evaluate_code(self, eval_id: str, code: str, language: str = "python", timeo
                 "language": language,
                 "timeout": timeout,  # Use the actual timeout from the request
                 "priority": priority,  # Pass priority to dispatcher
-                "debug": debug  # Pass debug flag to dispatcher
+                "debug": debug,  # Pass debug flag to dispatcher
+                "expect_failure": expect_failure  # Pass expect_failure flag to dispatcher
             }
             
             # Only include optional fields if they have values

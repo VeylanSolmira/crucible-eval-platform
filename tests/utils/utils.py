@@ -3,7 +3,7 @@
 import time
 import requests
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from shared.constants.evaluation_defaults import PriorityClass
 
 
@@ -18,7 +18,8 @@ if not API_URL:
 
 def submit_evaluation(code: str, language: str = "python", timeout: int = 30, 
                      memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None, 
-                     executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+                     executor_image: str = None, debug: bool = False, priority: int = None,
+                     expect_failure: bool = False) -> str:
     """Submit an evaluation to the API
     
     Args:
@@ -30,6 +31,7 @@ def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
         executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
         debug: Preserve pod for debugging if it fails (default: False)
         priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+        expect_failure: If True, job will use backoffLimit=0 (no retries) (default: False)
         
     Returns:
         Evaluation ID
@@ -43,7 +45,8 @@ def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
         "language": language,
         "timeout": timeout,
         "debug": debug,
-        "priority": priority  # Numeric priority value
+        "priority": priority,  # Numeric priority value
+        "expect_failure": expect_failure
     }
     
     # Add optional parameters if provided
@@ -123,6 +126,33 @@ def wait_for_completion(eval_id: str, timeout: int = 60, use_adaptive: bool = Fa
         time.sleep(0.5)
     
     raise TimeoutError(f"Evaluation {eval_id} did not complete within {timeout} seconds")
+
+
+def submit_evaluation_batch(
+    codes: List[str],
+    timeout: int = 30,
+    expect_failure: bool = False
+) -> List[str]:
+    """Submit multiple evaluations and return their IDs.
+    
+    Args:
+        codes: List of code strings to evaluate
+        timeout: Timeout for each evaluation in seconds
+        expect_failure: If True, all evaluations will use backoffLimit=0 (no retries)
+        
+    Returns:
+        List of evaluation IDs
+    """
+    eval_ids = []
+    
+    for i, code in enumerate(codes):
+        try:
+            eval_id = submit_evaluation(code, timeout=timeout, expect_failure=expect_failure)
+            eval_ids.append(eval_id)
+        except Exception as e:
+            raise RuntimeError(f"Failed to submit evaluation: {e}")
+    
+    return eval_ids
 
 
 def wait_for_logs(eval_id: str, timeout: int = 60) -> str:

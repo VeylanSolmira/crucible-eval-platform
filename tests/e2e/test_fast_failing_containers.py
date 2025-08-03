@@ -50,7 +50,7 @@ def test_fast_failing_container_logs_captured():
     logs properly captured before the pod terminates.
     """
     # Submit evaluation with code that fails immediately
-    eval_id = submit_evaluation(FAST_FAILING_CODE, language="python", timeout=30)
+    eval_id = submit_evaluation(FAST_FAILING_CODE, language="python", timeout=30, expect_failure=True)
     
     # Wait for evaluation to complete
     result = wait_for_completion(eval_id, use_adaptive=True)
@@ -85,7 +85,7 @@ def test_mixed_stdout_stderr_fast_failure():
     limitation documented in /week-4-demo/docker-logs-issue.md
     """
     # Submit evaluation with code that outputs to both streams
-    eval_id = submit_evaluation(FAST_FAILING_WITH_STDERR, language="python", timeout=30)
+    eval_id = submit_evaluation(FAST_FAILING_WITH_STDERR, language="python", timeout=30, expect_failure=True)
     
     # Wait for evaluation to complete
     result = wait_for_completion(eval_id, use_adaptive=True)
@@ -121,7 +121,7 @@ def test_multiple_fast_failures_no_stuck_evaluations():
     # Submit multiple fast-failing evaluations
     for i in range(5):
         code = f'print("Test {i}"); raise RuntimeError("Fast failure {i}")'
-        eval_id = submit_evaluation(code, language="python", timeout=30)
+        eval_id = submit_evaluation(code, language="python", timeout=30, expect_failure=True)
         eval_ids.append(eval_id)
     
     # Wait for all evaluations to complete (they may be queued)
@@ -170,7 +170,7 @@ def test_extremely_fast_exit():
     # Code that exits as fast as possible
     instant_exit_code = "import sys; sys.exit(42)"
     
-    eval_id = submit_evaluation(instant_exit_code, language="python", timeout=30)
+    eval_id = submit_evaluation(instant_exit_code, language="python", timeout=30, expect_failure=True)
     
     # Wait for completion
     result = wait_for_completion(eval_id, use_adaptive=True)

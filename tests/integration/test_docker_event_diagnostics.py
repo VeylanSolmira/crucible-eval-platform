@@ -16,42 +16,8 @@ import time
 import requests
 import json
 from typing import Dict, Any, List, Optional
-from tests.utils.adaptive_timeouts import wait_with_progress
-from tests.utils.utils import wait_for_logs
-
-
-def wait_for_evaluation_completion(
-    api_session: requests.Session,
-    api_base_url: str,
-    eval_id: str,
-    timeout: float = 30.0,
-    initial_delay: float = 0.1,
-    max_delay: float = 2.0,
-    backoff_factor: float = 1.5
-) -> Optional[Dict[str, Any]]:
-    """
-    Wait for evaluation completion using exponential backoff.
-    
-    With event-based messaging, evaluations complete faster, so we start
-    with a short delay and increase it exponentially to reduce polling.
-    
-    Returns the final evaluation result or None if timeout.
-    """
-    start_time = time.time()
-    delay = initial_delay
-    
-    while time.time() - start_time < timeout:
-        response = api_session.get(f"{api_base_url}/eval/{eval_id}")
-        if response.status_code == 200:
-            result = response.json()
-            if result["status"] in ["completed", "failed", "timeout", "cancelled"]:
-                return result
-        
-        # Exponential backoff with max delay
-        time.sleep(delay)
-        delay = min(delay * backoff_factor, max_delay)
-    
-    return None
+from tests.utils.adaptive_timeouts import wait_with_progress, AdaptiveWaiter
+from tests.utils.utils import wait_for_logs, submit_evaluation_batch
 
 
 def get_executor_status(api_session: requests.Session, api_base_url: str) -> Dict[str, Any]:
@@ -68,23 +34,6 @@ def get_executor_status(api_session: requests.Session, api_base_url: str) -> Dic
 
 
 from utils.utils import submit_evaluation
-
-def submit_evaluation_batch(
-    codes: List[str],
-    timeout: int = 30
-) -> List[str]:
-    """Submit multiple evaluations and return their IDs."""
-    eval_ids = []
-    
-    for code in codes:
-        try:
-            # Use the unified submit_evaluation function with default priority=-1
-            eval_id = submit_evaluation(code, timeout=timeout)
-            eval_ids.append(eval_id)
-        except Exception as e:
-            raise RuntimeError(f"Failed to submit evaluation: {e}")
-    
-    return eval_ids
 
 
 @pytest.mark.whitebox
@@ -113,26 +62,28 @@ def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_
     for test_name, code in test_codes:
         start_time = time.time()
         
-        # Submit evaluation
-        response = api_session.post(
-            f"{api_base_url}/eval",
-            json={
-                "code": code,
-                "language": "python",
-                "timeout": 30
-            }
-        )
-        
-        assert response.status_code == 200
-        eval_id = response.json()["eval_id"]
+        # Submit evaluation using utility function
+        from tests.utils.utils import submit_evaluation
+        # All except "normal_completion" are expected to fail
+        expect_failure = test_name != "normal_completion"
+        eval_id = submit_evaluation(code, language="python", timeout=30, expect_failure=expect_failure)
         submission_time = time.time() - start_time
         
-        # Wait for completion with exponential backoff
-        result = wait_for_evaluation_completion(
-            api_session, api_base_url, eval_id, 
-            timeout=30.0,  # Increased timeout for Kubernetes job scheduling
-            initial_delay=0.05  # Start with 50ms for fast completions
+        # Wait for completion with AdaptiveWaiter
+        waiter = AdaptiveWaiter(initial_timeout=30)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
         )
+        
+        # Get the result
+        if eval_id in results['completed'] or eval_id in results['failed']:
+            response = api_session.get(f"{api_base_url}/eval/{eval_id}")
+            result = response.json() if response.status_code == 200 else None
+        else:
+            result = None
         
         if result:
             completion_time = time.time() - start_time
@@ -194,11 +145,19 @@ def test_concurrent_fast_failures_event_handling(api_session: requests.Session, 
     execution when needed. This is an integration test that should always pass,
     not a load test designed to find system limits.
     """
-    # Submit 10 fast-failing evaluations as quickly as possible
+    # Submit 10 evaluations - only the first (i=0) will fail with division by zero
     codes = [f'print("Concurrent test {i}"); 1/{i}' for i in range(10)]
     
     start_time = time.time()
-    eval_ids = submit_evaluation_batch(codes)
+    # Submit first evaluation with expect_failure=True (division by zero)
+    eval_ids = []
+    eval_id = submit_evaluation(codes[0], timeout=30, expect_failure=True)
+    eval_ids.append(eval_id)
+    
+    # Submit rest with expect_failure=False (they will succeed)
+    remaining_ids = submit_evaluation_batch(codes[1:], timeout=30, expect_failure=False)
+    eval_ids.extend(remaining_ids)
+    
     submission_time = time.time() - start_time
     
     print(f"\nSubmitted {len(eval_ids)} evaluations in {submission_time:.3f}s")
@@ -257,17 +216,9 @@ print("About to fail", flush=True)
 raise ValueError("Test error with details")
 '''
     
-    response = api_session.post(
-        f"{api_base_url}/eval",
-        json={
-            "code": code,
-            "language": "python",
-            "timeout": 30
-        }
-    )
-    
-    assert response.status_code == 200
-    eval_id = response.json()["eval_id"]
+    # Submit evaluation using utility function with expect_failure
+    from tests.utils.utils import submit_evaluation
+    eval_id = submit_evaluation(code, language="python", timeout=30, expect_failure=True)
     
     # Track status progression with exponential backoff
     checks = []
