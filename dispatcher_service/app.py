@@ -534,7 +534,7 @@ class ExecuteRequest(BaseModel):
     timeout: int = Field(default=300, ge=1, le=MAX_JOB_TTL, description="Execution timeout in seconds")
     memory_limit: str = Field(default=DEFAULT_MEMORY_LIMIT, description="Memory limit (e.g., 128Mi, 512Mi, 1Gi)")
     cpu_limit: str = Field(default=DEFAULT_CPU_LIMIT, description="CPU limit (e.g., 100m, 500m, 1)")
-    priority: int = Field(default=0, description="Priority level: 1=high, 0=normal, -1=low")
+    priority: int = Field(default=0, description="Numeric priority (0-2000+, higher = more important)")
     executor_image: Optional[str] = Field(default=None, description="Executor image name (e.g., 'python-ml') or full image path")
     debug: bool = Field(default=False, description="Preserve pod for debugging if it fails")
     
