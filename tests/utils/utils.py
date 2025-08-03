@@ -118,3 +118,47 @@ def wait_for_completion(eval_id: str, timeout: int = 60, use_adaptive: bool = Fa
         time.sleep(0.5)
     
     raise TimeoutError(f"Evaluation {eval_id} did not complete within {timeout} seconds")
+
+
+def wait_for_logs(eval_id: str, timeout: int = 30) -> str:
+    """Wait for evaluation logs to be available
+    
+    This handles the race condition where logs might not be immediately available
+    when an evaluation completes. The storage worker fetches logs asynchronously
+    after storing the completion status.
+    
+    Args:
+        eval_id: Evaluation ID
+        timeout: Maximum time to wait for logs in seconds
+        
+    Returns:
+        The evaluation output/logs
+        
+    Raises:
+        TimeoutError: If logs don't appear within timeout
+    """
+    start_time = time.time()
+    last_output = ""
+    
+    while time.time() - start_time < timeout:
+        result = get_evaluation_status(eval_id)
+        output = result.get("output", "")
+        
+        # If we have non-empty output, return it
+        if output and output.strip():
+            return output
+            
+        # Check if evaluation failed with error message
+        if result.get("status") in ["failed", "timeout", "cancelled"]:
+            error = result.get("error", "")
+            if error:
+                return error
+                
+        last_output = output
+        time.sleep(0.5)
+    
+    # Timeout waiting for logs
+    raise TimeoutError(
+        f"Logs for evaluation {eval_id} did not appear within {timeout} seconds. "
+        f"Last output: {repr(last_output)}"
+    )

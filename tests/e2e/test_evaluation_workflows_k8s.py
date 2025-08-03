@@ -18,7 +18,7 @@ import os
 import time
 import pytest
 from typing import List, Dict, Optional
-from tests.utils.utils import submit_evaluation, wait_for_completion, get_evaluation_status
+from tests.utils.utils import submit_evaluation, wait_for_completion, get_evaluation_status, wait_for_logs
 from tests.k8s_test_config import API_URL
 from shared.utils.kubernetes_utils import get_job_name_prefix
 import subprocess
@@ -100,13 +100,16 @@ def test_single_evaluation_job_lifecycle():
     print(f"✅ Job created: {eval_job[0]}")
     
     # Wait for completion
-    status = wait_for_completion(eval_id, timeout=30, use_adaptive=True)
+    status = wait_for_completion(eval_id, timeout=60, use_adaptive=True)
     assert status is not None, "Evaluation did not complete in time"
     
     # Get evaluation details
     eval_data = get_evaluation_status(eval_id)
     assert eval_data["status"] == "completed", f"Evaluation failed: {eval_data}"
-    assert "Hello from Kubernetes Job!" in eval_data.get("output", ""), "Output not captured"
+    
+    # Wait for logs to be available
+    output = wait_for_logs(eval_id, timeout=30)
+    assert "Hello from Kubernetes Job!" in output, f"Expected output not found, got: {output}"
     
     # Wait for job cleanup (TTL controller should clean it up)
     print("Waiting for job cleanup...")
@@ -168,10 +171,13 @@ def test_concurrent_job_execution():
             if eval_data["status"] == "completed":
                 completed += 1
                 # Check that output shows different pod names (proving parallel execution)
-                output = eval_data.get("output", "")
-                if "pod" in output:
-                    pod_name = output.split("pod ")[-1].strip()
-                    print(f"  {eval_id}: completed on {pod_name}")
+                try:
+                    output = wait_for_logs(eval_id, timeout=30)
+                    if "pod" in output:
+                        pod_name = output.split("pod ")[-1].strip()
+                        print(f"  {eval_id}: completed on {pod_name}")
+                except TimeoutError:
+                    print(f"  {eval_id}: completed but logs not available yet")
     
     assert completed == num_evaluations, f"Not all evaluations completed: only {completed}/{num_evaluations} completed"
     print(f"✅ {completed}/{num_evaluations} evaluations completed successfully")

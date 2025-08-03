@@ -113,7 +113,14 @@
   - [ ] Update Kubernetes deployment to use HTTP probes
   - [ ] Follow pattern from storage_worker implementation
 
-#### 5.2 Remove Inter-Service Health Checks (from Week 8)
+#### 5.2 Fix GitHub Actions Health Check Warning
+- [ ] Investigate "Health check failed (non-critical)" warning in deploy workflow
+  - [ ] Workflow uses curl to check health endpoint inside pod
+  - [ ] Celery worker image doesn't have curl installed
+  - [ ] Either add curl to base image or skip curl check for certain services
+  - [ ] Warning is spurious - pod is actually healthy (1/1 Ready)
+
+#### 5.3 Remove Inter-Service Health Checks (from Week 8)
 - [ ] Audit remaining services for health check anti-patterns
   - [ ] Storage service
   - [ ] Storage worker

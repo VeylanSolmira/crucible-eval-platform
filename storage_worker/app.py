@@ -354,11 +354,16 @@ class StorageWorker:
         logger.info(f"Storage-worker handling completed event for {eval_id}")
 
         try:
+            # Check if logs are empty - this indicates a potential race condition
+            output = data.get("output", "")
+            metadata = data.get("metadata", {})
+            log_source = metadata.get("log_source", "unknown")
+            
             # Validate and update status to completed using shared helper
             update_data = {
-                "output": data.get("output", ""),
+                "output": output,
                 "error": data.get("error", ""),
-                "metadata": data.get("metadata", {}),
+                "metadata": metadata,
             }
             
             success, error = await validate_and_update_status(
@@ -370,7 +375,7 @@ class StorageWorker:
             )
 
             if success:
-                logger.info(f"Updated completed evaluation {eval_id} in database")
+                logger.info(f"Updated completed evaluation {eval_id} in database (logs from {log_source})")
 
                 # Clean up Redis running info
                 await self.redis.delete(f"eval:{eval_id}:running")
@@ -384,6 +389,11 @@ class StorageWorker:
                 if eval_id in self.log_buffer_timers:
                     self.log_buffer_timers[eval_id].cancel()
                     del self.log_buffer_timers[eval_id]
+
+                # If logs are empty, schedule async log fetch
+                if not output and metadata.get("job_name"):
+                    logger.info(f"Scheduling async log fetch for {eval_id} (job: {metadata['job_name']})")
+                    asyncio.create_task(self.fetch_logs_async(eval_id, metadata["job_name"]))
 
                 # Publish confirmation event
                 await self.redis.publish(
@@ -406,6 +416,7 @@ class StorageWorker:
         """Handle evaluation failed event"""
         eval_id = data.get("eval_id")
         error = data.get("error", "Unknown error")
+        metadata = data.get("metadata", {})
 
         if not eval_id:
             logger.error(f"Missing eval_id in failed event: {data}")
@@ -413,12 +424,17 @@ class StorageWorker:
 
         try:
             # Validate and update status to failed using shared helper
+            update_data = {
+                "error": error,
+                "metadata": metadata
+            }
+            
             success, error_msg = await validate_and_update_status(
                 http_client=self.client,
                 storage_url=self.storage_url,
                 eval_id=eval_id,
                 new_status=EvaluationStatus.FAILED.value,
-                update_data={"error": error}
+                update_data=update_data
             )
 
             if success:
@@ -427,6 +443,11 @@ class StorageWorker:
                 # Clean up Redis running info
                 await self.redis.delete(f"eval:{eval_id}:running")
                 await self.redis.srem("running_evaluations", eval_id)
+
+                # If error logs are empty and we have a job name, fetch logs async
+                if not error and metadata.get("job_name"):
+                    logger.info(f"Scheduling async log fetch for failed {eval_id} (job: {metadata['job_name']})")
+                    asyncio.create_task(self.fetch_logs_async(eval_id, metadata["job_name"]))
 
                 # Publish confirmation event
                 await self.redis.publish(
@@ -484,6 +505,91 @@ class StorageWorker:
                 logger.error(f"Failed to update cancelled evaluation {eval_id}: {error_msg}")
         except Exception as e:
             logger.error(f"Error updating cancelled evaluation {eval_id}: {e}")
+
+    async def fetch_logs_async(self, eval_id: str, job_name: str):
+        """
+        Asynchronously fetch logs for a completed evaluation.
+        This runs in the background to handle the race condition where logs
+        might not be immediately available when the job completes.
+        """
+        max_attempts = 10
+        delay = 2  # Start with 2 second delay
+        
+        logger.info(f"Starting async log fetch for {eval_id} (job: {job_name})")
+        
+        for attempt in range(max_attempts):
+            try:
+                # Wait before attempting (exponential backoff)
+                await asyncio.sleep(delay)
+                
+                # Try to get logs from dispatcher
+                dispatcher_url = os.getenv("DISPATCHER_SERVICE_URL", "http://dispatcher-service:8090")
+                response = await self.client.get(f"{dispatcher_url}/logs/{job_name}")
+                
+                if response.status_code == 200:
+                    log_data = response.json()
+                    logs = log_data.get("logs", "")
+                    
+                    if logs and logs.strip():
+                        # Successfully fetched logs - update the evaluation
+                        logger.info(f"Fetched logs for {eval_id} on attempt {attempt + 1} (source: {log_data.get('source', 'unknown')})")
+                        
+                        # Get current evaluation to check status
+                        eval_response = await self.client.get(f"{self.storage_url}/evaluations/{eval_id}")
+                        if eval_response.status_code != 200:
+                            logger.error(f"Failed to get evaluation {eval_id} for log update")
+                            return
+                        
+                        eval_data = eval_response.json()
+                        
+                        # Update the appropriate field based on status
+                        update_payload = {
+                            "metadata": {
+                                "log_fetch_attempts": attempt + 1,
+                                "log_source": log_data.get("source", "unknown"),
+                                "log_fetch_completed_at": datetime.now(timezone.utc).isoformat()
+                            }
+                        }
+                        
+                        if eval_data.get("status") == "failed":
+                            update_payload["error"] = logs
+                        else:
+                            update_payload["output"] = logs
+                        
+                        # Update the evaluation with the fetched logs
+                        update_response = await self.client.put(
+                            f"{self.storage_url}/evaluations/{eval_id}",
+                            json=update_payload
+                        )
+                        
+                        if update_response.status_code == 200:
+                            logger.info(f"Successfully updated logs for {eval_id}")
+                            # Publish event to notify that logs are now available
+                            await self.redis.publish(
+                                "storage:evaluation:logs_updated",
+                                json.dumps({
+                                    "eval_id": eval_id,
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "log_length": len(logs)
+                                })
+                            )
+                        else:
+                            logger.error(f"Failed to update logs for {eval_id}: {update_response.status_code}")
+                        
+                        return  # Success, exit
+                    else:
+                        logger.info(f"Logs still empty for {eval_id} on attempt {attempt + 1}")
+                else:
+                    logger.warning(f"Failed to fetch logs for {eval_id}: HTTP {response.status_code}")
+                
+                # Exponential backoff with max delay of 30 seconds
+                delay = min(delay * 1.5, 30)
+                
+            except Exception as e:
+                logger.error(f"Error fetching logs for {eval_id} on attempt {attempt + 1}: {e}")
+                delay = min(delay * 1.5, 30)
+        
+        logger.warning(f"Failed to fetch logs for {eval_id} after {max_attempts} attempts")
 
     async def health_check(self) -> Dict[str, Any]:
         """Check worker health"""

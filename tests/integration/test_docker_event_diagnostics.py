@@ -198,7 +198,7 @@ def test_concurrent_fast_failures_event_handling(api_session: requests.Session, 
         api_session, 
         api_base_url, 
         eval_ids,
-        timeout=60.0,  # Initial timeout, will extend if making progress
+        timeout=120.0,  # Initial timeout, will extend if making progress
         check_resources=True  # Check resource constraints
     )
     

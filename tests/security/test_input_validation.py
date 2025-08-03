@@ -20,6 +20,7 @@ from typing import Dict, Any
 
 # Import from local conftest
 from conftest import get_api_url, get_request_config
+from tests.utils.utils import submit_evaluation, get_evaluation_status
 
 
 @pytest.mark.blackbox
@@ -40,7 +41,8 @@ class TestInputValidation:
             json={
                 "code": large_code,
                 "language": "python",
-                "timeout": 30
+                "timeout": 30,
+                "priority": -1  # Low priority for test
             },
             **get_request_config()
         )
@@ -67,7 +69,8 @@ class TestInputValidation:
             f"{get_api_url()}/eval",
             json={
                 "language": "python",
-                "timeout": 30
+                "timeout": 30,
+                "priority": -1
             },
             **get_request_config()
         )
@@ -81,7 +84,8 @@ class TestInputValidation:
             json={
                 "code": "print('test')",
                 "language": "malicious-lang",
-                "timeout": 30
+                "timeout": 30,
+                "priority": -1
             },
             **get_request_config()
         )
@@ -95,7 +99,8 @@ class TestInputValidation:
             json={
                 "code": "print('test')",
                 "language": "python",
-                "timeout": -1
+                "timeout": -1,
+                "priority": -1
             },
             **get_request_config()
         )
@@ -109,7 +114,8 @@ class TestInputValidation:
             json={
                 "code": "print('test')",
                 "language": "python",
-                "timeout": 3600  # 1 hour
+                "timeout": 3600,  # 1 hour
+                "priority": -1
             },
             **get_request_config()
         )
@@ -123,7 +129,8 @@ class TestInputValidation:
             json={
                 "code": "print('test\\x00'); import os",
                 "language": "python",
-                "timeout": 30
+                "timeout": 30,
+                "priority": -1
             },
             **get_request_config()
         )
@@ -150,13 +157,50 @@ class TestInputValidation:
                 json={
                     "code": code,
                     "language": "python",
-                    "timeout": 30
+                    "timeout": 30,
+                    "priority": -1
                 },
                 **get_request_config()
             )
             
             # Should handle gracefully (accept or reject consistently)
             assert response.status_code in [200, 400, 422]
+
+    def test_quota_error_handling(self):
+        """Test that quota exhaustion provides clear error messages."""
+        from tests.utils.utils import submit_evaluation, get_evaluation_status
+        
+        # Try to submit a job with excessive resource requests
+        # This should fail at the API level with proper validation
+        try:
+            # This should raise an exception due to excessive resources
+            eval_id = submit_evaluation(
+                code='print("Excessive resource test")',
+                language="python",
+                timeout=10,
+                cpu_limit="100",  # 100 CPUs - should exceed any reasonable limit
+                memory_limit="1000Gi",  # 1TB - should exceed limit
+                priority=-1  # Low priority for test
+            )
+            
+            # If we somehow get an eval_id, check its status
+            if eval_id:
+                status = get_evaluation_status(eval_id)
+                assert status.get("status") == "failed", "Excessive resource request should fail"
+                assert "resource" in status.get("error", "").lower() or "quota" in status.get("error", "").lower()
+            else:
+                pytest.fail("Expected exception for excessive resources, but got None eval_id")
+                
+        except requests.exceptions.HTTPError as e:
+            # Expected - API should reject with 400
+            assert e.response.status_code == 400
+            error_detail = e.response.json().get("detail", "")
+            assert any(word in error_detail.lower() for word in ["resource", "limit", "exceed", "quota"]), \
+                f"Error message should mention resource limits, got: {error_detail}"
+        except Exception as e:
+            # Other exceptions might indicate the request was rejected at submission
+            assert any(word in str(e).lower() for word in ["resource", "limit", "exceed", "quota"]), \
+                f"Error should mention resource limits, got: {e}"
 
 
 if __name__ == "__main__":
@@ -169,7 +213,8 @@ if __name__ == "__main__":
         json={
             "code": "x" * 1_000_000,  # 1MB of code
             "language": "python",
-            "timeout": 30
+            "timeout": 30,
+            "priority": -1
         },
         **get_request_config()
     )

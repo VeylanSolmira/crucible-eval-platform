@@ -49,11 +49,12 @@ configMapGenerator:
   - LOG_LEVEL=DEBUG
   - API_URL=http://api-service:8080
 
-# Use dev tags from ECR with new repository structure
+# Use ECR registry with new repository structure
+# All services use 'dev' tag which is updated by GitHub Actions
 images:
 - name: crucible-platform/api-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/api
-  newTag: readyz-fix
+  newTag: dev
 - name: crucible-platform/storage-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/storage-service
   newTag: dev
@@ -65,7 +66,7 @@ images:
   newTag: dev
 - name: crucible-platform/dispatcher-service
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/dispatcher
-  newTag: dispatcher-service
+  newTag: dev
 - name: crucible-platform/frontend
   newName: 503132503803.dkr.ecr.us-west-2.amazonaws.com/frontend
   newTag: dev

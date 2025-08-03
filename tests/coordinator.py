@@ -162,8 +162,8 @@ class TestCoordinator:
         pytest_cmd = [
             "python", "-m", "pytest",
             suite["path"],
-            "-v",
-            "--tb=short",
+            "-vv" if self.verbose else "-v",  # Double verbose in verbose mode
+            "--tb=long" if self.verbose else "--tb=short",  # Full traceback in verbose mode
             "--junit-xml=/tmp/junit.xml"
         ]
         

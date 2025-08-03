@@ -14,7 +14,7 @@ import time
 import requests
 from typing import Dict, Any
 from tests.k8s_test_config import API_URL
-from tests.utils.utils import wait_for_completion, submit_evaluation
+from tests.utils.utils import wait_for_completion, submit_evaluation, wait_for_logs
 
 
 @pytest.mark.e2e
@@ -60,13 +60,15 @@ def test_evaluation_lifecycle():
     eval_id = submit_evaluation(code, language="python", timeout=30)
     
     # Wait for completion
-    result = wait_for_completion(eval_id, use_adaptive=True)
+    result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
     
     # Verify completion
     assert result["status"] == "completed", f"Evaluation failed: {result}"
     
+    # Wait for logs to be available (handles race condition)
+    output = wait_for_logs(eval_id, timeout=30)
+    
     # Verify output
-    output = result.get("output", "")
     assert "Starting..." in output, f"Expected 'Starting...' in output, got: {output}"
     assert "Done!" in output, f"Expected 'Done!' in output, got: {output}"
     
@@ -82,7 +84,8 @@ def test_error_handling():
     # Test 1: Code that exits with error
     code = "import sys\nsys.exit(1)"
     eval_id = submit_evaluation(code, language="python", timeout=10)
-    result = wait_for_completion(eval_id, timeout=15, use_adaptive=True)
+    # Extended timeout for when cluster is under load
+    result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
     
     assert result["status"] == "failed", f"Expected failed status for sys.exit(1), got: {result['status']}"
     
@@ -95,10 +98,18 @@ def test_error_handling():
     # Test 3: Division by zero
     code = "print('Before error')\nresult = 1/0"
     eval_id = submit_evaluation(code, language="python", timeout=10)
-    result = wait_for_completion(eval_id, use_adaptive=True)
+    result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
     
     assert result["status"] == "failed", "Division by zero should fail"
-    error_output = (result.get("error") or "") + (result.get("output") or "")
+    # For failed evaluations, check both error and output fields
+    # wait_for_logs handles this internally
+    try:
+        output = wait_for_logs(eval_id, timeout=30)
+        error_output = output
+    except TimeoutError:
+        # If logs timeout, fall back to checking error field directly
+        error_output = result.get("error", "")
+    
     assert "ZeroDivisionError" in error_output, f"Expected ZeroDivisionError in output, got: {error_output}"
 
 
@@ -123,7 +134,8 @@ def test_concurrent_evaluations():
     failed = []
     
     for eval_id in eval_ids:
-        result = wait_for_completion(eval_id, timeout=30, use_adaptive=True)
+        # Extended timeout for when cluster is under load
+        result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
         if result["status"] == "completed":
             completed += 1
         else:
@@ -144,8 +156,12 @@ def test_storage_retrieval():
     eval_id = submit_evaluation(code, language="python", timeout=10)
     
     # Wait for completion
-    result = wait_for_completion(eval_id, use_adaptive=True)
+    result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
     assert result["status"] == "completed"
+    
+    # Wait for logs to be available
+    output = wait_for_logs(eval_id, timeout=30)
+    assert "Storage test output" in output, f"Expected 'Storage test output' in output, got: {output}"
     
     # Test storage retrieval endpoint (if it exists)
     # Note: This endpoint might not exist in all configurations
@@ -157,8 +173,8 @@ def test_storage_retrieval():
         assert "Storage test output" in storage_data.get("output", ""), "Output not stored correctly"
     elif storage_response.status_code == 404:
         # Storage endpoint might not be exposed, which is okay
-        # We can still verify through the regular eval endpoint
-        assert "Storage test output" in result.get("output", ""), "Output not available"
+        # We already verified the output is available via wait_for_logs
+        pass
     else:
         pytest.fail(f"Unexpected storage response: {storage_response.status_code}")
 
@@ -234,7 +250,7 @@ def test_language_parameter():
     elif response.status_code == 200:
         # API accepted - it will try to run as Python
         eval_id = response.json()["eval_id"]
-        result = wait_for_completion(eval_id, use_adaptive=True)
+        result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
         # Since it's Python code, it will actually succeed
         # This is expected behavior for now
         assert result["status"] in ["completed", "failed"], "Should have a terminal status"

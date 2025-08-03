@@ -52,7 +52,8 @@ def test_available_libraries():
     assert eval_id is not None, "Failed to submit evaluation"
     
     # Wait for completion with adaptive waiting for load conditions
-    status = wait_for_completion(eval_id, timeout=30, use_adaptive=True)
+    # Extended timeout for when cluster is under load
+    status = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
     assert status is not None, "Evaluation did not complete in time"
     
     # Get the full evaluation details

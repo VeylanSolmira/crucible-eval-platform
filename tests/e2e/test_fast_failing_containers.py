@@ -25,7 +25,7 @@ import time
 import requests
 from typing import Dict, Any
 from tests.k8s_test_config import API_URL
-from tests.utils.utils import wait_for_completion, submit_evaluation
+from tests.utils.utils import wait_for_completion, submit_evaluation, wait_for_logs
 
 # Test code that should fail immediately
 FAST_FAILING_CODE = 'print("Before error"); 1/0'
@@ -59,21 +59,20 @@ def test_fast_failing_container_logs_captured():
     assert result["status"] == "failed", f"Expected status 'failed', got '{result['status']}'"
     
     # CRITICAL: Verify that logs were captured
-    # Before the fix, both output and error would be empty strings
-    error_content = result.get("error", "")
-    output_content = result.get("output", "")
-    
-    # We should have either error content or output content (depending on implementation)
-    # The current implementation puts all logs in error field when exit_code != 0
-    assert error_content or output_content, (
-        "No logs captured from fast-failing container! "
-        "This indicates the log collection race condition may have regressed."
-    )
+    # Use wait_for_logs which handles the race condition and checks both error/output fields
+    try:
+        logs = wait_for_logs(eval_id, timeout=30)
+    except TimeoutError:
+        # If wait_for_logs times out, fall back to checking the error field directly
+        logs = result.get("error", "")
+        assert logs, (
+            "No logs captured from fast-failing container! "
+            "This indicates the log collection race condition may have regressed."
+        )
     
     # Verify we can see the expected error
-    combined_logs = (error_content or "") + (output_content or "")
-    assert "Before error" in combined_logs, "Expected stdout output not found in logs"
-    assert "ZeroDivisionError" in combined_logs, "Expected error traceback not found in logs"
+    assert "Before error" in logs, "Expected stdout output not found in logs"
+    assert "ZeroDivisionError" in logs, "Expected error traceback not found in logs"
 
 
 @pytest.mark.integration
@@ -94,10 +93,12 @@ def test_mixed_stdout_stderr_fast_failure():
     # Verify the evaluation failed
     assert result["status"] == "failed"
     
-    # Get all log content
-    error_content = result.get("error", "")
-    output_content = result.get("output", "")
-    combined_logs = (error_content or "") + (output_content or "")
+    # Get all log content using wait_for_logs
+    try:
+        combined_logs = wait_for_logs(eval_id, timeout=30)
+    except TimeoutError:
+        # If wait_for_logs times out, fall back to checking the error field directly
+        combined_logs = result.get("error", "")
     
     # Verify both stdout and stderr content is present (even if mixed)
     assert "Starting calculation..." in combined_logs, "stdout content missing"
