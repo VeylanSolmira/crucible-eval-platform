@@ -951,8 +951,10 @@ async def execute(request: ExecuteRequest):
             ttl_seconds_after_finished=DEBUG_JOB_CLEANUP_TTL if request.debug else JOB_CLEANUP_TTL,
             # Maximum runtime
             active_deadline_seconds=request.timeout + 300,  # 5 minute buffer
-            # Don't retry on failure (evaluations shouldn't be retried)
-            backoff_limit=0,
+            # Use default Kubernetes backoff policy (6 retries with exponential backoff)
+            # This allows pods to retry after preemption or transient failures
+            # Specific evaluations can opt-out by setting backoff_limit=0 if needed
+            backoff_limit=None,  # None means use k8s default (6)
             # Pod template
             template=client.V1PodTemplateSpec(
                 metadata=client.V1ObjectMeta(
