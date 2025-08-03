@@ -87,7 +87,7 @@ def test_error_handling():
     # Extended timeout for when cluster is under load
     result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
     
-    assert result["status"] == "failed", f"Expected failed status for sys.exit(1), got: {result['status']}"
+    assert result["status"] == "failed", f"Expected failed status for sys.exit(1), got: {result['status']}. Full result: {result}"
     
     # Test 2: Invalid request (missing required fields)
     bad_request = {"invalid": "request"}
@@ -100,7 +100,8 @@ def test_error_handling():
     eval_id = submit_evaluation(code, language="python", timeout=10)
     result = wait_for_completion(eval_id, timeout=120, use_adaptive=True)
     
-    assert result["status"] == "failed", "Division by zero should fail"
+    assert result["status"] == "failed", f"Division by zero should fail. Got status: {result['status']}. Full result: {result}"
+    
     # For failed evaluations, check both error and output fields
     # wait_for_logs handles this internally
     try:
@@ -110,7 +111,12 @@ def test_error_handling():
         # If logs timeout, fall back to checking error field directly
         error_output = result.get("error", "")
     
-    assert "ZeroDivisionError" in error_output, f"Expected ZeroDivisionError in output, got: {error_output}"
+    # Also check the output field if error is empty
+    if not error_output:
+        error_output = result.get("output", "")
+    
+    assert "ZeroDivisionError" in error_output or "division by zero" in error_output.lower(), \
+        f"Expected ZeroDivisionError in output, got: {error_output}. Full result: {result}"
 
 
 @pytest.mark.e2e

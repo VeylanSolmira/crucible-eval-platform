@@ -433,7 +433,26 @@ class TestCoordinator:
                             "duration": time.time() - start_time
                         }
                 
-                return {
+                # If tests failed, capture failure details
+                failure_details = None
+                if failed > 0:
+                    # Extract failure information from the output
+                    failure_lines = []
+                    capture_failure = False
+                    for line in log_output.split('\n'):
+                        if 'FAILED' in line and '::' in line:
+                            capture_failure = True
+                            failure_lines.append(line)
+                        elif capture_failure and (line.startswith('=') or line.startswith('_')):
+                            # End of failure details
+                            break
+                        elif capture_failure:
+                            failure_lines.append(line)
+                    
+                    if failure_lines:
+                        failure_details = '\n'.join(failure_lines[-100:])  # Last 100 lines of failures
+                
+                result_dict = {
                     "job_name": job_name,
                     "status": "succeeded",
                     "passed": passed,
@@ -442,6 +461,11 @@ class TestCoordinator:
                     "deselected": deselected,
                     "duration": time.time() - start_time
                 }
+                
+                if failure_details:
+                    result_dict["failure_details"] = failure_details
+                
+                return result_dict
                 
             elif False:  # This block is now unreachable
                 # Get logs for failure details
@@ -623,6 +647,7 @@ class TestCoordinator:
         if total_deselected > 0:
             print(f"  Deselected: {total_deselected} (not included in test run)")
         
+        # Show failed suites
         if results["failed"]:
             print("\n❌ FAILED SUITES:")
             for result in results["failed"]:
@@ -633,7 +658,18 @@ class TestCoordinator:
                 else:
                     print(f"  - {result['job_name']}: {error[:500]}...")
         
-        return len(results["failed"]) == 0
+        # Show suites with failed tests
+        suites_with_failures = [r for r in results["succeeded"] if r.get("failed", 0) > 0]
+        if suites_with_failures:
+            print("\n⚠️  SUITES WITH FAILED TESTS:")
+            for result in suites_with_failures:
+                print(f"  - {result['job_name']}: {result['failed']} failed tests")
+                if self.verbose and result.get("failure_details"):
+                    print(f"    Failure details:")
+                    for line in result["failure_details"].split('\n'):
+                        print(f"      {line}")
+        
+        return len(results["failed"]) == 0 and total_failed == 0
     
     def run(self,
             requested_suites: List[str],
