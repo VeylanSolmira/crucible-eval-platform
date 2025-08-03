@@ -22,6 +22,10 @@ class AdaptiveWaiter:
         self.completed_count = 0
         self.last_status_check = 0
         self.verbose = os.environ.get('VERBOSE_TESTS', 'false').lower() == 'true'
+        # Get namespace from environment - REQUIRED for tests
+        self.namespace = os.environ.get('K8S_NAMESPACE')
+        if not self.namespace:
+            raise ValueError("K8S_NAMESPACE environment variable must be set for adaptive timeout checks")
         
     def wait_for_evaluations(self, 
                            api_session,
@@ -142,7 +146,7 @@ class AdaptiveWaiter:
         try:
             result = subprocess.run(
                 ["kubectl", "get", "resourcequota", "evaluation-quota", 
-                 "-n", "crucible", "-o", "json"],
+                 "-n", self.namespace, "-o", "json"],
                 capture_output=True, text=True
             )
             
@@ -217,7 +221,7 @@ class AdaptiveWaiter:
         """Print current resource usage."""
         try:
             result = subprocess.run(
-                ["kubectl", "get", "pods", "-n", "crucible", 
+                ["kubectl", "get", "pods", "-n", self.namespace, 
                  "-l", "app=evaluation", "--no-headers"],
                 capture_output=True, text=True
             )
@@ -241,7 +245,7 @@ class AdaptiveWaiter:
             # Check ResourceQuota
             result = subprocess.run(
                 ["kubectl", "get", "resourcequota", "evaluation-quota", 
-                 "-n", "crucible", "-o", "json"],
+                 "-n", self.namespace, "-o", "json"],
                 capture_output=True, text=True
             )
             
@@ -255,28 +259,60 @@ class AdaptiveWaiter:
                 used_mb = self._parse_memory(memory_used)
                 available_mb = limit_mb - used_mb
                 
+                if self.verbose:
+                    print(f"    Quota check: {used_mb}MB used / {limit_mb}MB limit ({available_mb}MB available)")
+                
                 # Check if less than 512MB available (1 pod worth)
                 if available_mb < 512:
                     is_memory_constrained = True
+            else:
+                if self.verbose:
+                    print(f"    Failed to get ResourceQuota: {result.stderr}")
                     
-            # Check if there are RUNNING evaluation pods
+            # Check if there are RUNNING or PENDING evaluation pods
+            # First check running pods
             result = subprocess.run(
-                ["kubectl", "get", "pods", "-n", "crucible", 
+                ["kubectl", "get", "pods", "-n", self.namespace, 
                  "-l", "app=evaluation", "--field-selector=status.phase=Running", "--no-headers"],
                 capture_output=True, text=True
             )
             
+            running_count = 0
             if result.returncode == 0 and result.stdout.strip():
                 has_running_evaluations = True
-            
-            # Only consider at capacity if BOTH conditions are true:
-            # 1. Memory is constrained AND
-            # 2. There are running evaluations that might free up resources
-            # If memory is full but nothing is running, waiting won't help
-            return is_memory_constrained and has_running_evaluations
+                running_count = len(result.stdout.strip().split('\n'))
                 
-        except Exception:
-            pass
+            # Also check pending pods
+            result = subprocess.run(
+                ["kubectl", "get", "pods", "-n", self.namespace, 
+                 "-l", "app=evaluation", "--field-selector=status.phase=Pending", "--no-headers"],
+                capture_output=True, text=True
+            )
+            
+            pending_count = 0
+            if result.returncode == 0 and result.stdout.strip():
+                pending_count = len(result.stdout.strip().split('\n'))
+                
+            if self.verbose:
+                print(f"    Evaluation pods: {running_count} running, {pending_count} pending")
+            
+            # Consider at capacity if:
+            # 1. Memory is constrained AND
+            # 2. There are running OR pending evaluations that might eventually free up resources
+            # If we have pending pods with no memory, they're waiting for resources
+            at_capacity = is_memory_constrained and (has_running_evaluations or pending_count > 0)
+            
+            if self.verbose:
+                if is_memory_constrained and pending_count > 0 and not has_running_evaluations:
+                    print("    Memory constrained with only pending pods - severe contention!")
+                elif at_capacity:
+                    print("    Cluster at capacity - will extend timeout")
+                
+            return at_capacity
+                
+        except Exception as e:
+            if self.verbose:
+                print(f"    Error checking capacity: {e}")
             
         return False
     
@@ -288,7 +324,7 @@ class AdaptiveWaiter:
         try:
             result = subprocess.run(
                 ["kubectl", "get", "resourcequota", "evaluation-quota", 
-                 "-n", "crucible", "-o", "json"],
+                 "-n", self.namespace, "-o", "json"],
                 capture_output=True, text=True
             )
             
@@ -308,7 +344,7 @@ class AdaptiveWaiter:
         # Get all evaluation pods with their status
         try:
             result = subprocess.run(
-                ["kubectl", "get", "pods", "-n", "crucible", 
+                ["kubectl", "get", "pods", "-n", self.namespace, 
                  "-l", "app=evaluation", "-o", "json"],
                 capture_output=True, text=True
             )
