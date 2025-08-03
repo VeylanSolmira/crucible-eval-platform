@@ -37,6 +37,6 @@ if __name__ == "__main__":
         'worker',
         '--loglevel=info',
         f'--concurrency={os.environ.get("CELERY_CONCURRENCY", "2")}',
-        '-Q', 'high_priority,evaluation,batch,maintenance'
+        '-Q', 'high_priority,evaluation,low_priority,batch,maintenance'
     ]
     app.worker_main(argv)
