@@ -147,21 +147,23 @@ async def process_job_event(event: Dict, redis_client: ResilientRedisClient):
         if not eval_id:
             return  # Not an evaluation job or missing label
         
-        # Get status from V1Job object - handle None values safely
+        # Get active pod count for status determination
         active = job.status.active if job.status and job.status.active else 0
-        succeeded = job.status.succeeded if job.status and job.status.succeeded else 0
-        failed = job.status.failed if job.status and job.status.failed else 0
         
-        # Determine job status
+        # Determine job status from conditions - Kubernetes handles retry logic
         status = None
-        if active > 0:
-            status = "running"
-        elif succeeded > 0:
-            status = "succeeded"
-        elif failed > 0:
-            status = "failed"
-        else:
-            status = "pending"
+        if job.status.conditions:
+            for condition in job.status.conditions:
+                if condition.type == "Failed" and condition.status == "True":
+                    status = "failed"  # Job permanently failed
+                    break
+                elif condition.type == "Complete" and condition.status == "True":
+                    status = "succeeded"  # Job succeeded
+                    break
+        
+        # If no terminal condition yet, check if running or pending
+        if status is None:
+            status = "running" if active > 0 else "pending"
         
         # Check if this is a state change
         state_key = f"job:{job_name}:last_state"
@@ -1091,16 +1093,21 @@ async def get_job_status(job_name: str, redis_client: ResilientRedisClient = Dep
             namespace=KUBERNETES_NAMESPACE
         )
         
-        # Determine status
-        previous_status = None
-        if job.status.succeeded:
-            status = "succeeded"
-        elif job.status.failed:
-            status = "failed"
-        elif job.status.active:
-            status = "running"
-        else:
-            status = "pending"
+        # Determine status from conditions - Kubernetes handles retry logic
+        status = None
+        if job.status.conditions:
+            for condition in job.status.conditions:
+                if condition.type == "Failed" and condition.status == "True":
+                    status = "failed"  # Job permanently failed
+                    break
+                elif condition.type == "Complete" and condition.status == "True":
+                    status = "succeeded"  # Job succeeded
+                    break
+        
+        # If no terminal condition yet, check if running or pending
+        if status is None:
+            active = job.status.active if job.status else 0
+            status = "running" if active > 0 else "pending"
         
         # Get evaluation ID from job labels
         eval_id = job.metadata.labels.get("eval-id")
