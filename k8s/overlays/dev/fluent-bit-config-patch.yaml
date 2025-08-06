@@ -16,9 +16,12 @@ data:
         Path /var/log/containers/*_dev_*.log
         Parser docker
         Tag kube.*
-        Refresh_Interval 5
+        Refresh_Interval 1
+        Read_from_Head true
         Mem_Buf_Limit 50MB
-        Skip_Long_Lines On
+        Skip_Long_Lines Off
+        DB /var/log/flb_kube.db
+        DB.locking true
         
     [FILTER]
         Name kubernetes
@@ -29,6 +32,8 @@ data:
         Kube_Tag_Prefix kube.var.log.containers.
         Merge_Log On
         Keep_Log Off
+        Kube_Meta_Cache_TTL 60
+        Buffer_Size 5MB
         
     [OUTPUT]
         Name loki

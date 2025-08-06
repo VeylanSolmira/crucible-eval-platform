@@ -1,8 +1,6 @@
 # Crucible Evaluation Platform (CEP)
 
-> ⚠️ **PRIVATE REPOSITORY** - Contains sensitive interview preparation materials. See [SECURITY.md](SECURITY.md) before making any visibility changes.
-
-A demonstration platform showcasing secure AI model evaluation infrastructure, designed with safety and scalability in mind. This project demonstrates how METR's evaluation capabilities could be decentralized through an open platform that any organization can deploy and customize.
+A secure, scalable platform for AI model evaluation, designed with safety and extensibility at its core. Crucible provides organizations with the infrastructure needed to safely evaluate AI systems while maintaining strict security boundaries and comprehensive monitoring.
 
 ## Project Vision
 
@@ -12,11 +10,11 @@ The Crucible Evaluation Platform (CEP) is designed to:
 - **Maintain security standards** while being open and extensible
 - **Lower barriers to entry** for AI safety evaluation work
 
-This serves as both a demonstration of platform engineering capabilities and a vision for how critical AI safety infrastructure could be decentralized rather than centralized in a single organization.
+This open-source platform enables decentralized AI safety evaluation, allowing multiple organizations to deploy and customize their own evaluation infrastructure while maintaining consistent security standards.
 
 ## Overview
 
-This project demonstrates platform engineering skills relevant to AI safety evaluation infrastructure, including:
+Crucible provides a complete AI safety evaluation platform featuring:
 
 - **Secure containerized evaluation environments** using Kubernetes and gVisor
 - **Real-time monitoring dashboard** with React/TypeScript frontend
@@ -35,16 +33,21 @@ See [architecture.md](architecture.md) for detailed system design, including:
 ## Project Structure
 
 ```
-metr-eval-platform/
-├── frontend/          # React TypeScript dashboard
-├── src/              # Python backend services
-│   ├── api/          # FastAPI gateway
-│   ├── evaluator/    # Evaluation orchestration
-│   └── monitor/      # Safety monitoring
-├── k8s/              # Kubernetes manifests
-├── scripts/          # Deployment and utility scripts
-├── tests/            # Comprehensive test suite
-└── docs/             # Additional documentation
+crucible-eval-platform/
+├── api/                    # FastAPI backend service
+├── frontend/               # React TypeScript dashboard
+├── dispatcher_service/     # Job dispatching service
+├── celery_worker/          # Async task processing
+├── cleanup_controller/     # Resource cleanup service
+├── storage_service/        # File storage management
+├── monitoring/             # Monitoring and metrics
+├── nginx/                  # Web server configuration
+├── k8s/                    # Kubernetes manifests
+├── infrastructure/         # Terraform/OpenTofu IaC
+├── scripts/                # Deployment and utility scripts
+├── tests/                  # Comprehensive test suite
+├── docs/                   # Documentation
+└── evaluation-environments/ # Docker environments for evaluations
 ```
 
 ## Key Features
@@ -169,7 +172,7 @@ This approach shows realistic architectural evolution!
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd metr-eval-platform
+   cd crucible-eval-platform
    ```
 
 2. Set up the local development environment:
@@ -270,10 +273,16 @@ This platform is designed with security as a primary concern:
 
 For production deployments evaluating untrusted AI models, gVisor is strongly recommended to provide defense-in-depth against container escape attempts.
 
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
+
 ## License
 
-Copyright (c) 2024. All rights reserved.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
+## Acknowledgments
 
-**Note**: This is a demonstration project for showcasing platform engineering skills. For production use, additional security hardening and compliance measures would be required.
+- Built with security patterns inspired by leading AI safety organizations
+- Uses gVisor for enhanced container isolation
+- Monitoring architecture based on cloud-native best practices

@@ -2,10 +2,10 @@
 
 ## 📁 Documentation Structure
 
-### [🎯 METR Application](metr/)
-- Job description and requirements
-- Expected question formats
-- **Start here:** [5-Day Submission Plan](planning/5-day-metr-submission-plan.md)
+### [🎯 Getting Started](setup/)
+- Installation guides
+- Configuration requirements
+- Quick start tutorials
 
 ### [📋 Planning & Strategy](planning/)
 - Development roadmaps

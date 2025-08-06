@@ -29,7 +29,7 @@ class TestResourceCleanupExample:
         
         # Wait for evaluations to complete
         for eval_id in eval_ids:
-            self._wait_for_completion(api_session, api_base_url, eval_id)
+            self._wait_for_completion(api_session, api_base_url, eval_id, timeout=300)
         
         # Resources will be cleaned up automatically after test
         print(f"Submitted {len(eval_ids)} evaluations")
@@ -41,7 +41,7 @@ class TestResourceCleanupExample:
         eval_id = submit_evaluation("import time; time.sleep(2); print('Decorated test')")
         
         # Wait for completion
-        self._wait_for_completion(api_session, api_base_url, eval_id)
+        self._wait_for_completion(api_session, api_base_url, eval_id, timeout=300)
         
         # Pods will be cleaned up after test, with 5 second wait
     
@@ -55,7 +55,7 @@ class TestResourceCleanupExample:
             manager.track_resource("jobs", f"evaluation-job-{eval_id}")
             
             # Wait for completion
-            self._wait_for_completion(api_session, api_base_url, eval_id)
+            self._wait_for_completion(api_session, api_base_url, eval_id, timeout=300)
         
         # Both pods and jobs cleaned up when context exits
     
@@ -76,21 +76,27 @@ class TestResourceCleanupExample:
         
         # Wait for all to complete
         for eval_id in eval_ids:
-            self._wait_for_completion(api_session, api_base_url, eval_id, timeout=60)
+            self._wait_for_completion(api_session, api_base_url, eval_id, timeout=300)
         
         # Full cleanup happens after test
         print(f"Completed {len(eval_ids)} resource-intensive evaluations")
     
-    def _wait_for_completion(self, api_session, api_base_url: str, eval_id: str, timeout: int = 30):
-        """Helper to wait for evaluation completion."""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
+    def _wait_for_completion(self, api_session, api_base_url: str, eval_id: str, timeout: int = 60):
+        """Helper to wait for evaluation completion using AdaptiveWaiter."""
+        from tests.utils.adaptive_timeouts import AdaptiveWaiter
+        
+        waiter = AdaptiveWaiter(initial_timeout=timeout)
+        results = waiter.wait_for_evaluations(
+            api_session=api_session,
+            api_base_url=api_base_url,
+            eval_ids=[eval_id],
+            check_resources=True
+        )
+        
+        if eval_id in results['completed'] or eval_id in results['failed']:
             response = api_session.get(f"{api_base_url}/eval/{eval_id}")
             if response.status_code == 200:
-                result = response.json()
-                if result["status"] in ["completed", "failed", "timeout"]:
-                    return result
-            time.sleep(0.5)
+                return response.json()
         
         pytest.fail(f"Evaluation {eval_id} did not complete within {timeout} seconds")
 

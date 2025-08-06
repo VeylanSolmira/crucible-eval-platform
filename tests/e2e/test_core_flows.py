@@ -109,14 +109,18 @@ def test_error_handling():
         error_output = output
     except TimeoutError:
         # If logs timeout, fall back to checking error field directly
-        error_output = result.get("error", "")
+        error_output = result.get("error") or ""
     
     # Also check the output field if error is empty
     if not error_output:
-        error_output = result.get("output", "")
+        error_output = result.get("output") or ""
+    
+    # Ensure error_output is never None
+    if error_output is None:
+        error_output = ""
     
     assert "ZeroDivisionError" in error_output or "division by zero" in error_output.lower(), \
-        f"Expected ZeroDivisionError in output, got: {error_output}. Full result: {result}"
+        f"Expected ZeroDivisionError in output, got: {repr(error_output)}. Full result: {result}"
 
 
 @pytest.mark.e2e
@@ -198,8 +202,10 @@ def test_evaluation_timeout():
     reporting will be accurate to when the job was actually terminated.
     """
     # Submit evaluation that will timeout
+    # Note: expect_failure=True prevents Kubernetes retry attempts (backoffLimit=0)
+    # Without this, K8s would retry 3 times with exponential backoff, taking 30+ seconds
     code = "import time\ntime.sleep(10)\nprint('Should not see this')"
-    eval_id = submit_evaluation(code, language="python", timeout=2)  # 2 second timeout
+    eval_id = submit_evaluation(code, language="python", timeout=2, expect_failure=True)  # 2 second timeout, no retries
     
     # Wait for timeout - need to wait longer than the 2 second timeout plus overhead
     result = wait_for_completion(eval_id, timeout=30, use_adaptive=True)

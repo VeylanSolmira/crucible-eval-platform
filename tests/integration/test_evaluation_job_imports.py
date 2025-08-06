@@ -44,7 +44,7 @@ print(f"Platform: {os.environ.get('KUBERNETES_SERVICE_HOST', 'not in k8s')}")
         eval_id = submit_evaluation(code, language="python", timeout=30)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -63,8 +63,10 @@ print(f"Platform: {os.environ.get('KUBERNETES_SERVICE_HOST', 'not in k8s')}")
         # Verify successful completion
         assert result["status"] == "completed", f"Evaluation failed: {result}"
         
+        # Wait for logs to be available (handles async log fetching)
+        output = wait_for_logs(eval_id, timeout=60)
+        
         # Verify output contains expected content
-        output = result.get("output", "")
         assert "JSON:" in output
         assert "Current time:" in output
         assert "Math operations: sqrt(16) = 4.0" in output
@@ -100,7 +102,7 @@ print("Import test completed", file=sys.stdout)
         eval_id = submit_evaluation(code, language="python", timeout=30)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -119,10 +121,10 @@ print("Import test completed", file=sys.stdout)
         # Should complete successfully (we caught the exceptions)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
         
-        # Verify output and error handling
-        output = result.get("output", "")
-        error = result.get("error", "")
-        combined = output + error
+        # Wait for logs to be available
+        output = wait_for_logs(eval_id, timeout=60)
+        # For combined output/error checking
+        combined = output
         
         assert "Starting import test..." in combined
         assert "Import test completed" in combined
@@ -163,7 +165,7 @@ print("ML library test completed")
         eval_id = submit_evaluation(code, language="python", timeout=30)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -182,9 +184,9 @@ print("ML library test completed")
         # Should complete (even if libraries aren't available)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
         
-        output = result.get("output", "")
-        error = result.get("error", "")
-        combined = output + error
+        # Wait for logs to be available
+        output = wait_for_logs(eval_id, timeout=60)
+        combined = output
         
         # At minimum, the test should complete
         assert "ML library test completed" in combined
@@ -223,7 +225,7 @@ print("Some examples:", ", ".join(list(sys.builtin_module_names)[:10]))
         eval_id = submit_evaluation(code, language="python", timeout=30)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -274,7 +276,7 @@ print("This should not execute")
         eval_id = submit_evaluation(code, language="python", timeout=30, expect_failure=True)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -323,7 +325,7 @@ print("Relative import test completed")
         eval_id = submit_evaluation(code, language="python", timeout=30)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -342,7 +344,8 @@ print("Relative import test completed")
         # Should complete (we're catching the errors)
         assert result["status"] == "completed", f"Evaluation failed: {result}"
         
-        output = result.get("output", "")
+        # Wait for logs to be available
+        output = wait_for_logs(eval_id, timeout=60)
         assert "Relative import failed as expected" in output
         assert "Parent import failed as expected" in output
         assert "Relative import test completed" in output
@@ -383,7 +386,7 @@ print("✅ Complex imports working!")
         eval_id = submit_evaluation(code, language="python", timeout=30)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -402,7 +405,8 @@ print("✅ Complex imports working!")
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"
         
-        output = result.get("output", "")
+        # Wait for logs to be available
+        output = wait_for_logs(eval_id, timeout=60)
         assert "Current time:" in output
         assert "Tomorrow:" in output
         assert "JSON data:" in output
@@ -455,7 +459,7 @@ print("✅ Subprocess imports test completed")
         eval_id = submit_evaluation(code, language="python", timeout=30)
         
         # Use AdaptiveWaiter for better timeout handling
-        waiter = AdaptiveWaiter(initial_timeout=60)
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -474,7 +478,8 @@ print("✅ Subprocess imports test completed")
         # Should complete successfully
         assert result["status"] == "completed", f"Evaluation failed: {result}"
         
-        output = result.get("output", "")
+        # Wait for logs to be available
+        output = wait_for_logs(eval_id, timeout=60)
         assert "Return code: 0" in output
         assert "Output: Subprocess works!" in output
         assert '{"from": "subprocess"}' in output

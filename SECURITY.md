@@ -1,53 +1,69 @@
 # Security Policy
 
-## ⚠️ REPOSITORY VISIBILITY WARNING
+## Reporting Security Vulnerabilities
 
-**THIS REPOSITORY MUST REMAIN PRIVATE**
+We take security seriously in the Crucible Evaluation Platform. If you discover a security vulnerability, please follow these guidelines:
 
-This repository contains:
-- Interview preparation materials
-- Proprietary system architecture designs
-- Security-sensitive evaluation infrastructure details
-- Personal development notes
+### Do NOT
+- Open a public issue describing the vulnerability
+- Share the vulnerability details publicly before it's been addressed
 
-## Before Making Public
+### DO
+- Email security concerns to: veylan.solmira@gmail.com
+- Include detailed steps to reproduce the issue
+- Allow reasonable time for a response before public disclosure
 
-If you ever need to make this repository public, you MUST:
+## Security Features
 
-1. **Remove all interview-related content**:
-   - [ ] Delete `interview-prep.md`
-   - [ ] Delete `metr-questions.md`
-   - [ ] Delete `questions.md`
-   - [ ] Delete `personal/` directory
-   - [ ] Delete `CLAUDE.md` (contains personal notes)
-   - [ ] Review and sanitize `docs/` directory
+The Crucible platform implements defense-in-depth security:
 
-2. **Sanitize architecture documents**:
-   - [ ] Remove any proprietary implementation details
-   - [ ] Remove security-sensitive configurations
-   - [ ] Remove internal network details
+### Container Isolation
+- gVisor runtime for enhanced container security
+- Strict resource limits and quotas
+- Read-only root filesystems where possible
+- No privileged containers
 
-3. **Clean git history**:
-   ```bash
-   # Use BFG Repo-Cleaner or git filter-branch
-   # to remove sensitive files from history
-   ```
+### Network Security
+- Network policies for pod-to-pod isolation
+- Egress restrictions to prevent data exfiltration
+- Service mesh for encrypted inter-service communication
 
-## Automated Checks
+### Access Control
+- RBAC (Role-Based Access Control) for all resources
+- Service account restrictions
+- Pod security policies/standards
 
-To add additional protection:
+### Monitoring & Auditing
+- Comprehensive audit logging
+- Real-time security monitoring
+- Automated vulnerability scanning
 
-1. **GitHub Branch Protection Rules**:
-   - Go to Settings → Branches
-   - Add rule for `main` branch
-   - Enable "Restrict who can push to matching branches"
+## Supported Versions
 
-2. **GitHub Repository Settings**:
-   - Settings → Manage access → Base permissions: "No access"
-   - Settings → Options → Disable "Allow merge commits" (optional)
+| Version | Supported          |
+| ------- | ------------------ |
+| 1.x.x   | :white_check_mark: |
+| < 1.0   | :x:                |
 
-3. **Local Git Hook** (see `.githooks/pre-push`)
+## Security Best Practices
 
-## Contact
+When deploying Crucible:
 
-If you need to discuss making any part of this public, please contact the repository owner first.
+1. **Keep Dependencies Updated**
+   - Regularly update base images
+   - Monitor for CVEs in dependencies
+   - Use automated dependency scanning
+
+2. **Secure Configuration**
+   - Never use default passwords
+   - Enable TLS for all communications
+   - Restrict network access appropriately
+
+3. **Monitor and Audit**
+   - Enable audit logging
+   - Monitor for anomalous behavior
+   - Regular security assessments
+
+## Acknowledgments
+
+We appreciate responsible disclosure of security issues. Contributors who report valid security vulnerabilities will be acknowledged here (with permission).

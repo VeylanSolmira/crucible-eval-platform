@@ -240,7 +240,7 @@ async def test_adversarial_robustness():
 
 ---
 
-## Key Insights for METR
+## Key Insights for AI Safety Evaluation
 
 <div class="insights">
 

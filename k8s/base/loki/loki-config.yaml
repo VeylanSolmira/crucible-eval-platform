@@ -2,7 +2,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: loki-config
-  namespace: crucible
 data:
   loki.yaml: |
     auth_enabled: false
@@ -41,7 +40,7 @@ data:
     limits_config:
       enforce_metric_name: false
       reject_old_samples: true
-      reject_old_samples_max_age: 168h
+      reject_old_samples_max_age: 12h
       ingestion_rate_mb: 10
       ingestion_burst_size_mb: 20
     
@@ -50,4 +49,4 @@ data:
     
     table_manager:
       retention_deletes_enabled: true
-      retention_period: 24h
+      retention_period: 12h

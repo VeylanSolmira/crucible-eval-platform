@@ -238,6 +238,78 @@ Based on the issues discovered, the monitoring service should:
 
 This separation would eliminate the race conditions and properly separate concerns.
 
+## Additional Tasks (Time Permitting)
+
+### Network Policy Implementation
+
+#### Phase 1: Fix Current NetworkPolicies (Priority: High)
+- [ ] Update evaluation pod NetworkPolicy to allow essential traffic
+  - [ ] Add DNS egress rules (UDP/TCP port 53 to kube-dns)
+  - [ ] Add Fluent Bit logging egress (TCP port 24224)
+  - [ ] Add storage service egress for results (TCP port 8082)
+  - [ ] Reference: [Evaluation Pod Network Requirements](../../networking/evaluation-pod-network-requirements.md)
+- [ ] Update platform services NetworkPolicy
+  - [ ] Add Redis access (port 6379)
+  - [ ] Add Postgres access (port 5432)
+  - [ ] Add inter-service communication rules
+  - [ ] Reference: [NetworkPolicy Best Practices](../../networking/network-policy-best-practices.md)
+- [ ] Test updated policies in dev environment
+  - [ ] Verify DNS resolution works
+  - [ ] Verify logs are collected
+  - [ ] Verify results are stored
+  - [ ] Verify all services can communicate
+
+#### Phase 2: AWS VPC CNI Configuration (Priority: High)
+- [ ] Verify ENABLE_NETWORK_POLICY environment variable is set correctly
+  - [ ] Update Terraform to include null_resource workaround
+  - [ ] Add automated verification in CI/CD
+  - [ ] Reference: [AWS VPC CNI NetworkPolicy Setup](../../networking/aws-vpc-cni-network-policy-setup.md)
+- [ ] Implement PolicyEndpoint monitoring
+  - [ ] Add checks for PolicyEndpoint creation
+  - [ ] Monitor eBPF program loading
+  - [ ] Create alerts for NetworkPolicy failures
+
+#### Phase 3: Evaluate CNI Alternatives (Priority: Medium)
+- [ ] Research Calico integration with EKS
+  - [ ] Test Calico alongside VPC CNI in dev cluster
+  - [ ] Measure performance impact
+  - [ ] Document installation process
+  - [ ] Reference: [CNI Comparison](../../networking/cni-comparison.md)
+- [ ] Evaluate Cilium as alternative
+  - [ ] Test eBPF-based network policies
+  - [ ] Assess L7 policy capabilities
+  - [ ] Compare resource usage
+
+#### Phase 4: Implement Full Network Isolation (Priority: Low)
+- [ ] If internet blocking required, implement Calico
+  - [ ] Create migration plan from VPC CNI
+  - [ ] Test with evaluation workloads
+  - [ ] Update NetworkPolicies for full isolation
+- [ ] Consider alternative isolation methods
+  - [ ] gVisor for network isolation
+  - [ ] Security Groups for Pods
+  - [ ] iptables in init containers
+  - [ ] Reference: [Network Isolation Alternatives](../../networking/network-isolation-alternatives.md)
+
+#### Phase 5: Testing and Validation
+- [ ] Fix race condition in network isolation test
+  - [ ] Add retry logic for Job pods
+  - [ ] Implement wait for PolicyEndpoint sync
+  - [ ] Update test to handle VPC CNI limitations
+- [ ] Re-enable `test_network_isolation` in CI/CD
+  - [ ] Update test to check internal traffic only (for VPC CNI)
+  - [ ] Add separate test for external traffic (if using Calico)
+- [ ] Create comprehensive network policy test suite
+  - [ ] Test each service's allowed connections
+  - [ ] Test blocked connections
+  - [ ] Performance impact testing
+
+#### Files to Update:
+- `/k8s/base/security/network-policies-basic.yaml` - Fix egress rules
+- `/k8s/base/kustomization.yaml` - Re-enable after fixing
+- `/infrastructure/terraform/eks-vpc-cni.tf` - Add workaround
+- `/tests/e2e/test_network_isolation.py` - Remove skip, add retry logic
+
 ## Links & Resources 🔗
 
 - [gVisor Installation Analysis](../../deployment/gvisor-eks-analysis.md)

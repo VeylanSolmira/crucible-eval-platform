@@ -15,7 +15,7 @@ This document contains a comprehensive analysis of topics found across all Cruci
 | Topic                | Frequency | Description                                  |
 | -------------------- | --------- | -------------------------------------------- |
 | Crucible             | High      | The evaluation platform name                 |
-| METR                 | High      | Model Evaluation for Transformative Research |
+| Crucible             | High      | Secure AI Model Evaluation Platform          |
 | Evaluation/Evaluator | High      | Core functionality for running tests         |
 | Executor Service     | High      | Service that runs evaluations                |
 | Storage Service      | Medium    | Handles file/data persistence                |
@@ -145,7 +145,7 @@ The following wiki-style links are already in use:
 ### Tier 1 (Auto-link always)
 
 - Crucible
-- METR
+- Crucible
 - Docker
 - Kubernetes / K8s
 - gVisor / runsc

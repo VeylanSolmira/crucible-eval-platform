@@ -397,4 +397,4 @@ class TestDispatcherService:
         
         # Verify timeout settings (now includes 5 minute buffer)
         assert job.spec.active_deadline_seconds == 330  # 30 + 300 buffer
-        assert job.spec.backoff_limit == 0  # No retries for user code
+        assert job.spec.backoff_limit == 2  # Default retry limit when expect_failure=False

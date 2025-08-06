@@ -37,7 +37,7 @@ React-force-graph enables powerful interactive visualizations for the Crucible d
 - **Orphaned pages** appear disconnected
 - **Hub documents** become visually obvious
 
-### 4. Crucible/METR-Specific Configuration
+### 4. Crucible-Specific Configuration
 
 ```javascript
 // Example visualization config for security platform
@@ -164,7 +164,7 @@ function WikiGraph({ documents, wikiLinks }) {
    - Show security control relationships
    - Map container isolation strategies
 
-## Why This Matters for METR
+## Why This Matters for AI Safety Evaluation
 
 The visualization transforms documentation from a linear experience into an explorable knowledge space, particularly valuable for:
 

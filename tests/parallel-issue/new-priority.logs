@@ -1,0 +1,2218 @@
+
+📦 Discovering test suites...
+  ✓ integration: 10 test files found
+  ✓ e2e: 10 test files found
+
+Found 2 test suites to run
+
+🔍 Starting cluster resource monitoring (every 5 seconds)...
+
+🚀 Running tests in PARALLEL mode
+
+📤 Submitting parallel-safe test jobs...
+  ✓ Submitted: integration-tests-20250803-003117-00
+  ✓ Submitted: e2e-tests-20250803-003117-01
+
+📊 Monitoring 2 jobs in parallel...
+
+📊 Monitoring: integration-tests-20250803-003117-00
+  Verbose mode: Will show full output on failure
+
+📊 Monitoring: e2e-tests-20250803-003117-01
+  Verbose mode: Will show full output on failure
+
+[07:32:09] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+  │ [integration] ============================= test session starts ==============================
+  │ [integration] platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /usr/local/bin/python
+  │ [integration] cachedir: .pytest_cache
+  │ [integration] rootdir: /app
+  │ [integration] configfile: pyproject.toml
+  │ [integration] plugins: anyio-3.7.1, asyncio-0.26.0, cov-6.2.1, mock-3.14.1, timeout-2.4.0
+  │ [integration] asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+  │ [e2e] ============================= test session starts ==============================
+  │ [e2e] platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /usr/local/bin/python
+  │ [e2e] cachedir: .pytest_cache
+  │ [e2e] rootdir: /app
+  │ [e2e] configfile: pyproject.toml
+  │ [e2e] plugins: anyio-3.7.1, asyncio-0.26.0, cov-6.2.1, mock-3.14.1, timeout-2.4.0
+  │ [e2e] asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+  │ [integration] INFO:storage.core.flexible_manager:Using file storage as primary
+  │ [integration] collecting ... Caching enabled
+  │ [integration] INFO:storage_service.app:Storage service initialized:
+  │ [integration] INFO:storage_service.app:  Primary backend: file
+  │ [integration] INFO:storage_service.app:  Database URL: not configured
+  │ [integration] INFO:storage_service.app:  File storage: ./data
+  │ [integration] INFO:storage_service.app:  Cache enabled: True
+  │ [integration] INFO:storage_service.app:  Large file threshold: 10485760 bytes
+  │ [e2e] collecting ... collected 26 items / 4 deselected / 22 selected
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py::test_health_check PASSED
+  │ [e2e] tests/e2e/test_core_flows.py::test_submit_evaluation FAILED
+  │ [e2e] tests/e2e/test_core_flows.py::test_evaluation_lifecycle FAILED
+  │ [e2e] tests/e2e/test_core_flows.py::test_error_handling FAILED
+  │ [e2e] tests/e2e/test_core_flows.py::test_storage_retrieval FAILED
+  │ [e2e] tests/e2e/test_core_flows.py::test_evaluation_timeout FAILED
+  │ [integration] collected 30 items / 2 deselected / 28 selected
+  │ [integration]
+  │ [integration] tests/integration/test_available_libraries.py::test_available_libraries FAILED
+  │ [integration] tests/integration/test_celery_connection.py::TestCeleryConnection::test_redis_connection PASSED
+  │ [e2e] tests/e2e/test_core_flows.py::test_language_parameter FAILED
+  │ [e2e] tests/e2e/test_evaluation_lifecycle.py::test_evaluation_completes_and_status_updates Resource-based timeout: 30s (1 waves with 17 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 30s
+  │ [e2e]   Resource status: 0 running, 0 pending evaluation pods
+  │ [e2e]   [0.4s] 20250803_073214_aafeb267: queued
+  │ [integration] tests/integration/test_celery_connection.py::TestCeleryConnection::test_celery_broker_connection
+  │ [integration] Found 1 active workers
+  │ [integration] PASSED
+  │ [integration] tests/integration/test_celery_connection.py::TestCeleryConnection::test_celery_configuration PASSED
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_health_check_task PASSED
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-direct-1754206335 "HTTP/1.1 200 OK"
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_evaluate_code_task PASSED
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+
+[07:32:16] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=1
+  │ [e2e]   [2.8s] 20250803_073214_aafeb267: queued
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-seq-0-1754206336 "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-seq-1-1754206336 "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-seq-2-1754206336 "HTTP/1.1 200 OK"
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_multiple_tasks_sequential PASSED
+  │ [e2e]   [5.1s] 20250803_073214_aafeb267: queued
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-state-1754206338 "HTTP/1.1 200 OK"
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_task_state_tracking PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [7.2s] 20250803_073214_aafeb267: queued
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:32:23 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  28/35     │       80.0% │         7 │ 🟡 WARN               ║
+║ CPU Req  │      1785m │       92.5% │      145m │ 🔴 CRITICAL           ║
+║ Mem Req  │     2620Mi │       36.9% │    4474Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 3 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 28/35 (80.0%) [ 7 avail]                                             ║
+║   CPU:  Req= 1785m (92.5%)                                                   ║
+║   Mem:  Req=2620Mi (36.9%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [9.3s] 20250803_073214_aafeb267: queued
+  │ [e2e]   [11.4s] 20250803_073214_aafeb267: queued
+  │ [e2e]   [13.5s] 20250803_073214_aafeb267: queued
+  │ [e2e]   [15.6s] 20250803_073214_aafeb267: queued
+
+[07:32:30] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=1 P=1
+  │ [e2e]   [17.7s] 20250803_073214_aafeb267: queued
+  │ [e2e]   [19.8s] 20250803_073214_aafeb267: queued
+  │ [e2e]   [21.9s] 20250803_073214_aafeb267: queued
+
+[07:32:37] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=1
+  │ [e2e]   [24.0s] 20250803_073214_aafeb267: queued
+  │ [e2e]   [26.1s] 20250803_073214_aafeb267: queued
+  │ [e2e]   [28.2s] 20250803_073214_aafeb267: queued
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:32:44 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  27/35     │       77.1% │         8 │ 🟢 OK                 ║
+║ CPU Req  │      1685m │       87.3% │      245m │ 🟡 WARN               ║
+║ Mem Req  │     2492Mi │       35.1% │    4602Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 27/35 (77.1%) [ 8 avail]                                             ║
+║   CPU:  Req= 1685m (87.3%)                                                   ║
+║   Mem:  Req=2492Mi (35.1%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]
+  │ [e2e] ❌ Timeout after 30.2s with 1 evaluations incomplete
+  │ [e2e]
+  │ [e2e] ⏱️  Timed out evaluation: 20250803_073214_aafeb267
+  │ [e2e]    Last status: queued
+  │ [e2e]    Check status: curl http://api-service:8080/api/eval/20250803_073214_aafeb267
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 30.3s
+  │ [e2e] Completed: 0
+  │ [e2e] Failed: 0
+  │ [e2e] Incomplete: 1
+  │ [e2e] FAILED
+  │ [e2e] tests/e2e/test_evaluation_list_accuracy.py::test_evaluation_list_accuracy 1. Submitting evaluation...
+  │ [e2e]    Evaluation ID: 20250803_073244_e8fd403d
+  │ [e2e]
+  │ [e2e] 2. Waiting for completion...
+  │ [e2e] Resource-based timeout: 30s (1 waves with 17 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 30s
+  │ [e2e]   Resource status: 0 running, 0 pending evaluation pods
+  │ [e2e]   [0.6s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [2.7s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [4.8s] 20250803_073244_e8fd403d: queued
+  │ [integration] tests/integration/test_docker_event_diagnostics.py::test_diagnose_container_lifecycle_timing FAILED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[07:32:51] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+  │ [e2e]   [7.2s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [9.3s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [11.4s] 20250803_073244_e8fd403d: queued
+
+[07:32:58] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+  │ [e2e]   [13.5s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [15.7s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [17.8s] 20250803_073244_e8fd403d: queued
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:33:04 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  27/35     │       77.1% │         8 │ 🟢 OK                 ║
+║ CPU Req  │      1685m │       87.3% │      245m │ 🟡 WARN               ║
+║ Mem Req  │     2492Mi │       35.1% │    4602Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 27/35 (77.1%) [ 8 avail]                                             ║
+║   CPU:  Req= 1685m (87.3%)                                                   ║
+║   Mem:  Req=2492Mi (35.1%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [19.9s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [22.0s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [24.2s] 20250803_073244_e8fd403d: queued
+  │ [e2e]   [26.6s] 20250803_073244_e8fd403d: queued
+
+[07:33:11] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+  │ [integration] tests/integration/test_docker_event_diagnostics.py::test_container_removal_timing
+  │ [integration] === Container Lifecycle Progression ===
+  │ [integration]   0.174s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   0.386s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   0.598s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   0.779s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   1.114s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   1.554s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   2.246s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   2.993s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   3.966s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   5.370s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   7.374s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   9.500s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   11.553s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   13.674s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   15.799s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   17.855s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   19.982s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration] FAILED
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [28.7s] 20250803_073244_e8fd403d: queued
+  │ [e2e]
+  │ [e2e] ❌ Timeout after 30.2s with 1 evaluations incomplete
+  │ [e2e]
+  │ [e2e] ⏱️  Timed out evaluation: 20250803_073244_e8fd403d
+  │ [e2e]    Last status: queued
+  │ [e2e]    Check status: curl http://api-service:8080/api/eval/20250803_073244_e8fd403d
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 30.5s
+  │ [e2e] Completed: 0
+  │ [e2e] Failed: 0
+  │ [e2e] Incomplete: 1
+  │ [e2e] FAILED
+  │ [e2e] tests/e2e/test_evaluation_list_accuracy.py::test_multiple_evaluation_statuses Resource-based timeout: 30s (1 waves with 17 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 2
+  │ [e2e] Timeout: 30s
+  │ [e2e]   Resource status: 0 running, 0 pending evaluation pods
+  │ [e2e]   [0.7s] 20250803_073315_fd852774: queued
+  │ [e2e]   [0.8s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [2.9s] 20250803_073315_fd852774: queued
+  │ [e2e]   [3.0s] 20250803_073315_f9b940ab: queued
+
+[07:33:18] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+  │ [e2e]   [5.2s] 20250803_073315_fd852774: queued
+  │ [e2e]   [5.3s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [7.4s] 20250803_073315_fd852774: queued
+  │ [e2e]   [7.7s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [9.8s] 20250803_073315_fd852774: queued
+  │ [e2e]   [9.9s] 20250803_073315_f9b940ab: queued
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:33:26 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  27/35     │       77.1% │         8 │ 🟢 OK                 ║
+║ CPU Req  │      1685m │       87.3% │      245m │ 🟡 WARN               ║
+║ Mem Req  │     2492Mi │       35.1% │    4602Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 27/35 (77.1%) [ 8 avail]                                             ║
+║   CPU:  Req= 1685m (87.3%)                                                   ║
+║   Mem:  Req=2492Mi (35.1%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [12.2s] 20250803_073315_fd852774: queued
+  │ [e2e]   [12.3s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [14.4s] 20250803_073315_fd852774: queued
+  │ [e2e]   [14.6s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [16.8s] 20250803_073315_fd852774: queued
+  │ [e2e]   [17.0s] 20250803_073315_f9b940ab: queued
+
+[07:33:33] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+  │ [e2e]   [19.2s] 20250803_073315_fd852774: queued
+  │ [e2e]   [19.4s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [21.5s] 20250803_073315_fd852774: queued
+  │ [e2e]   [21.8s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [24.0s] 20250803_073315_fd852774: queued
+  │ [e2e]   [24.1s] 20250803_073315_f9b940ab: queued
+
+[07:33:39] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+  │ [e2e]   [26.4s] 20250803_073315_fd852774: queued
+  │ [e2e]   [26.6s] 20250803_073315_f9b940ab: queued
+  │ [e2e]   [28.7s] 20250803_073315_fd852774: queued
+  │ [e2e]   [28.9s] 20250803_073315_f9b940ab: queued
+  │ [e2e]
+  │ [e2e] ❌ Timeout after 30.4s with 2 evaluations incomplete
+  │ [e2e]
+  │ [e2e] ⏱️  Timed out evaluation: 20250803_073315_fd852774
+  │ [e2e]    Last status: queued
+  │ [e2e]    Check status: curl http://api-service:8080/api/eval/20250803_073315_fd852774
+  │ [e2e]
+  │ [e2e] ⏱️  Timed out evaluation: 20250803_073315_f9b940ab
+  │ [e2e]    Last status: queued
+  │ [e2e]    Check status: curl http://api-service:8080/api/eval/20250803_073315_f9b940ab
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 30.8s
+  │ [e2e] Completed: 0
+  │ [e2e] Failed: 0
+  │ [e2e] Incomplete: 2
+  │ [e2e] FAILED
+  │ [e2e] tests/e2e/test_evaluation_workflows_k8s.py::test_single_evaluation_job_lifecycle
+  │ [e2e] ============================================================
+  │ [e2e] TEST 1: Single Evaluation Job Lifecycle
+  │ [e2e] ============================================================
+  │ [e2e] Initial evaluation jobs: 5
+  │ [e2e] FAILED
+  │ [e2e] tests/e2e/test_evaluation_workflows_k8s.py::test_concurrent_job_execution
+  │ [e2e] ============================================================
+  │ [e2e] TEST 2: Concurrent Job Execution
+  │ [e2e] ============================================================
+  │ [e2e] Submitting 5 evaluations...
+  │ [e2e] FAILED
+  │ [e2e] tests/e2e/test_evaluation_workflows_k8s.py::test_job_deletion_on_cancellation
+  │ [e2e] ============================================================
+  │ [e2e] TEST 4: Job Deletion on Cancellation
+  │ [e2e] ============================================================
+  │ [e2e] FAILED
+  │ [e2e] tests/e2e/test_fast_failing_containers.py::test_fast_failing_container_logs_captured FAILED
+  │ [e2e] tests/e2e/test_fast_failing_containers.py::test_mixed_stdout_stderr_fast_failure FAILED
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:33:47 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  27/35     │       77.1% │         8 │ 🟢 OK                 ║
+║ CPU Req  │      1685m │       87.3% │      245m │ 🟡 WARN               ║
+║ Mem Req  │     2492Mi │       35.1% │    4602Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 27/35 (77.1%) [ 8 avail]                                             ║
+║   CPU:  Req= 1685m (87.3%)                                                   ║
+║   Mem:  Req=2492Mi (35.1%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e] tests/e2e/test_fast_failing_containers.py::test_extremely_fast_exit FAILED
+  │ [e2e] tests/e2e/test_filesystem_isolation.py::test_filesystem_isolation FAILED
+  │ [e2e] tests/e2e/test_network_isolation.py::test_network_isolation SKIPPEDCNI
+  │ [e2e] without NetworkPolicy support))
+  │ [e2e] tests/e2e/test_priority_celery_e2e.py::test_celery_priority_queue_order SKIPPEDry-redis-vs-rabbitmq.md)
+  │ [e2e] tests/e2e/test_priority_celery_e2e.py::test_celery_multiple_priorities SKIPPEDry-redis-vs-rabbitmq.md)
+  │ [e2e] tests/e2e/test_priority_queue_e2e.py::test_priority_queue_execution_order SKIPPEDry-redis-vs-rabbitmq.md)
+  │ [e2e] tests/e2e/test_redis_state_management.py::test_redis_cleanup 1. Submitting evaluation...
+  │ [e2e]    Evaluation ID: 20250803_073347_898a7417
+  │ [e2e]
+  │ [e2e] 2. Waiting for evaluation to start...
+
+[07:33:53] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+  │ [e2e] FAILED
+  │ [e2e]
+  │ [e2e] =================================== FAILURES ===================================
+  │ [e2e] ____________________________ test_submit_evaluation ____________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_submit_evaluation():
+  │ [e2e]         """Test submitting a simple evaluation."""
+  │ [e2e]         # Submit evaluation
+  │ [e2e]         code = "print('Hello from integration test!')"
+  │ [e2e] >       eval_id = submit_evaluation(code, language="python", timeout=30)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py:47:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = "print('Hello from integration test!')", language = 'python'
+  │ [e2e] timeout = 30, memory_limit = None, cpu_limit = None, executor_image = None
+  │ [e2e] debug = False, priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] __________________________ test_evaluation_lifecycle ___________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_evaluation_lifecycle():
+  │ [e2e]         """Test complete evaluation lifecycle from submission to completion."""
+  │ [e2e]         # Submit evaluation
+  │ [e2e]         code = "import time\nprint('Starting...')\ntime.sleep(1)\nprint('Done!')"
+  │ [e2e] >       eval_id = submit_evaluation(code, language="python", timeout=30)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py:60:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = "import time\nprint('Starting...')\ntime.sleep(1)\nprint('Done!')"
+  │ [e2e] language = 'python', timeout = 30, memory_limit = None, cpu_limit = None
+  │ [e2e] executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] _____________________________ test_error_handling ______________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_error_handling():
+  │ [e2e]         """Test error handling for various failure scenarios."""
+  │ [e2e]         # Test 1: Code that exits with error
+  │ [e2e]         code = "import sys\nsys.exit(1)"
+  │ [e2e] >       eval_id = submit_evaluation(code, language="python", timeout=10)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py:86:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = 'import sys\nsys.exit(1)', language = 'python', timeout = 10
+  │ [e2e] memory_limit = None, cpu_limit = None, executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ____________________________ test_storage_retrieval ____________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_storage_retrieval():
+  │ [e2e]         """Test storage retrieval functionality."""
+  │ [e2e]         # Submit an evaluation
+  │ [e2e]         code = "print('Storage test output')"
+  │ [e2e] >       eval_id = submit_evaluation(code, language="python", timeout=10)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py:162:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = "print('Storage test output')", language = 'python', timeout = 10
+  │ [e2e] memory_limit = None, cpu_limit = None, executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ___________________________ test_evaluation_timeout ____________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_evaluation_timeout():
+  │ [e2e]         """Test that evaluations timeout correctly.
+  │ [e2e]
+  │ [e2e]         Kubernetes DOES enforce timeouts via activeDeadlineSeconds:
+  │ [e2e]         - When timeout is exceeded, Kubernetes sends SIGTERM to the pod
+  │ [e2e]         - After terminationGracePeriodSeconds (1s), it sends SIGKILL
+  │ [e2e]         - The job is marked as failed with DeadlineExceeded
+  │ [e2e]
+  │ [e2e]         Current limitations:
+  │ [e2e]         - Python processes don't handle SIGTERM, so they run until SIGKILL
+  │ [e2e]         - Celery polls every 10 seconds, so runtime reporting is delayed
+  │ [e2e]         - The reported runtime may show up to ~10 seconds even though the job was killed earlier
+  │ [e2e]
+  │ [e2e]         TODO: When we implement Kubernetes event-based status updates, the runtime
+  │ [e2e]         reporting will be accurate to when the job was actually terminated.
+  │ [e2e]         """
+  │ [e2e]         # Submit evaluation that will timeout
+  │ [e2e]         code = "import time\ntime.sleep(10)\nprint('Should not see this')"
+  │ [e2e] >       eval_id = submit_evaluation(code, language="python", timeout=2)  # 2 second timeout
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py:202:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = "import time\ntime.sleep(10)\nprint('Should not see this')"
+  │ [e2e] language = 'python', timeout = 2, memory_limit = None, cpu_limit = None
+  │ [e2e] executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ___________________________ test_language_parameter ____________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_language_parameter():
+  │ [e2e]         """Test that language parameter is handled correctly.
+  │ [e2e]
+  │ [e2e]         TODO: LANGUAGE-SUPPORT - The platform currently only supports Python and
+  │ [e2e]         treats all language parameters as Python. This is a known limitation.
+  │ [e2e]         When adding support for other languages (JavaScript, Go, etc.), update
+  │ [e2e]         this test to verify proper language validation and execution.
+  │ [e2e]         """
+  │ [e2e]         # Currently only Python is supported, but test the parameter
+  │ [e2e]         code = "print('Language test')"
+  │ [e2e] >       eval_id = submit_evaluation(code, language="python", timeout=10)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py:233:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = "print('Language test')", language = 'python', timeout = 10
+  │ [e2e] memory_limit = None, cpu_limit = None, executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] _________________ test_evaluation_completes_and_status_updates _________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.asyncio
+  │ [e2e]     async def test_evaluation_completes_and_status_updates():
+  │ [e2e]         """
+  │ [e2e]         Test that when executor publishes completion event:
+  │ [e2e]         1. Storage-worker updates the database
+  │ [e2e]         2. Redis is cleaned up properly
+  │ [e2e]         3. API returns correct status (not 404)
+  │ [e2e]         4. Frontend sees status change from running to completed
+  │ [e2e]         """
+  │ [e2e]         redis_client = ResilientRedisClient(
+  │ [e2e]             redis_url=REDIS_URL,
+  │ [e2e]             service_name="test_evaluation_lifecycle",
+  │ [e2e]             decode_responses=True
+  │ [e2e]         )
+  │ [e2e]         api_base = API_URL  # Already includes /api path
+  │ [e2e]
+  │ [e2e]         # Submit an evaluation
+  │ [e2e]         async with httpx.AsyncClient() as client:
+  │ [e2e]             response = await client.post(
+  │ [e2e]                 f"{api_base}/eval",  # api_base already includes /api
+  │ [e2e]                 json={
+  │ [e2e]                     "code": "print('Hello, World!')",
+  │ [e2e]                     "language": "python"
+  │ [e2e]                 }
+  │ [e2e]             )
+  │ [e2e]             assert response.status_code in [200, 202]  # API returns 200 OK
+  │ [e2e]             eval_data = response.json()
+  │ [e2e]             eval_id = eval_data["eval_id"]
+  │ [e2e]
+  │ [e2e]             # Use adaptive waiter for better timing
+  │ [e2e]             waiter = AdaptiveWaiter(initial_timeout=30)
+  │ [e2e]
+  │ [e2e]             # Convert async client to sync for the waiter
+  │ [e2e]             import requests
+  │ [e2e]             sync_session = requests.Session()
+  │ [e2e]
+  │ [e2e]             # Wait for evaluation to complete
+  │ [e2e]             results = waiter.wait_for_evaluations(
+  │ [e2e]                 sync_session,
+  │ [e2e]                 api_base,
+  │ [e2e]                 [eval_id],
+  │ [e2e]                 check_resources=True
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e] >           assert len(results["completed"]) == 1, f"Evaluation did not complete: {results}"
+  │ [e2e] E           AssertionError: Evaluation did not complete: {'completed': [], 'failed': [], 'duration': 30.292295217514038, 'timeout_used': 30}
+  │ [e2e] E           assert 0 == 1
+  │ [e2e] E            +  where 0 = len([])
+  │ [e2e]
+  │ [e2e] tests/e2e/test_evaluation_lifecycle.py:60: AssertionError
+  │ [e2e] ________________________ test_evaluation_list_accuracy _________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.asyncio
+  │ [e2e]     async def test_evaluation_list_accuracy():
+  │ [e2e]         """
+  │ [e2e]         Test that evaluation lists accurately reflect evaluation status.
+  │ [e2e]         """
+  │ [e2e]         # Use the correct API base URL without double /api/
+  │ [e2e]         namespace = os.getenv("K8S_NAMESPACE", "crucible")
+  │ [e2e]         api_host = os.getenv("API_HOST", f"api-service.{namespace}.svc.cluster.local")
+  │ [e2e]         api_port = os.getenv("API_PORT", "8080")
+  │ [e2e]         api_base = f"http://{api_host}:{api_port}/api"
+  │ [e2e]
+  │ [e2e]         async with httpx.AsyncClient(verify=False) as client:
+  │ [e2e]             # 1. Submit a simple evaluation that completes quickly
+  │ [e2e]             print("1. Submitting evaluation...")
+  │ [e2e]             response = await client.post(
+  │ [e2e]                 f"{api_base}/eval",
+  │ [e2e]                 json={
+  │ [e2e]                     "code": "print('Quick test')",
+  │ [e2e]                     "language": "python"
+  │ [e2e]                 }
+  │ [e2e]             )
+  │ [e2e]             assert response.status_code == 200
+  │ [e2e]             eval_id = response.json()["eval_id"]
+  │ [e2e]             print(f"   Evaluation ID: {eval_id}")
+  │ [e2e]
+  │ [e2e]             # 2. Wait for it to complete using adaptive waiter
+  │ [e2e]             print("\n2. Waiting for completion...")
+  │ [e2e]             sync_session = requests.Session()
+  │ [e2e]             results = wait_with_progress(sync_session, api_base, [eval_id], timeout=30)
+  │ [e2e]
+  │ [e2e] >           assert len(results["completed"]) == 1, f"Evaluation did not complete: {results}"
+  │ [e2e] E           AssertionError: Evaluation did not complete: {'completed': [], 'failed': [], 'duration': 30.50572395324707, 'timeout_used': 30}
+  │ [e2e] E           assert 0 == 1
+  │ [e2e] E            +  where 0 = len([])
+  │ [e2e]
+  │ [e2e] tests/e2e/test_evaluation_list_accuracy.py:50: AssertionError
+  │ [e2e] ______________________ test_multiple_evaluation_statuses _______________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.e2e
+  │ [e2e]     @pytest.mark.asyncio
+  │ [e2e]     async def test_multiple_evaluation_statuses():
+  │ [e2e]         """
+  │ [e2e]         Test that multiple evaluations with different statuses are correctly categorized.
+  │ [e2e]         """
+  │ [e2e]         namespace = os.environ.get("K8S_NAMESPACE")
+  │ [e2e]         if not namespace:
+  │ [e2e]             pytest.fail("K8S_NAMESPACE environment variable must be set")
+  │ [e2e]         api_host = os.getenv("API_HOST", f"api-service.{namespace}.svc.cluster.local")
+  │ [e2e]         api_port = os.getenv("API_PORT", "8080")
+  │ [e2e]         api_base = f"http://{api_host}:{api_port}/api"
+  │ [e2e]
+  │ [e2e]         async with httpx.AsyncClient(verify=False) as client:
+  │ [e2e]             # Submit multiple evaluations
+  │ [e2e]             eval_ids = []
+  │ [e2e]
+  │ [e2e]             # 1. Quick completion
+  │ [e2e]             response = await client.post(
+  │ [e2e]                 f"{api_base}/eval",
+  │ [e2e]                 json={"code": "print('test1')", "language": "python"}
+  │ [e2e]             )
+  │ [e2e]             assert response.status_code == 200
+  │ [e2e]             eval_ids.append(response.json()["eval_id"])
+  │ [e2e]
+  │ [e2e]             # 2. Evaluation that will fail
+  │ [e2e]             response = await client.post(
+  │ [e2e]                 f"{api_base}/eval",
+  │ [e2e]                 json={"code": "raise Exception('test error')", "language": "python"}
+  │ [e2e]             )
+  │ [e2e]             assert response.status_code == 200
+  │ [e2e]             eval_ids.append(response.json()["eval_id"])
+  │ [e2e]
+  │ [e2e]             # Wait for both to complete using adaptive waiter
+  │ [e2e]             sync_session = requests.Session()
+  │ [e2e]             results = wait_with_progress(sync_session, api_base, eval_ids, timeout=30)
+  │ [e2e]
+  │ [e2e]             # Should have 2 evaluations in terminal state (completed or failed)
+  │ [e2e]             total_done = len(results["completed"]) + len(results["failed"])
+  │ [e2e] >           assert total_done == 2, f"Expected 2 evaluations done, got {total_done}: {results}"
+  │ [e2e] E           AssertionError: Expected 2 evaluations done, got 0: {'completed': [], 'failed': [], 'duration': 30.76546001434326, 'timeout_used': 30}
+  │ [e2e] E           assert 0 == 2
+  │ [e2e]
+  │ [e2e] tests/e2e/test_evaluation_list_accuracy.py:134: AssertionError
+  │ [e2e] _____________________ test_single_evaluation_job_lifecycle _____________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.kubernetes
+  │ [e2e]     def test_single_evaluation_job_lifecycle():
+  │ [e2e]         """Test a single evaluation creates and cleans up a Kubernetes Job."""
+  │ [e2e]         print("\n" + "="*60)
+  │ [e2e]         print("TEST 1: Single Evaluation Job Lifecycle")
+  │ [e2e]         print("="*60)
+  │ [e2e]
+  │ [e2e]         # Get initial job count
+  │ [e2e]         namespace = os.environ.get("K8S_NAMESPACE")
+  │ [e2e]         if not namespace:
+  │ [e2e]             pytest.fail("K8S_NAMESPACE environment variable must be set")
+  │ [e2e]         initial_job_count = get_job_count(namespace, "app=evaluation")
+  │ [e2e]         print(f"Initial evaluation jobs: {initial_job_count}")
+  │ [e2e]
+  │ [e2e]         # Submit evaluation
+  │ [e2e] >       eval_id = submit_evaluation('print("Hello from Kubernetes Job!")')
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_evaluation_workflows_k8s.py:85:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = 'print("Hello from Kubernetes Job!")', language = 'python', timeout = 30
+  │ [e2e] memory_limit = None, cpu_limit = None, executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ________________________ test_concurrent_job_execution _________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.kubernetes
+  │ [e2e]     def test_concurrent_job_execution():
+  │ [e2e]         """Test multiple evaluations run as parallel Kubernetes Jobs."""
+  │ [e2e]         print("\n" + "="*60)
+  │ [e2e]         print("TEST 2: Concurrent Job Execution")
+  │ [e2e]         print("="*60)
+  │ [e2e]
+  │ [e2e]         # Submit multiple evaluations
+  │ [e2e]         num_evaluations = 5
+  │ [e2e]         eval_ids = []
+  │ [e2e]
+  │ [e2e]         print(f"Submitting {num_evaluations} evaluations...")
+  │ [e2e]         for i in range(num_evaluations):
+  │ [e2e]             code = f'import time; time.sleep(2); print("Task {i} completed on pod " + __import__("socket").gethostname())'
+  │ [e2e] >           eval_id = submit_evaluation(code)
+  │ [e2e]                       ^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_evaluation_workflows_k8s.py:139:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = 'import time; time.sleep(2); print("Task 0 completed on pod " + __import__("socket").gethostname())'
+  │ [e2e] language = 'python', timeout = 30, memory_limit = None, cpu_limit = None
+  │ [e2e] executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ______________________ test_job_deletion_on_cancellation _______________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.kubernetes
+  │ [e2e]     def test_job_deletion_on_cancellation():
+  │ [e2e]         """Test that Kubernetes Jobs are deleted when evaluation is cancelled."""
+  │ [e2e]         print("\n" + "="*60)
+  │ [e2e]         print("TEST 4: Job Deletion on Cancellation")
+  │ [e2e]         print("="*60)
+  │ [e2e]
+  │ [e2e]         # Submit a long-running evaluation
+  │ [e2e]         code = '''
+  │ [e2e]     import time
+  │ [e2e]     for i in range(30):
+  │ [e2e]         print(f"Running for {i} seconds...")
+  │ [e2e]         time.sleep(1)
+  │ [e2e]     print("Should not reach here if cancelled")
+  │ [e2e]     '''
+  │ [e2e]
+  │ [e2e] >       eval_id = submit_evaluation(code)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_evaluation_workflows_k8s.py:202:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = '\nimport time\nfor i in range(30):\n    print(f"Running for {i} seconds...")\n    time.sleep(1)\nprint("Should not reach here if cancelled")\n'
+  │ [e2e] language = 'python', timeout = 30, memory_limit = None, cpu_limit = None
+  │ [e2e] executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] __________________ test_fast_failing_container_logs_captured ___________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.whitebox
+  │ [e2e]     @pytest.mark.integration
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_fast_failing_container_logs_captured():
+  │ [e2e]         """
+  │ [e2e]         Test that fast-failing containers have their logs properly captured.
+  │ [e2e]
+  │ [e2e]         This verifies that containers that exit very quickly (< 1 second) have their
+  │ [e2e]         logs properly captured before the pod terminates.
+  │ [e2e]         """
+  │ [e2e]         # Submit evaluation with code that fails immediately
+  │ [e2e] >       eval_id = submit_evaluation(FAST_FAILING_CODE, language="python", timeout=30)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_fast_failing_containers.py:53:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = 'print("Before error"); 1/0', language = 'python', timeout = 30
+  │ [e2e] memory_limit = None, cpu_limit = None, executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ____________________ test_mixed_stdout_stderr_fast_failure _____________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.integration
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_mixed_stdout_stderr_fast_failure():
+  │ [e2e]         """
+  │ [e2e]         Test that containers with mixed stdout/stderr output are handled correctly.
+  │ [e2e]
+  │ [e2e]         Note: Current implementation mixes stdout and stderr together, which is a known
+  │ [e2e]         limitation documented in /week-4-demo/docker-logs-issue.md
+  │ [e2e]         """
+  │ [e2e]         # Submit evaluation with code that outputs to both streams
+  │ [e2e] >       eval_id = submit_evaluation(FAST_FAILING_WITH_STDERR, language="python", timeout=30)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_fast_failing_containers.py:88:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = '\nimport sys\nprint("Starting calculation...", file=sys.stdout)\nprint("Debug info", file=sys.stderr)\nresult = 1/0  # This will cause immediate failure\n'
+  │ [e2e] language = 'python', timeout = 30, memory_limit = None, cpu_limit = None
+  │ [e2e] executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ___________________________ test_extremely_fast_exit ___________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.integration
+  │ [e2e]     @pytest.mark.api
+  │ [e2e]     def test_extremely_fast_exit():
+  │ [e2e]         """
+  │ [e2e]         Test the most extreme case: code that exits instantly with sys.exit().
+  │ [e2e]
+  │ [e2e]         This is even faster than raising an exception and tests the absolute limits
+  │ [e2e]         of the race condition fix.
+  │ [e2e]         """
+  │ [e2e]         # Code that exits as fast as possible
+  │ [e2e]         instant_exit_code = "import sys; sys.exit(42)"
+  │ [e2e]
+  │ [e2e] >       eval_id = submit_evaluation(instant_exit_code, language="python", timeout=30)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_fast_failing_containers.py:173:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = 'import sys; sys.exit(42)', language = 'python', timeout = 30
+  │ [e2e] memory_limit = None, cpu_limit = None, executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] __________________________ test_filesystem_isolation ___________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.graybox
+  │ [e2e]     @pytest.mark.integration
+  │ [e2e]     def test_filesystem_isolation():
+  │ [e2e]         """Test that containers have proper filesystem restrictions
+  │ [e2e]
+  │ [e2e]         This test adapts based on runtime environment:
+  │ [e2e]         - Production: REQUIRES gVisor (test fails if not available)
+  │ [e2e]         - Development: Works with or without gVisor (different expectations)
+  │ [e2e]         """
+  │ [e2e]         # Production requirement: gVisor MUST be available
+  │ [e2e]         if IS_PRODUCTION and not GVISOR_AVAILABLE:
+  │ [e2e]             pytest.fail(
+  │ [e2e]                 "CRITICAL: Production environment detected but gVisor is not available!\n"
+  │ [e2e]                 "Production deployments MUST have gVisor for security.\n"
+  │ [e2e]                 "See: docs/security/gvisor-production-deployment.md"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         # Submit the filesystem test code
+  │ [e2e] >       eval_id = submit_evaluation(FILESYSTEM_TEST_CODE)
+  │ [e2e]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  │ [e2e]
+  │ [e2e] tests/e2e/test_filesystem_isolation.py:108:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] code = '\nimport os\n\nresults = []\n\n# Test 1: Try to read /etc/passwd (should be readable - normal Linux behavior)\ntry:\n...ernel ({missing_count}/{len(gvisor_blocked_files)} gVisor indicators)")\n\nfor result in results:\n    print(result)\n'
+  │ [e2e] language = 'python', timeout = 30, memory_limit = None, cpu_limit = None
+  │ [e2e] executor_image = None, debug = False
+  │ [e2e] priority = <PriorityClass.TEST_LOW_PRIORITY_EVAL: 150>
+  │ [e2e]
+  │ [e2e]     def submit_evaluation(code: str, language: str = "python", timeout: int = 30,
+  │ [e2e]                          memory_limit: Optional[str] = None, cpu_limit: Optional[str] = None,
+  │ [e2e]                          executor_image: str = None, debug: bool = False, priority: int = None) -> str:
+  │ [e2e]         """Submit an evaluation to the API
+  │ [e2e]
+  │ [e2e]         Args:
+  │ [e2e]             code: Code to evaluate
+  │ [e2e]             language: Programming language (default: python)
+  │ [e2e]             timeout: Timeout in seconds (default: 30)
+  │ [e2e]             memory_limit: Memory limit (e.g., 128Mi, 512Mi, 1Gi) (default: None - uses dispatcher default)
+  │ [e2e]             cpu_limit: CPU limit (e.g., 100m, 500m, 1) (default: None - uses dispatcher default)
+  │ [e2e]             executor_image: Executor image name (e.g., 'executor-base') or full image path (default: None)
+  │ [e2e]             debug: Preserve pod for debugging if it fails (default: False)
+  │ [e2e]             priority: Numeric priority (default: PriorityClass.TEST_LOW_PRIORITY_EVAL)
+  │ [e2e]
+  │ [e2e]         Returns:
+  │ [e2e]             Evaluation ID
+  │ [e2e]         """
+  │ [e2e]         # Use default test priority if not specified
+  │ [e2e]         if priority is None:
+  │ [e2e]             priority = PriorityClass.TEST_LOW_PRIORITY_EVAL
+  │ [e2e]
+  │ [e2e]         payload = {
+  │ [e2e]             "code": code,
+  │ [e2e]             "language": language,
+  │ [e2e]             "timeout": timeout,
+  │ [e2e]             "debug": debug,
+  │ [e2e]             "priority": priority  # Numeric priority value
+  │ [e2e]         }
+  │ [e2e]
+  │ [e2e]         # Add optional parameters if provided
+  │ [e2e]         if memory_limit is not None:
+  │ [e2e]             payload["memory_limit"] = memory_limit
+  │ [e2e]         if cpu_limit is not None:
+  │ [e2e]             payload["cpu_limit"] = cpu_limit
+  │ [e2e]         if executor_image:
+  │ [e2e]             payload["executor_image"] = executor_image
+  │ [e2e]
+  │ [e2e]         response = requests.post(
+  │ [e2e]             f"{API_URL}/eval",
+  │ [e2e]             json=payload
+  │ [e2e]         )
+  │ [e2e] >       response.raise_for_status()
+  │ [e2e]
+  │ [e2e] tests/utils/utils.py:61:
+  │ [e2e] _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  │ [e2e]
+  │ [e2e] self = <Response [422]>
+  │ [e2e]
+  │ [e2e]     def raise_for_status(self):
+  │ [e2e]         """Raises :class:`HTTPError`, if one occurred."""
+  │ [e2e]
+  │ [e2e]         http_error_msg = ""
+  │ [e2e]         if isinstance(self.reason, bytes):
+  │ [e2e]             # We attempt to decode utf-8 first because some servers
+  │ [e2e]             # choose to localize their reason strings. If the string
+  │ [e2e]             # isn't utf-8, we fall back to iso-8859-1 for all other
+  │ [e2e]             # encodings. (See PR #3538)
+  │ [e2e]             try:
+  │ [e2e]                 reason = self.reason.decode("utf-8")
+  │ [e2e]             except UnicodeDecodeError:
+  │ [e2e]                 reason = self.reason.decode("iso-8859-1")
+  │ [e2e]         else:
+  │ [e2e]             reason = self.reason
+  │ [e2e]
+  │ [e2e]         if 400 <= self.status_code < 500:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Client Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         elif 500 <= self.status_code < 600:
+  │ [e2e]             http_error_msg = (
+  │ [e2e]                 f"{self.status_code} Server Error: {reason} for url: {self.url}"
+  │ [e2e]             )
+  │ [e2e]
+  │ [e2e]         if http_error_msg:
+  │ [e2e] >           raise HTTPError(http_error_msg, response=self)
+  │ [e2e] E           requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e]
+  │ [e2e] /usr/local/lib/python3.11/site-packages/requests/models.py:1026: HTTPError
+  │ [e2e] ______________________________ test_redis_cleanup ______________________________
+  │ [e2e]
+  │ [e2e]     @pytest.mark.asyncio
+  │ [e2e]     async def test_redis_cleanup():
+  │ [e2e]         """Test that Redis running set is cleaned up when evaluation completes."""
+  │ [e2e]         api_base = API_URL
+  │ [e2e]         redis_client = await redis.from_url(REDIS_URL)
+  │ [e2e]
+  │ [e2e]         async with httpx.AsyncClient(verify=False) as client:
+  │ [e2e]             # 1. Submit evaluation
+  │ [e2e]             print("1. Submitting evaluation...")
+  │ [e2e]             response = await client.post(
+  │ [e2e]                 f"{api_base}/eval",
+  │ [e2e]                 json={
+  │ [e2e]                     "code": "print('Redis cleanup test')",
+  │ [e2e]                     "language": "python"
+  │ [e2e]                 }
+  │ [e2e]             )
+  │ [e2e]             assert response.status_code == 200
+  │ [e2e]             eval_id = response.json()["eval_id"]
+  │ [e2e]             print(f"   Evaluation ID: {eval_id}")
+  │ [e2e]
+  │ [e2e]             # 2. Wait for it to start running
+  │ [e2e]             print("\n2. Waiting for evaluation to start...")
+  │ [e2e]             start_time = time.time()
+  │ [e2e]             is_running = False
+  │ [e2e]
+  │ [e2e]             while time.time() - start_time < 10:
+  │ [e2e]                 # Check if in running set
+  │ [e2e]                 is_in_set = await redis_client.sismember("running_evaluations", eval_id)
+  │ [e2e]                 if is_in_set:
+  │ [e2e]                     print(f"   ✓ Found in running_evaluations set")
+  │ [e2e]                     is_running = True
+  │ [e2e]                     break
+  │ [e2e]                 await asyncio.sleep(0.5)
+  │ [e2e]
+  │ [e2e] >           assert is_running, "Evaluation never appeared in running set"
+  │ [e2e] E           AssertionError: Evaluation never appeared in running set
+  │ [e2e] E           assert False
+  │ [e2e]
+  │ [e2e] tests/e2e/test_redis_state_management.py:49: AssertionError
+  │ [e2e] ---------------------- generated xml file: /tmp/junit.xml ----------------------
+  │ [e2e]
+  │ [e2e] TEST_RESULTS_JSON:{"passed": 1, "failed": 17, "skipped": 4}
+  │ [e2e]
+  │ [e2e] =========================== short test summary info ============================
+  │ [e2e] FAILED tests/e2e/test_core_flows.py::test_submit_evaluation - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_core_flows.py::test_evaluation_lifecycle - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_core_flows.py::test_error_handling - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_core_flows.py::test_storage_retrieval - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_core_flows.py::test_evaluation_timeout - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_core_flows.py::test_language_parameter - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_evaluation_lifecycle.py::test_evaluation_completes_and_status_updates - AssertionError: Evaluation did not complete: {'completed': [], 'failed': [], 'duration': 30.292295217514038, 'timeout_used': 30}
+  │ [e2e] assert 0 == 1
+  │ [e2e]  +  where 0 = len([])
+  │ [e2e] FAILED tests/e2e/test_evaluation_list_accuracy.py::test_evaluation_list_accuracy - AssertionError: Evaluation did not complete: {'completed': [], 'failed': [], 'duration': 30.50572395324707, 'timeout_used': 30}
+  │ [e2e] assert 0 == 1
+  │ [e2e]  +  where 0 = len([])
+  │ [e2e] FAILED tests/e2e/test_evaluation_list_accuracy.py::test_multiple_evaluation_statuses - AssertionError: Expected 2 evaluations done, got 0: {'completed': [], 'failed': [], 'duration': 30.76546001434326, 'timeout_used': 30}
+  │ [e2e] assert 0 == 2
+  │ [e2e] FAILED tests/e2e/test_evaluation_workflows_k8s.py::test_single_evaluation_job_lifecycle - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_evaluation_workflows_k8s.py::test_concurrent_job_execution - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_evaluation_workflows_k8s.py::test_job_deletion_on_cancellation - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_fast_failing_containers.py::test_fast_failing_container_logs_captured - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_fast_failing_containers.py::test_mixed_stdout_stderr_fast_failure - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_fast_failing_containers.py::test_extremely_fast_exit - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_filesystem_isolation.py::test_filesystem_isolation - requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url: http://api-service.dev.svc.cluster.local:8080/api/eval
+  │ [e2e] FAILED tests/e2e/test_redis_state_management.py::test_redis_cleanup - AssertionError: Evaluation never appeared in running set
+  │ [e2e] assert False
+  │ [e2e] ====== 17 failed, 1 passed, 4 skipped, 4 deselected in 106.27s (0:01:46) =======
+
+[07:34:00] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=0
+
+[DEBUG e2e-tests-20250803-003117-01] Job status: active=0, succeeded=0, failed=1
+[DEBUG e2e-tests-20250803-003117-01] Condition: Failed=True reason=BackoffLimitExceeded message=Job has reached the specified backoff limit
+
+[1/2] ✅ e2e: 1 passed, 17 failed, 4 skipped (113.2s)
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:34:07 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_standard_library_imports FAILED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[07:34:14] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:34:20] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:34:27 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:34:33] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:34:40] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:34:46 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:34:53] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:34:59] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 32.4% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:35:06 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:35:13] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_import_error_captured FAILED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[07:35:20] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:35:26 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:35:33] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:35:39] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:35:46 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:35:52] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:35:59] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:36:06 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:36:12] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_ml_libraries_available FAILED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[07:36:19] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:36:25 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:36:32] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:36:38] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:36:45 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+[07:36:52] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:36:58] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:37:05 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:37:11] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_sys_path_and_modules FAILED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[07:37:18] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:37:25 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+[07:37:31] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+[07:37:38] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 07:37:44 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  26/35     │       74.3% │         9 │ 🟢 OK                 ║
+║ CPU Req  │      1585m │       82.1% │      345m │ 🟡 WARN               ║
+║ Mem Req  │     2236Mi │       31.5% │    4858Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 0 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 26/35 (74.3%) [ 9 avail]                                             ║
+║   CPU:  Req= 1585m (82.1%)                                                   ║
+║   Mem:  Req=2236Mi (31.5%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝

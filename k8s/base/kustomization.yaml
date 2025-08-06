@@ -35,7 +35,7 @@ resources:
   - flower/flower-deployment.yaml
   
   # Network policies
-  - security/network-policies-basic.yaml  # Essential evaluation pod isolation
+  # - security/network-policies-basic.yaml  # DISABLED: Too restrictive, breaks app functionality
   
   # Security
   - gvisor/

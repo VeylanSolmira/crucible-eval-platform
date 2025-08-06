@@ -18,12 +18,15 @@ resource "aws_eks_addon" "vpc_cni" {
   addon_version = data.aws_eks_addon_version.vpc_cni.version
 
   # Enable NetworkPolicy support
+  # Note: There's a known issue where enableNetworkPolicy in configuration_values
+  # doesn't properly set the ENABLE_NETWORK_POLICY environment variable.
+  # As a workaround, we need to set the env var directly after the addon is created.
   configuration_values = jsonencode({
     enableNetworkPolicy = "true"
-    # You can add other VPC CNI configurations here as needed
-    # For example:
-    # enablePodENI = "true"  # For Security Groups for Pods
-    # nodeAgentEnabled = "true"  # For Network Policy enforcement
+    # The nodeAgent is required for network policy enforcement
+    nodeAgent = {
+      enabled = true
+    }
   })
 
   # Handle conflicts by overwriting
@@ -46,4 +49,24 @@ output "vpc_cni_addon_version" {
 output "network_policy_enabled" {
   description = "Whether NetworkPolicy enforcement is enabled in the VPC CNI"
   value       = "true"
+}
+
+# Workaround: Ensure ENABLE_NETWORK_POLICY env var is set
+# There's a known issue where the addon configuration doesn't always set this properly
+resource "null_resource" "enable_network_policy" {
+  depends_on = [aws_eks_addon.vpc_cni]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${data.aws_region.current.name}
+      kubectl set env daemonset aws-node -n kube-system ENABLE_NETWORK_POLICY=true
+      kubectl rollout restart daemonset aws-node -n kube-system
+      kubectl rollout status daemonset aws-node -n kube-system --timeout=300s
+    EOT
+  }
+
+  # Trigger on version changes
+  triggers = {
+    addon_version = aws_eks_addon.vpc_cni.addon_version
+  }
 }

@@ -11,7 +11,7 @@ tags: ['history', 'beginning']
 # 97 lines that became 7,284
 
 if __name__ == "__main__":
-    print("Starting METR AI Safety Evaluation Platform...")
+    print("Starting Crucible AI Safety Evaluation Platform...")
 
     # The journey of a thousand miles begins with a single step
     # Or in our case, a single subprocess.run()

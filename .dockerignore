@@ -45,6 +45,7 @@ venv311/
 Thumbs.db
 
 # Project specific
+.env
 /data/
 # Infrastructure - exclude everything except markdown files
 /infrastructure/

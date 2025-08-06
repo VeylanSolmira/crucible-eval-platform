@@ -1,10 +1,10 @@
 ---
-title: 'METR Evaluation Platform'
+title: 'Crucible Evaluation Platform'
 order: 1
 tags: ['introduction', 'overview']
 ---
 
-# METR Evaluation Platform
+# Crucible Evaluation Platform
 
 ## Modern Code Evaluation System
 

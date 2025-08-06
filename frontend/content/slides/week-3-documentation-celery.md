@@ -279,7 +279,7 @@ async def validate_celery_parity():
 
 ---
 
-## METR Alignment
+## Platform Alignment
 
 This demonstrates:
 

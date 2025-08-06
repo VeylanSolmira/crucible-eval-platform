@@ -1,6 +1,6 @@
 # Slides Feature
 
-This directory contains the presentation slides for the METR Evaluation Platform.
+This directory contains the presentation slides for the Crucible Evaluation Platform.
 
 ## Structure
 

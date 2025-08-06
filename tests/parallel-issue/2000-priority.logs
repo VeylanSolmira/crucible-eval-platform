@@ -1,0 +1,807 @@
+python tests/test_orchestrator.py integration e2e --parallel --verbose --show-cluster-resources
+☁️  Detected remote cluster: arn:aws:eks:us-west-2:503132503803:cluster/crucible-platform
+🌐 Remote cluster detected - enabling registry mode
+📦 Using ECR registry: 503132503803.dkr.ecr.us-west-2.amazonaws.com
+📋 Image Pull Policy: IfNotPresent
+
+================================================================================
+KUBERNETES TEST ORCHESTRATOR
+================================================================================
+
+Configuration:
+  Namespace: dev
+  Registry: 503132503803.dkr.ecr.us-west-2.amazonaws.com (ECR)
+  Test Image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:20250802-233337
+  Test Suites: ['integration', 'e2e']
+  Parallel: True
+  Include Slow: False
+  Include Destructive: False
+
+================================================================================
+STEP 1: Running Smoke Tests
+================================================================================
+Kubernetes Cluster Access Smoke Tests
+============================================================
+
+✓ All prerequisites found
+
+Running smoke tests...
+------------------------------------------------------------
+============================================ test session starts ============================================
+collected 10 items
+
+tests/smoke/test_cluster_access.py::TestClusterAccess::test_kubectl_connectivity PASSED               [ 10%]
+tests/smoke/test_cluster_access.py::TestClusterAccess::test_namespace_exists PASSED                   [ 20%]
+tests/smoke/test_cluster_access.py::TestClusterAccess::test_required_services PASSED                  [ 30%]
+tests/smoke/test_cluster_access.py::TestClusterAccess::test_simple_job_execution PASSED               [ 40%]
+tests/smoke/test_cluster_access.py::TestClusterAccess::test_api_accessible PASSED                     [ 50%]
+tests/smoke/test_cluster_access.py::TestClusterAccess::test_deployments_ready PASSED                  [ 60%]
+tests/smoke/test_cluster_access.py::TestClusterAccess::test_test_runner_image_accessible PASSED       [ 70%]
+tests/smoke/test_cluster_access.py::test_resource_counts[pods-5] PASSED                               [ 80%]
+tests/smoke/test_cluster_access.py::test_resource_counts[services-7] PASSED                           [ 90%]
+tests/smoke/test_cluster_access.py::test_resource_counts[configmaps-2] PASSED                         [100%]
+
+TEST_RESULTS_JSON:{"passed": 10, "failed": 0, "skipped": 0}
+
+
+============================================ 10 passed in 19.10s ============================================
+
+============================================================
+✅ SMOKE TESTS PASSED
+
+Cluster is ready for main test suite!
+
+Next steps:
+1. Run full test suite inside cluster: python tests/run_tests.py
+2. Or run specific test suites: python tests/run_tests.py integration
+
+✅ Smoke tests passed. Cluster is ready.
+
+================================================================================
+STEP 2: Building Test Runner Image
+================================================================================
+
+🔨 Building image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:20250802-233337
+🏗️  Building for linux/amd64 platform (EKS compatibility)
+[+] Building 12.4s (17/17) FINISHED                                                     docker:desktop-linux
+ => [internal] load build definition from Dockerfile                                                    0.0s
+ => => transferring dockerfile: 1.62kB                                                                  0.0s
+ => [internal] load metadata for docker.io/library/python:3.11-slim                                     4.2s
+ => [auth] library/python:pull token for registry-1.docker.io                                           0.0s
+ => [internal] load .dockerignore                                                                       0.0s
+ => => transferring context: 808B                                                                       0.0s
+ => [ 1/11] FROM docker.io/library/python:3.11-slim@sha256:0ce77749ac83174a31d5e107ce0cfa6b28a2fd6b061  0.0s
+ => => resolve docker.io/library/python:3.11-slim@sha256:0ce77749ac83174a31d5e107ce0cfa6b28a2fd6b0615e  0.0s
+ => [internal] load build context                                                                       2.3s
+ => => transferring context: 204.71kB                                                                   2.3s
+ => CACHED [ 2/11] RUN apt-get update && apt-get install -y --no-install-recommends     gcc     g++     0.0s
+ => CACHED [ 3/11] RUN curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl" &&     chm  0.0s
+ => CACHED [ 4/11] RUN useradd -m -u 1000 testrunner                                                    0.0s
+ => CACHED [ 5/11] WORKDIR /app                                                                         0.0s
+ => CACHED [ 6/11] COPY tests/requirements.txt ./tests/                                                 0.0s
+ => CACHED [ 7/11] COPY shared/requirements/ ./shared/requirements/                                     0.0s
+ => CACHED [ 8/11] COPY constraints.txt ./                                                              0.0s
+ => CACHED [ 9/11] RUN pip install --no-cache-dir --upgrade pip &&     pip install --no-cache-dir -r t  0.0s
+ => [10/11] COPY . .                                                                                    1.6s
+ => [11/11] RUN chown -R testrunner:testrunner /app                                                     3.0s
+ => exporting to image                                                                                  0.9s
+ => => exporting layers                                                                                 0.8s
+ => => exporting manifest sha256:a02fedf6f4be90468ea5b5696a292a76e960ae31c0705f13056c3c76469dcbdd       0.0s
+ => => exporting config sha256:28a1432af84818b2a321bcb2bd55a663f7dfaa69e4cc1e6693e8bea24c604f7d         0.0s
+ => => exporting attestation manifest sha256:609b3fa6106ad36a4288908e7c952f3ab9fd5b975932841f9805fee35  0.0s
+ => => exporting manifest list sha256:99514227552b5504df71ff1029a5c363ffcfe893069135846b5d3f7cbc37a704  0.0s
+ => => naming to 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:20250802-233337               0.0s
+ => => naming to 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:latest                        0.0s
+
+What's next:
+    View a summary of image vulnerabilities and recommendations → docker scout quickview
+
+🔐 Logging in to ECR...
+✅ Successfully logged in to ECR
+
+📤 Pushing images to registry (503132503803.dkr.ecr.us-west-2.amazonaws.com)...
+⏳ This may take several minutes depending on your upload speed...
+📊 Image size: 202MB
+
+📤 [1/2] Pushing 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:20250802-233337
+   Watch progress in the output below...
+The push refers to repository [503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner]
+dab9a763e959: Layer already exists
+2145dd73ae96: Layer already exists
+82af4ff3e343: Pushed
+4085babbc570: Layer already exists
+abd846fa1cdb: Layer already exists
+7b05675d0ac8: Layer already exists
+983a1ca3f907: Layer already exists
+c6b493fb6504: Layer already exists
+59e22667830b: Layer already exists
+ace8dd0e78a6: Layer already exists
+9ceb718ecfff: Layer already exists
+929bbe6fde23: Pushed
+91070eb059e5: Pushed
+b7b61708209a: Layer already exists
+543e0946455c: Layer already exists
+20250802-233337: digest: sha256:99514227552b5504df71ff1029a5c363ffcfe893069135846b5d3f7cbc37a704 size: 856
+✅ Successfully pushed 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:20250802-233337
+
+📤 [2/2] Pushing 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:latest
+   This should be faster (same layers)...
+The push refers to repository [503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner]
+9ceb718ecfff: Layer already exists
+59e22667830b: Layer already exists
+91070eb059e5: Layer already exists
+2145dd73ae96: Layer already exists
+983a1ca3f907: Layer already exists
+ace8dd0e78a6: Layer already exists
+abd846fa1cdb: Layer already exists
+b7b61708209a: Layer already exists
+4085babbc570: Layer already exists
+dab9a763e959: Layer already exists
+7b05675d0ac8: Layer already exists
+543e0946455c: Layer already exists
+82af4ff3e343: Already exists
+c6b493fb6504: Layer already exists
+929bbe6fde23: Layer already exists
+latest: digest: sha256:99514227552b5504df71ff1029a5c363ffcfe893069135846b5d3f7cbc37a704 size: 856
+✅ Successfully pushed 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:latest
+✅ Test image ready
+
+🔍 Debug - Registry value: '503132503803.dkr.ecr.us-west-2.amazonaws.com'
+🔍 Debug - 'ecr' in registry: True
+🔍 Debug - imagePullSecrets: []
+
+================================================================================
+STEP 3: Submitting Test Coordinator Job
+================================================================================
+
+🔐 Setting up coordinator permissions...
+
+🚀 Submitting coordinator job: test-coordinator-20250802-233337
+✅ Coordinator job submitted
+
+================================================================================
+STEP 4: Monitoring Test Execution
+================================================================================
+
+⏳ Waiting for coordinator pod to start...
+   Checking pod status every 2 seconds...
+
+   [0s] Container waiting: ContainerCreating
+   💡 Container is being created - this is normal
+
+   [0s] Pod phase: Pending
+.
+   [3s] Pod phase: Running
+
+✅ Pod started after 3 seconds
+
+
+📋 Coordinator Logs:
+--------------------------------------------------------------------------------
+================================================================================
+TEST COORDINATOR
+================================================================================
+
+Running inside cluster in namespace: dev
+Test image: 503132503803.dkr.ecr.us-west-2.amazonaws.com/test-runner:20250802-233337
+
+📦 Discovering test suites...
+  ✓ integration: 10 test files found
+  ✓ e2e: 10 test files found
+
+Found 2 test suites to run
+
+🔍 Starting cluster resource monitoring (every 5 seconds)...
+
+🚀 Running tests in PARALLEL mode
+
+📤 Submitting parallel-safe test jobs...
+  ✓ Submitted: integration-tests-20250802-233337-00
+  ✓ Submitted: e2e-tests-20250802-233337-01
+
+📊 Monitoring 2 jobs in parallel...
+
+📊 Monitoring: integration-tests-20250802-233337-00
+  Verbose mode: Will show full output on failure
+
+📊 Monitoring: e2e-tests-20250802-233337-01
+  Verbose mode: Will show full output on failure
+
+[06:35:09] CLUSTER: Pods 🟢 26/35 CPU 🟡 82.1% Mem 🟢 31.5% | Evals: R=0 P=0
+  │ [integration] ============================= test session starts ==============================
+  │ [integration] platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /usr/local/bin/python
+  │ [integration] cachedir: .pytest_cache
+  │ [integration] rootdir: /app
+  │ [integration] configfile: pyproject.toml
+  │ [integration] plugins: anyio-3.7.1, asyncio-0.26.0, cov-6.2.1, mock-3.14.1, timeout-2.4.0
+  │ [integration] asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+  │ [e2e] ============================= test session starts ==============================
+  │ [e2e] platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /usr/local/bin/python
+  │ [e2e] cachedir: .pytest_cache
+  │ [e2e] rootdir: /app
+  │ [e2e] configfile: pyproject.toml
+  │ [e2e] plugins: anyio-3.7.1, asyncio-0.26.0, cov-6.2.1, mock-3.14.1, timeout-2.4.0
+  │ [e2e] asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+  │ [integration] INFO:storage.core.flexible_manager:Using file storage as primary
+  │ [integration] collecting ... Caching enabled
+  │ [integration] INFO:storage_service.app:Storage service initialized:
+  │ [integration] INFO:storage_service.app:  Primary backend: file
+  │ [integration] INFO:storage_service.app:  Database URL: not configured
+  │ [integration] INFO:storage_service.app:  File storage: ./data
+  │ [integration] INFO:storage_service.app:  Cache enabled: True
+  │ [integration] INFO:storage_service.app:  Large file threshold: 10485760 bytes
+  │ [e2e] collecting ... collected 26 items / 4 deselected / 22 selected
+  │ [e2e]
+  │ [e2e] tests/e2e/test_core_flows.py::test_health_check PASSED
+  │ [e2e] tests/e2e/test_core_flows.py::test_submit_evaluation
+  │ [e2e] [EVAL_SUBMIT] eval_id=20250803_063514_5904ed25 timestamp=1754202914.2112343
+  │ [e2e] PASSED
+  │ [integration] collected 30 items / 2 deselected / 28 selected
+  │ [integration]
+  │ [integration] tests/integration/test_available_libraries.py::test_available_libraries
+  │ [integration] [EVAL_SUBMIT] eval_id=20250803_063514_8c86b59c timestamp=1754202914.8336096
+  │ [integration] Resource-based timeout: 30s (1 waves with 16 concurrent)
+  │ [integration]
+  │ [integration] === Adaptive Evaluation Wait ===
+  │ [integration] Total evaluations: 1
+  │ [integration] Timeout: 120s
+  │ [e2e] tests/e2e/test_core_flows.py::test_evaluation_lifecycle
+  │ [e2e] [EVAL_SUBMIT] eval_id=20250803_063514_a905c923 timestamp=1754202914.8201373
+  │ [e2e] Resource-based timeout: 30s (1 waves with 16 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 120s
+  │ [e2e]   Resource status: 0 running, 0 pending evaluation pods
+  │ [integration]   Resource status: 0 running, 0 pending evaluation pods
+  │ [integration]   [1.5s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [1.5s] 20250803_063514_a905c923: running
+
+[06:35:17] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=3
+  │ [integration]   [3.3s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [3.3s] 20250803_063514_a905c923: provisioning
+  │ [integration]   [5.7s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [5.7s] 20250803_063514_a905c923: provisioning
+  │ [integration]   [8.0s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [8.1s] 20250803_063514_a905c923: provisioning
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 06:35:24 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  28/35     │       80.0% │         7 │ 🟡 WARN               ║
+║ CPU Req  │      1785m │       92.5% │      145m │ 🔴 CRITICAL           ║
+║ Mem Req  │     2620Mi │       36.9% │    4474Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 1 Completed= 2 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 28/35 (80.0%) [ 7 avail]                                             ║
+║   CPU:  Req= 1785m (92.5%)                                                   ║
+║   Mem:  Req=2620Mi (36.9%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [10.3s] 20250803_063514_a905c923: provisioning
+  │ [integration]   [10.3s] 20250803_063514_8c86b59c: provisioning
+  │ [integration]   [12.8s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [12.8s] 20250803_063514_a905c923: completed
+  │ [e2e]
+  │ [e2e] [12.3s] Progress: 1 completed, 0 failed, 0 pending
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 13.3s
+  │ [e2e] Completed: 1
+  │ [e2e] Failed: 0
+  │ [e2e] Incomplete: 0
+  │ [e2e] PASSED
+  │ [e2e] tests/e2e/test_core_flows.py::test_error_handling
+  │ [e2e] [EVAL_SUBMIT] eval_id=20250803_063528_18936ebc timestamp=1754202928.7585707
+  │ [e2e] Resource-based timeout: 30s (1 waves with 16 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 120s
+  │ [e2e]   Resource status: 1 running, 1 pending evaluation pods
+  │ [e2e]   [0.7s] 20250803_063528_18936ebc: provisioning
+  │ [integration]   [15.0s] 20250803_063514_8c86b59c: provisioning
+
+[06:35:32] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=1 P=1
+  │ [integration]   [17.2s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [2.9s] 20250803_063528_18936ebc: provisioning
+  │ [e2e]   [5.1s] 20250803_063528_18936ebc: provisioning
+  │ [integration]   [19.4s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [7.2s] 20250803_063528_18936ebc: provisioning
+  │ [integration]   [21.5s] 20250803_063514_8c86b59c: provisioning
+  │ [e2e]   [9.3s] 20250803_063528_18936ebc: provisioning
+
+[06:35:39] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=1 P=0
+  │ [integration]   [23.6s] 20250803_063514_8c86b59c: completed
+  │ [integration]
+  │ [integration] [23.5s] Progress: 1 completed, 0 failed, 0 pending
+  │ [integration]
+  │ [integration] === Evaluation Summary ===
+  │ [integration] Duration: 24.1s
+  │ [integration] Completed: 1
+  │ [integration] Failed: 0
+  │ [integration] Incomplete: 0
+  │ [integration]
+  │ [integration] Available libraries: numpy, requests, torch, json, hashlib, datetime, os, sys
+  │ [integration] Unavailable libraries: pandas, matplotlib, scipy, sklearn, tensorflow
+  │ [integration] PASSED
+  │ [integration] tests/integration/test_celery_connection.py::TestCeleryConnection::test_redis_connection PASSED
+  │ [e2e]   [11.4s] 20250803_063528_18936ebc: provisioning
+  │ [integration] tests/integration/test_celery_connection.py::TestCeleryConnection::test_celery_broker_connection
+  │ [integration] Found 1 active workers
+  │ [integration] PASSED
+  │ [integration] tests/integration/test_celery_connection.py::TestCeleryConnection::test_celery_configuration PASSED
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_health_check_task PASSED
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-direct-1754202940 "HTTP/1.1 200 OK"
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_evaluate_code_task PASSED
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [e2e]   [13.7s] 20250803_063528_18936ebc: failed
+  │ [e2e]
+  │ [e2e] [13.4s] Progress: 0 completed, 1 failed, 0 pending
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 14.2s
+  │ [e2e] Completed: 0
+  │ [e2e] Failed: 1
+  │ [e2e] Incomplete: 0
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [e2e]
+  │ [e2e] [EVAL_SUBMIT] eval_id=20250803_063543_46076344 timestamp=1754202943.4769995
+  │ [e2e] Resource-based timeout: 30s (1 waves with 14 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 120s
+  │ [e2e]   Resource status: 0 running, 2 pending evaluation pods
+  │ [e2e]   [0.6s] 20250803_063543_46076344: provisioning
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-seq-0-1754202941 "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-seq-1-1754202942 "HTTP/1.1 200 OK"
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-seq-2-1754202942 "HTTP/1.1 200 OK"
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_multiple_tasks_sequential PASSED
+  │ [integration] INFO:httpx:HTTP Request: POST http://storage-service.dev.svc.cluster.local:8082/evaluations "HTTP/1.1 200 OK"
+  │ [integration] tests/integration/test_celery_tasks.py::TestCeleryTasks::test_task_state_tracking PASSED
+  │ [integration] INFO:httpx:HTTP Request: DELETE http://storage-service.dev.svc.cluster.local:8082/evaluations/test-state-1754202944 "HTTP/1.1 200 OK"
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [2.9s] 20250803_063543_46076344: provisioning
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 06:35:47 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  28/35     │       80.0% │         7 │ 🟡 WARN               ║
+║ CPU Req  │      1785m │       92.5% │      145m │ 🔴 CRITICAL           ║
+║ Mem Req  │     2620Mi │       36.9% │    4474Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 6 Completed= 3 Failed= 0                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 28/35 (80.0%) [ 7 avail]                                             ║
+║   CPU:  Req= 1785m (92.5%)                                                   ║
+║   Mem:  Req=2620Mi (36.9%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [5.0s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [7.3s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [9.4s] 20250803_063543_46076344: provisioning
+
+[06:35:54] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=4
+  │ [e2e]   [11.6s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [13.9s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [16.1s] 20250803_063543_46076344: provisioning
+
+[06:36:01] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=4
+  │ [e2e]   [18.3s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [20.4s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [22.5s] 20250803_063543_46076344: provisioning
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 06:36:08 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  28/35     │       80.0% │         7 │ 🟡 WARN               ║
+║ CPU Req  │      1785m │       92.5% │      145m │ 🔴 CRITICAL           ║
+║ Mem Req  │     2620Mi │       36.9% │    4474Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 4 Completed= 3 Failed= 2                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 28/35 (80.0%) [ 7 avail]                                             ║
+║   CPU:  Req= 1785m (92.5%)                                                   ║
+║   Mem:  Req=2620Mi (36.9%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [24.6s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [26.7s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [29.0s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [31.1s] 20250803_063543_46076344: provisioning
+  │ [e2e]
+  │ [e2e] ⚠️  No progress in 30s
+  │ [e2e]   Checking cluster resources...
+  │ [e2e]   Resource status: 0 running, 3 pending evaluation pods
+  │ [e2e]     Quota check: 5492MB used / 7168MB limit (1676MB available)
+
+[06:36:15] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=4
+  │ [e2e]     Evaluation pods: 0 running, 4 pending
+  │ [e2e]   → Cluster has available capacity - waiting for scheduling
+  │ [e2e]
+  │ [e2e]   === Detailed Resource Status ===
+  │ [e2e]   ResourceQuota:
+  │ [e2e]     Memory: 5364Mi / 7Gi
+  │ [e2e]     CPU: 5 / 8
+  │ [e2e]
+  │ [e2e]   Evaluation Pods:
+  │ [e2e]     Pending (3):
+  │ [e2e]       - 20250803-063543-4607-83c32f2d-krhbj
+  │ [e2e]       - test-seq-2-175420294-3c5f7a9a-gb5xk
+  │ [e2e]       - test-state-175420294-d91cafec-m6zrl
+  │ [e2e]     Failed (3):
+  │ [e2e]       - 20250803-063545-1b3f-62c5f720-dl4fc
+  │ [e2e]       - 20250803-063556-732f-da7f9a66-xj4vb
+  │ [e2e]       - 20250803-063604-6b63-7c7e0108-m2gqg
+  │ [e2e]
+  │ [e2e]   Evaluations without pods (1):
+  │ [e2e]     - 20250803_063543_46076344
+  │ [e2e]   === End Detailed Status ===
+  │ [integration] tests/integration/test_docker_event_diagnostics.py::test_diagnose_container_lifecycle_timing
+  │ [integration] === Container Lifecycle Timing Results ===
+  │ [integration]
+  │ [integration] Test: instant_error
+  │ [integration]   Submission time: 0.239s
+  │ [integration]   Total time: 10.837s
+  │ [integration]   Execution time: 10.599s
+  │ [integration]   Status: failed
+  │ [integration]   Has logs: True (length: 110)
+  │ [integration]
+  │ [integration] Test: print_then_error
+  │ [integration]   Submission time: 0.160s
+  │ [integration]   Total time: 7.627s
+  │ [integration]   Execution time: 7.467s
+  │ [integration]   Status: failed
+  │ [integration]   Has logs: True (length: 130)
+  │ [integration]
+  │ [integration] Test: sleep_then_error
+  │ [integration]   Submission time: 0.291s
+  │ [integration]   Total time: 7.189s
+  │ [integration]   Execution time: 6.899s
+  │ [integration]   Status: failed
+  │ [integration]   Has logs: True (length: 122)
+  │ [integration]
+  │ [integration] Test: normal_completion
+  │ [integration]   Submission time: 0.207s
+  │ [integration]   Total time: 5.524s
+  │ [integration]   Execution time: 5.318s
+  │ [integration]   Status: completed
+  │ [integration]   Has logs: True (length: 8)
+  │ [integration] PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [33.3s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [35.5s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [37.7s] 20250803_063543_46076344: provisioning
+  │ [integration] tests/integration/test_docker_event_diagnostics.py::test_container_removal_timing
+  │ [integration] === Container Lifecycle Progression ===
+  │ [integration]   0.253s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   0.362s: status=queued, output=False, error=False, runtime=Nonems
+  │ [integration]   0.710s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   0.955s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   1.263s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   1.678s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   2.252s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   2.874s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   3.853s: status=provisioning, output=False, error=False, runtime=Nonems
+  │ [integration]   5.376s: status=failed, output=False, error=True, runtime=4651ms
+  │ [integration] PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[06:36:23] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=3
+  │ [e2e]   [39.9s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [42.2s] 20250803_063543_46076344: provisioning
+  │ [e2e]
+  │ [e2e] ⚠️  No progress in 41s
+  │ [e2e]   Checking cluster resources...
+  │ [e2e]   Resource status: 0 running, 2 pending evaluation pods
+  │ [e2e]     Quota check: 5364MB used / 7168MB limit (1804MB available)
+  │ [e2e]     Evaluation pods: 0 running, 3 pending
+  │ [e2e]   → Cluster has available capacity - waiting for scheduling
+  │ [e2e]
+  │ [e2e]   === Detailed Resource Status ===
+  │ [e2e]   ResourceQuota:
+  │ [e2e]     Memory: 5364Mi / 7Gi
+  │ [e2e]     CPU: 5 / 8
+  │ [e2e]
+  │ [e2e]   Evaluation Pods:
+  │ [e2e]     Pending (3):
+  │ [e2e]       - 20250803-063543-4607-83c32f2d-krhbj
+  │ [e2e]       - 20250803-063622-476c-4a0b4383-fjhxf
+  │ [e2e]       - test-state-175420294-d91cafec-m6zrl
+  │ [e2e]     Failed (4):
+  │ [e2e]       - 20250803-063545-1b3f-62c5f720-dl4fc
+  │ [e2e]       - 20250803-063556-732f-da7f9a66-xj4vb
+  │ [e2e]       - 20250803-063604-6b63-7c7e0108-m2gqg
+  │ [e2e]       ... and 1 more
+  │ [e2e]
+  │ [e2e]   Evaluations without pods (1):
+  │ [e2e]     - 20250803_063543_46076344
+  │ [e2e]   === End Detailed Status ===
+  │ [e2e]   [44.4s] 20250803_063543_46076344: provisioning
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 06:36:30 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  28/35     │       80.0% │         7 │ 🟡 WARN               ║
+║ CPU Req  │      1785m │       92.5% │      145m │ 🔴 CRITICAL           ║
+║ Mem Req  │     2620Mi │       36.9% │    4474Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 2 Completed= 5 Failed= 4                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 28/35 (80.0%) [ 7 avail]                                             ║
+║   CPU:  Req= 1785m (92.5%)                                                   ║
+║   Mem:  Req=2620Mi (36.9%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_standard_library_imports PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [46.5s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [48.6s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [50.8s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [53.2s] 20250803_063543_46076344: provisioning
+  │ [e2e]
+  │ [e2e] ⚠️  No progress in 52s
+  │ [e2e]   Checking cluster resources...
+  │ [e2e]   Resource status: 1 running, 2 pending evaluation pods
+  │ [e2e]     Quota check: 5364MB used / 7168MB limit (1804MB available)
+
+[06:36:38] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=1 P=2
+  │ [e2e]     Evaluation pods: 1 running, 2 pending
+  │ [e2e]   → Cluster has available capacity - waiting for scheduling
+  │ [e2e]
+  │ [e2e]   === Detailed Resource Status ===
+  │ [e2e]   ResourceQuota:
+  │ [e2e]     Memory: 5364Mi / 7Gi
+  │ [e2e]     CPU: 5 / 8
+  │ [e2e]
+  │ [e2e]   Evaluation Pods:
+  │ [e2e]     Running (1):
+  │ [e2e]       - 20250803-063630-73fc-c703d18b-2q2w4
+  │ [e2e]     Pending (2):
+  │ [e2e]       - 20250803-063543-4607-83c32f2d-krhbj
+  │ [e2e]       - test-state-175420294-d91cafec-m6zrl
+  │ [e2e]     Failed (4):
+  │ [e2e]       - 20250803-063545-1b3f-62c5f720-dl4fc
+  │ [e2e]       - 20250803-063556-732f-da7f9a66-xj4vb
+  │ [e2e]       - 20250803-063604-6b63-7c7e0108-m2gqg
+  │ [e2e]       ... and 1 more
+  │ [e2e]
+  │ [e2e]   Evaluations without pods (1):
+  │ [e2e]     - 20250803_063543_46076344
+  │ [e2e]   === End Detailed Status ===
+  │ [e2e]   [55.7s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [57.8s] 20250803_063543_46076344: provisioning
+  │ [e2e]   [59.9s] 20250803_063543_46076344: provisioning
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_import_error_captured PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[06:36:45] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=1 P=2
+  │ [e2e]   [62.0s] 20250803_063543_46076344: failed
+  │ [e2e]
+  │ [e2e] [61.9s] Progress: 0 completed, 1 failed, 0 pending
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 62.5s
+  │ [e2e] Completed: 0
+  │ [e2e] Failed: 1
+  │ [e2e] Incomplete: 0
+  │ [e2e] PASSED
+  │ [e2e] tests/e2e/test_core_flows.py::test_storage_retrieval
+  │ [e2e] [EVAL_SUBMIT] eval_id=20250803_063646_ea9dc784 timestamp=1754203006.7548015
+  │ [e2e] Resource-based timeout: 30s (1 waves with 15 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 120s
+  │ [e2e]   Resource status: 0 running, 1 pending evaluation pods
+  │ [e2e]   [0.9s] 20250803_063646_ea9dc784: provisioning
+  │ [e2e]   [3.3s] 20250803_063646_ea9dc784: provisioning
+  │ [e2e]   [5.7s] 20250803_063646_ea9dc784: provisioning
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 06:36:53 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  28/35     │       80.0% │         7 │ 🟡 WARN               ║
+║ CPU Req  │      1785m │       92.5% │      145m │ 🔴 CRITICAL           ║
+║ Mem Req  │     2620Mi │       36.9% │    4474Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 1 Pending= 2 Completed= 5 Failed= 4                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 28/35 (80.0%) [ 7 avail]                                             ║
+║   CPU:  Req= 1785m (92.5%)                                                   ║
+║   Mem:  Req=2620Mi (36.9%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [8.0s] 20250803_063646_ea9dc784: provisioning
+  │ [e2e]   [10.2s] 20250803_063646_ea9dc784: provisioning
+  │ [e2e]   [12.7s] 20250803_063646_ea9dc784: provisioning
+
+[06:37:00] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=3
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_ml_libraries_available PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [14.8s] 20250803_063646_ea9dc784: failed
+  │ [e2e]
+  │ [e2e] [14.7s] Progress: 0 completed, 1 failed, 0 pending
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 15.3s
+  │ [e2e] Completed: 0
+  │ [e2e] Failed: 1
+  │ [e2e] Incomplete: 0
+  │ [e2e] FAILED
+  │ [e2e] tests/e2e/test_core_flows.py::test_evaluation_timeout
+  │ [e2e] [EVAL_SUBMIT] eval_id=20250803_063702_31ee4b78 timestamp=1754203022.768322
+  │ [e2e] Resource-based timeout: 30s (1 waves with 15 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 30s
+  │ [e2e]   Resource status: 0 running, 2 pending evaluation pods
+  │ [e2e]   [0.5s] 20250803_063702_31ee4b78: provisioning
+  │ [e2e]   [2.6s] 20250803_063702_31ee4b78: provisioning
+
+[06:37:07] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=1 P=2
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_sys_path_and_modules PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [4.9s] 20250803_063702_31ee4b78: provisioning
+  │ [e2e]   [7.0s] 20250803_063702_31ee4b78: failed
+  │ [e2e]
+  │ [e2e] [6.9s] Progress: 0 completed, 1 failed, 0 pending
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 7.5s
+  │ [e2e] Completed: 0
+  │ [e2e] Failed: 1
+  │ [e2e] Incomplete: 0
+  │ [e2e] PASSED
+  │ [e2e] tests/e2e/test_core_flows.py::test_language_parameter
+  │ [e2e] [EVAL_SUBMIT] eval_id=20250803_063710_f74aa03b timestamp=1754203030.6822412
+  │ [e2e] PASSED
+  │ [e2e] tests/e2e/test_evaluation_lifecycle.py::test_evaluation_completes_and_status_updates Resource-based timeout: 30s (1 waves with 14 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 30s
+  │ [e2e]   Resource status: 0 running, 2 pending evaluation pods
+  │ [e2e]   [0.9s] 20250803_063711_ae0e74f4: provisioning
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_import_with_syntax_error PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+  │ [e2e]   [3.4s] 20250803_063711_ae0e74f4: provisioning
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 06:37:15 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  28/35     │       80.0% │         7 │ 🟡 WARN               ║
+║ CPU Req  │      1785m │       92.5% │      145m │ 🔴 CRITICAL           ║
+║ Mem Req  │     2620Mi │       36.9% │    4474Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 4 Completed= 6 Failed= 5                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 28/35 (80.0%) [ 7 avail]                                             ║
+║   CPU:  Req= 1785m (92.5%)                                                   ║
+║   Mem:  Req=2620Mi (36.9%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [5.5s] 20250803_063711_ae0e74f4: provisioning
+  │ [e2e]   [7.7s] 20250803_063711_ae0e74f4: completed
+  │ [e2e]
+  │ [e2e] [7.5s] Progress: 1 completed, 0 failed, 0 pending
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 8.2s
+  │ [e2e] Completed: 1
+  │ [e2e] Failed: 0
+  │ [e2e] Incomplete: 0
+  │ [e2e] PASSED
+  │ [e2e] tests/e2e/test_evaluation_list_accuracy.py::test_evaluation_list_accuracy 1. Submitting evaluation...
+  │ [e2e]    Evaluation ID: 20250803_063719_40f7cbb4
+  │ [e2e]
+  │ [e2e] 2. Waiting for completion...
+  │ [e2e] Resource-based timeout: 30s (1 waves with 14 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 1
+  │ [e2e] Timeout: 30s
+  │ [e2e]   Resource status: 0 running, 2 pending evaluation pods
+  │ [e2e]   [0.7s] 20250803_063719_40f7cbb4: provisioning
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_relative_imports PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[06:37:22] CLUSTER: Pods 🟡 28/35 CPU 🔴 92.5% Mem 🟢 36.9% | Evals: R=0 P=4
+  │ [e2e]   [3.0s] 20250803_063719_40f7cbb4: provisioning
+  │ [e2e]   [5.1s] 20250803_063719_40f7cbb4: provisioning
+  │ [e2e]   [7.2s] 20250803_063719_40f7cbb4: completed
+  │ [e2e]
+  │ [e2e] [7.1s] Progress: 1 completed, 0 failed, 0 pending
+  │ [e2e]
+  │ [e2e] === Evaluation Summary ===
+  │ [e2e] Duration: 7.7s
+  │ [e2e] Completed: 1
+  │ [e2e] Failed: 0
+  │ [e2e] Incomplete: 0
+  │ [e2e]    Status: completed
+  │ [e2e]
+  │ [e2e] 3. Checking running evaluations endpoint...
+  │ [e2e]    ✓ Completed evaluation not in running list (correct)
+  │ [e2e]
+  │ [e2e] 4. Checking general evaluations endpoint...
+  │ [e2e]    ✓ Status correctly shown as 'completed' in general list
+  │ [e2e]
+  │ [e2e] 5. Checking completed evaluations endpoint...
+  │ [e2e]    ✓ Evaluation found in completed list (correct)
+  │ [e2e] PASSED
+  │ [integration] tests/integration/test_evaluation_job_imports.py::TestEvaluationJobImports::test_multiline_imports PASSED
+  │ [integration] INFO:integration.conftest:API health check passed
+
+[06:37:30] CLUSTER: Pods 🟢 27/35 CPU 🟡 87.3% Mem 🟢 35.1% | Evals: R=0 P=2
+  │ [e2e] tests/e2e/test_evaluation_list_accuracy.py::test_multiple_evaluation_statuses Resource-based timeout: 30s (1 waves with 15 concurrent)
+  │ [e2e]
+  │ [e2e] === Adaptive Evaluation Wait ===
+  │ [e2e] Total evaluations: 2
+  │ [e2e] Timeout: 30s
+  │ [e2e]   Resource status: 0 running, 3 pending evaluation pods
+  │ [e2e]   [1.0s] 20250803_063729_89f832dc: provisioning
+  │ [e2e]   [1.3s] 20250803_063730_6305a99e: provisioning
+  │ [e2e]   [3.0s] 20250803_063729_89f832dc: provisioning
+  │ [e2e]   [3.2s] 20250803_063730_6305a99e: provisioning
+  │ [e2e]   [5.4s] 20250803_063729_89f832dc: provisioning
+  │ [e2e]   [5.7s] 20250803_063730_6305a99e: provisioning
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CLUSTER RESOURCE MONITOR - 06:37:37 UTC                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Resource │ Used/Total │ Utilization │ Available │ Status               ║
+╠──────────┼────────────┼─────────────┼───────────┼──────────────────────╣
+║ Pods     │  27/35     │       77.1% │         8 │ 🟢 OK                 ║
+║ CPU Req  │      1685m │       87.3% │      245m │ 🟡 WARN               ║
+║ Mem Req  │     2492Mi │       35.1% │    4602Mi │ 🟢 OK                 ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ Evaluation Pods: Running= 0 Pending= 4 Completed=10 Failed= 5                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ NODE DETAILS:                                                                ║
+╠──────────────────────────────────────────────────────────────────────────────╣
+║ ip-10-0-51-9 (t3.large):                                                     ║
+║   Pods: 27/35 (77.1%) [ 8 avail]                                             ║
+║   CPU:  Req= 1685m (87.3%)                                                   ║
+║   Mem:  Req=2492Mi (35.1%)                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+  │ [e2e]   [7.4s] 20250803_063729_89f832dc: provisioning
+  │ [e2e]   [7.7s] 20250803_063730_6305a99e: provisioning
+  │ [e2e]   [9.8s] 20250803_063729_89f832dc: provisioning
+  │ [e2e]   [9.9s] 20250803_063730_6305a99e: provisioning
+
+📦 Collecting test results...
+
+🧹 Cleaning up coordinator job...
+   ⚠️  Tests failed - preserving coordinator job for debugging
+   To view logs: kubectl logs job/test-coordinator-20250802-233337 -n dev
+   To delete: kubectl delete job test-coordinator-20250802-233337 -n dev
+   To see failed test jobs: kubectl get jobs -n dev -l test-run=20250802-233337

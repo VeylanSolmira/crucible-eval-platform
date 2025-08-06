@@ -28,7 +28,7 @@ class EvaluationRequest(BaseModel):
     cpu_limit: Optional[str] = Field(None, description="CPU limit (e.g., 100m, 500m, 1)")
     executor_image: Optional[str] = Field(None, description="Executor image name (e.g., 'python-base') or full image path")
     debug: bool = Field(False, description="Preserve pod for debugging if it fails")
-    expect_failure: bool = Field(False, description="If True, job will use backoffLimit=0 (no retries)")
+    expect_failure: bool = Field(False, description="If True, prevents Kubernetes retry attempts by setting backoffLimit=0. Use for tests where retries would extend duration (timeouts, expected failures)")
     
     @validator('code')
     def validate_code_size(cls, v):

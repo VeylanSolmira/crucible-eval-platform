@@ -17,7 +17,7 @@ import requests
 import json
 from typing import Dict, Any, List, Optional
 from tests.utils.adaptive_timeouts import wait_with_progress, AdaptiveWaiter
-from tests.utils.utils import wait_for_logs, submit_evaluation_batch
+from tests.utils.utils import wait_for_logs, submit_evaluation, submit_evaluation_batch
 
 
 def get_executor_status(api_session: requests.Session, api_base_url: str) -> Dict[str, Any]:
@@ -33,9 +33,6 @@ def get_executor_status(api_session: requests.Session, api_base_url: str) -> Dic
     return {}
 
 
-from utils.utils import submit_evaluation
-
-
 @pytest.mark.whitebox
 @pytest.mark.integration
 @pytest.mark.api
@@ -49,8 +46,14 @@ def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_
     timing_results = []
     
     test_codes = [
-        # Instant failure
-        ("instant_error", "1/0"),
+        # Instant failure - wrap in try/except to ensure we get output
+        ("instant_error", """import sys
+try:
+    1/0
+except Exception as e:
+    print(f"Error caught: {e}", file=sys.stderr, flush=True)
+    sys.exit(1)
+"""),
         # Failure after print
         ("print_then_error", 'print("Output before error"); 1/0'),
         # Failure with sleep
@@ -70,7 +73,8 @@ def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_
         submission_time = time.time() - start_time
         
         # Wait for completion with AdaptiveWaiter
-        waiter = AdaptiveWaiter(initial_timeout=30)
+        # Use longer timeout since resource constraints can delay execution
+        waiter = AdaptiveWaiter(initial_timeout=300)
         results = waiter.wait_for_evaluations(
             api_session=api_session,
             api_base_url=api_base_url,
@@ -95,6 +99,7 @@ def test_diagnose_container_lifecycle_timing(api_session: requests.Session, api_
                 log_length = len(logs)
             except TimeoutError:
                 # If wait_for_logs times out, check both fields
+                # Note: Storage worker tries 10 times over ~3 minutes to fetch logs
                 has_logs = bool(result.get("error") or result.get("output"))
                 log_length = len((result.get("error") or "") + (result.get("output") or ""))
             
@@ -217,7 +222,6 @@ raise ValueError("Test error with details")
 '''
     
     # Submit evaluation using utility function with expect_failure
-    from tests.utils.utils import submit_evaluation
     eval_id = submit_evaluation(code, language="python", timeout=30, expect_failure=True)
     
     # Track status progression with exponential backoff

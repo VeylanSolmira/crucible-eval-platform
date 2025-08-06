@@ -12,7 +12,7 @@ These terms should always be converted to wiki links when found in text:
 const ALWAYS_LINK = [
   // Platform
   'Crucible',
-  'METR',
+  'Crucible',
 
   // Container & Security
   'Docker',
